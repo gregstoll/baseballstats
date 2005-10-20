@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import re
+import re, sys
 
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
@@ -84,6 +84,9 @@ def parsePlay(line, gameSituation):
     assert gameSituation['inning'] == int(playMatch.group(1))
     assert gameSituation['isHome'] == int(playMatch.group(2))
     playString = playMatch.group(3)
+    # Strip !'s and ?'s
+    playString = ''.join(playString.split('!'))
+    playString = ''.join(playString.split('?'))
     playArray = playString.split('.')
     assert len(playArray) <= 2
     # Deal with the first part of the string.
@@ -118,12 +121,14 @@ def parsePlay(line, gameSituation):
             if (batterEvent.startswith('K+')):
                 tempEvent = batterEvent[2:]
                 if (tempEvent.startswith('SB')):
-                    if (tempEvent[2] == 'H'):
-                        runnerDests[3] = 4
-                    else:
-                        dest = int(tempEvent[2])
-                        assert (dest == 2 or dest == 3)
-                        runnerDests[dest - 1] = dest 
+                    sbArray = tempEvent.split(';')
+                    for entry in sbArray:
+                        if (entry[2] == 'H'):
+                            runnerDests[3] = 4
+                        else:
+                            dest = int(entry[2])
+                            assert (dest == 2 or dest == 3)
+                            runnerDests[dest - 1] = dest 
                 elif (tempEvent.startswith('CS')):
                     if (tempEvent[2] == 'H'):
                         runnerDests[3] = 0
@@ -163,12 +168,14 @@ def parsePlay(line, gameSituation):
                 if (batterEvent.startswith('IW+')):
                     tempEvent = batterEvent[3:]
                 if (tempEvent.startswith('SB')):
-                    if (tempEvent[2] == 'H'):
-                        runnerDests[3] = 4
-                    else:
-                        dest = int(tempEvent[2])
-                        assert (dest == 2 or dest == 3)
-                        runnerDests[dest - 1] = dest 
+                    sbArray = tempEvent.split(';')
+                    for entry in sbArray:
+                        if (entry[2] == 'H'):
+                            runnerDests[3] = 4
+                        else:
+                            dest = int(entry[2])
+                            assert (dest == 2 or dest == 3)
+                            runnerDests[dest - 1] = dest 
                 elif (tempEvent.startswith('CS')):
                     if (tempEvent[2] == 'H'):
                         runnerDests[3] = 0
@@ -256,7 +263,7 @@ def parsePlay(line, gameSituation):
                 runnerDests[int(lineDoublePlayMatch.group(2))] = 0
             doneParsingEvent = True
     if (not doneParsingEvent):
-        weirdDoublePlayMatch = re.match(r'^\d+/.DP', batterEvent)
+        weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?DP', batterEvent)
         if (weirdDoublePlayMatch):
             # This is a double play.  The specifics of who's out will
             # come later.
@@ -315,7 +322,7 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         if (batterEvent.startswith('CS')):
             # Caught stealing
-            if (re.match(r'^CS.\(.*?E', batterEvent)):
+            if (re.match(r'^CS.\(.*?E.*?\)', batterEvent)):
                 # There was an error, so not an out.
                 print "no caught stealing"
                 if (batterEvent[2] == 'H'):
@@ -371,13 +378,20 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         if (batterEvent.startswith('POCS')):
             # Pick-off (and caught stealing)
-            if (batterEvent[4] == 'H'):
-                # out at home
-                outAtBase.append(4)
+            if (re.match(r'^POCS.\(.*?E.*?\)', batterEvent)):
+                # There was an error, so not an out
+                if (batterEvent[4] == 'H'):
+                    runnerDests[3] = 4
+                else:
+                    assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
+                    runnerDests[int(batterEvent[4]) - 1] = int(batterEvent[4])
             else:
-                assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
-                outAtBase.append(int(batterEvent[4]))
- 
+                if (batterEvent[4] == 'H'):
+                    # out at home
+                    outAtBase.append(4)
+                else:
+                    assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
+                    outAtBase.append(int(batterEvent[4]))
             runnersDefaultStayStill = True
             runnerDests['B'] = -1
             doneParsingEvent = True
@@ -515,14 +529,14 @@ def parsePlay(line, gameSituation):
     # TODO - return the key or something
     return ()
 
-def main():
+def main(files):
     #eventFileName = 'sample'
-    eventFileName = '2004HOU.EVN'
-    #eventFileName = '2004COL.EVN'
-    eventFile = open(eventFileName, 'r')
-    parseFile(eventFile)
-    eventFile.close()
+    for fileName in files:
+        #eventFileName = '2004COL.EVN'
+        eventFile = open(fileName, 'r')
+        parseFile(eventFile)
+        eventFile.close()
 
 
 if (__name__ == '__main__'):
-    main()
+    main(sys.argv[1:])
