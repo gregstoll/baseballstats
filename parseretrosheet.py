@@ -92,7 +92,7 @@ def parsePlay(line, gameSituation):
     # Deal with the first part of the string.
     batterEvent = playArray[0]
     doneParsingEvent = False
-    simpleHitMatch = re.match("^([SDTH])\d", batterEvent)
+    simpleHitMatch = re.match("^([SDTH])(?:\d|/)", batterEvent)
     if (simpleHitMatch):
         if (simpleHitMatch.group(1) == 'S'):
             runnerDests['B'] = 1
@@ -137,12 +137,16 @@ def parsePlay(line, gameSituation):
                         assert (dest == 2 or dest == 3)
                         runnerDests[dest - 1] = 0
                 elif (tempEvent.startswith('PO')):
-                    base = int(tempEvent[2])
-                    assert (base == 1 or base == 2 or base == 3)
-                    runnerDests[base] = 0
+                    if (re.match('^PO.\([^)]*?E.*?\)', tempEvent)):
+                        # Error, so no out.
+                        pass
+                    else:
+                        base = int(tempEvent[2])
+                        assert (base == 1 or base == 2 or base == 3)
+                        runnerDests[base] = 0
                 elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
                     pass
-                elif (tempEvent.startswith('OA')):
+                elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
                     pass
                 elif (tempEvent.startswith('E')):
                     runnerDests['B'] = 1
@@ -210,6 +214,7 @@ def parsePlay(line, gameSituation):
             # Catcher's interference
             runnerDests['B'] = 1
             doneParsingEvent = True
+            runnersDefaultStayStill = True
     if (not doneParsingEvent):
         if (batterEvent.startswith('E')):
             # Error letting the runner reach base
@@ -238,8 +243,8 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         # double or triple play
         doublePlayMatch = re.match(r'^\d\d*\((\d)\)(?:\d*\((\d)\))?', batterEvent)
-        if (doublePlayMatch and ('DP' in batterEvent)):
-            print "double play"
+        if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
+            print "double/triple play"
             # The batter is out if the last character is a number, not ')'
             doublePlayString = batterEvent.split('/')[0]
             if (doublePlayString[-1:] != ')'):
@@ -252,8 +257,8 @@ def parsePlay(line, gameSituation):
             doneParsingEvent = True
     if (not doneParsingEvent):
         lineDoublePlayMatch = re.match(r'^\d+\(B\)(?:\d+\((\d)\))?(?:\d+\((\d)\))?', batterEvent)
-        if (lineDoublePlayMatch and 'DP' in batterEvent):
-            print "double play"
+        if (lineDoublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
+            print "double/triple play"
             runnerDests['B'] = 0
             if (lineDoublePlayMatch.group(1)):
                 assert (int(lineDoublePlayMatch.group(1)) in runnerDests)
@@ -263,11 +268,11 @@ def parsePlay(line, gameSituation):
                 runnerDests[int(lineDoublePlayMatch.group(2))] = 0
             doneParsingEvent = True
     if (not doneParsingEvent):
-        weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?DP', batterEvent)
+        weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?[DT]P', batterEvent)
         if (weirdDoublePlayMatch):
             # This is a double play.  The specifics of who's out will
             # come later.
-            print "weird double play"
+            print "weird double/triple play"
             runnerDests['B'] = 0
             runnersDefaultStayStill = True
             doneParsingEvent = True
@@ -322,7 +327,7 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         if (batterEvent.startswith('CS')):
             # Caught stealing
-            if (re.match(r'^CS.\(.*?E.*?\)', batterEvent)):
+            if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
                 # There was an error, so not an out.
                 print "no caught stealing"
                 if (batterEvent[2] == 'H'):
@@ -398,13 +403,15 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         if (batterEvent.startswith('PO')):
             # Pick-off
-            base = int(batterEvent[2])
-            assert (base == 1 or base == 2 or base == 3)
-            runnerDests[base] = 0
+            if (re.match('^PO.\([^)]*?E.*?\)', batterEvent)):
+                # Error, so no out.
+                pass
+            else:
+                base = int(batterEvent[2])
+                assert (base == 1 or base == 2 or base == 3)
+                runnerDests[base] = 0
             runnerDests['B'] = -1
-            for runner in runnerDests:
-                if (runner != 'B' and runnerDests[runner] == -1):
-                    runnerDests[runner] = runner
+            runnersDefaultStayStill = True
             doneParsingEvent = True
     if (not doneParsingEvent):
         print "ERROR - couldn't parse event %s" % batterEvent
