@@ -136,6 +136,22 @@ def parsePlay(line, gameSituation):
                         dest = int(tempEvent[2])
                         assert (dest == 2 or dest == 3)
                         runnerDests[dest - 1] = 0
+                elif (tempEvent.startswith('POCS')):
+                    if (re.match('^POCS.\([^)]*?E.*?\)', tempEvent)):
+                        # Error, so no out.
+                        if (tempEvent[4] == 'H'):
+                            runnerDests[3] = 4
+                        else:
+                            base = int(tempEvent[4])
+                            assert (base == 2 or base == 3)
+                            runnerDests[base-1] = base
+                    else:
+                        if (tempEvent[4] == 'H'):
+                            runnerDests[3] = 0
+                        else:
+                            base = int(tempEvent[4])
+                            assert (base == 2 or base == 3)
+                            runnerDests[base-1] = 0
                 elif (tempEvent.startswith('PO')):
                     if (re.match('^PO.\([^)]*?E.*?\)', tempEvent)):
                         # Error, so no out.
@@ -460,8 +476,8 @@ def parsePlay(line, gameSituation):
         unresolvedRunners.append(0)
     # See if there's an out at a base.
     for outBase in outAtBase:
-        # Find the closest unresolved runner behind or equal to that base.
-        possibleRunners = [runner for runner in unresolvedRunners if runner <= outBase]
+        # Find the closest unresolved runner behind that base.
+        possibleRunners = [runner for runner in unresolvedRunners if runner < outBase]
         curRunner = max(possibleRunners)
         print "picked runner %d" % curRunner
         if (curRunner == 0):
