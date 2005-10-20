@@ -84,8 +84,9 @@ def parsePlay(line, gameSituation):
     assert gameSituation['inning'] == int(playMatch.group(1))
     assert gameSituation['isHome'] == int(playMatch.group(2))
     playString = playMatch.group(3)
-    # Strip !'s and ?'s
+    # Strip !'s, #'s, and ?'s
     playString = ''.join(playString.split('!'))
+    playString = ''.join(playString.split('#'))
     playString = ''.join(playString.split('?'))
     playArray = playString.split('.')
     assert len(playArray) <= 2
@@ -258,7 +259,7 @@ def parsePlay(line, gameSituation):
             doneParsingEvent = True
     if (not doneParsingEvent):
         # double or triple play
-        doublePlayMatch = re.match(r'^\d\d*\((\d)\)(?:\d*\((\d)\))?', batterEvent)
+        doublePlayMatch = re.match(r'^\d\d*\((\d)\)(?:\d*\((\d|B)\))?', batterEvent)
         if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
             print "double/triple play"
             # The batter is out if the last character is a number, not ')'
@@ -269,12 +270,15 @@ def parsePlay(line, gameSituation):
                 runnerDests['B'] = 1
             runnerDests[int(doublePlayMatch.group(1))] = 0
             if (doublePlayMatch.group(2)):
-                runnerDests[int(doublePlayMatch.group(2))] = 0
+                if (doublePlayMatch.group(2) == 'B'):
+                    runnerDests['B'] = 0
+                else:
+                    runnerDests[int(doublePlayMatch.group(2))] = 0
             doneParsingEvent = True
     if (not doneParsingEvent):
         lineDoublePlayMatch = re.match(r'^\d+\(B\)(?:\d+\((\d)\))?(?:\d+\((\d)\))?', batterEvent)
         if (lineDoublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
-            print "double/triple play"
+            print "double/triple play 2"
             runnerDests['B'] = 0
             if (lineDoublePlayMatch.group(1)):
                 assert (int(lineDoublePlayMatch.group(1)) in runnerDests)
@@ -310,25 +314,30 @@ def parsePlay(line, gameSituation):
         putOutMatch = re.match("^\d*(\d)(?:\((.)\))?", batterEvent)
         if (putOutMatch and not 'DP' in batterEvent):
             print "Got a putout"
-            if ("/FO" in batterEvent):
-                # Force out - this means the thing in parentheses
-                # is the runner who is out.
-                print "force out"
-                assert putOutMatch.group(2)
-                runnerDests[int(putOutMatch.group(2))] = 0
+            if (re.search(r'\d?E\d', batterEvent)):
+                # Error on the play - batter goes to first unless
+                # explicit
+                runnerDests['B'] = 1
             else:
-                # Determine from putOutMatch.group(1) (who made out) and
-                # putOutMatch.group(2) (where out is) which base the out was at.
-                if (putOutMatch.group(2)):
-                    outAtBase.append(putOutMatch.group(2))
+                if ("/FO" in batterEvent):
+                    # Force out - this means the thing in parentheses
+                    # is the runner who is out.
+                    print "force out"
+                    assert putOutMatch.group(2)
+                    runnerDests[int(putOutMatch.group(2))] = 0
                 else:
-                    # If we don't know what base it was at, assume first base.
-                    if (positionToBase[int(putOutMatch.group(1))] == -1):
-                        outAtBase.append(1)
+                    # Determine from putOutMatch.group(1) (who made out) and
+                    # putOutMatch.group(2) (where out is) which base the out was at.
+                    if (putOutMatch.group(2)):
+                        outAtBase.append(putOutMatch.group(2))
                     else:
-                        outAtBase.append(positionToBase[int(putOutMatch.group(1))])
-            runnerDests['B'] = -2
-            defaultBatterBase = 1
+                        # If we don't know what base it was at, assume first base.
+                        if (positionToBase[int(putOutMatch.group(1))] == -1):
+                            outAtBase.append(1)
+                        else:
+                            outAtBase.append(positionToBase[int(putOutMatch.group(1))])
+                runnerDests['B'] = -2
+                defaultBatterBase = 1
             runnersDefaultStayStill = True
             doneParsingEvent = True
     if (not doneParsingEvent):
@@ -458,13 +467,19 @@ def parsePlay(line, gameSituation):
                 runnerDests[runner] = base
             elif (runnerItem[1] == 'X'):
                 # See if there was an error.
-                if (re.match('^...\(\d*E.*\)', runnerItem)):
-                    # Yup, so runner is safe.
-                    if (runner != 'B' and base != 0):
-                        # This looks weird, but sometimes a runner can go to the
-                        # same base (a little redundant, but OK)
-                        assert (runner <= base)
-                    runnerDests[runner] = base
+                if (re.match('^...(?:\([^)]*?\))*\(\d*E.*\)', runnerItem)):
+                    # So this is probably an error.  See if the intervening
+                    # parentheses indicate an out
+                    if (re.match('^....*?(?:\(\d*\)).*?\(\d*E.*\)', runnerItem)):
+                        # Yup, this is really an out.
+                        runnerDests[runner] = 0
+                    else:
+                        # Nope, so runner is safe.
+                        if (runner != 'B' and base != 0):
+                            # This looks weird, but sometimes a runner can go to the
+                            # same base (a little redundant, but OK)
+                            assert (runner <= base)
+                        runnerDests[runner] = base
                 else:
                     runnerDests[runner] = 0
             else:
