@@ -18,6 +18,47 @@ def initializeGame(gameSituation):
     gameSituation['runners'] = [0, 0, 0]
     gameSituation['curScoreDiff'] = 0
 
+def getKeyFromSituation(situation):
+    return (situation['inning'], situation['isHome'], situation['outs'], (situation['runners'][0], situation['runners'][1], situation['runners'][2]), situation['curScoreDiff'])
+
+def addGameToStats(gameKeys, gameSituation):
+    # Add gameKeys to stats
+    # Check the last situation to see who won.
+    if (gameSituation['isHome']):
+        if (gameSituation['curScoreDiff'] > 0):
+            homeWon = True
+        elif (gameSituation['curScoreDiff'] < 0):
+            homeWon = False
+        else:
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+    else:
+        if (gameSituation['curScoreDiff'] > 0):
+            # TODO - can this really happen?
+            homeWon = False
+        elif (gameSituation['curScoreDiff'] < 0):
+            homeWon = True
+        else:
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+    for situationKey in gameKeys:
+        isHomeInning = situationKey[1]
+        isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
+        if (situationKey in stats):
+            (numWins, numSituations) = stats[situationKey]
+            numSituations = numSituations + 1
+            if (isWin):
+                numWins = numWins + 1
+            stats[situationKey] = (numWins, numSituations)
+        else:
+            if (isWin):
+                numWins = 1
+            else:
+                numWins = 0
+            stats[situationKey] = (numWins, 1)
+
 def parseFile(file):
     global numGames
     inGame = 0
@@ -26,23 +67,28 @@ def parseFile(file):
     for line in file.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
-                # TODO - Add gameKeys to stats
                 initializeGame(gameSituation)
                 gameKeys = []
+                gameKeys.append(getKeyFromSituation(gameSituation))
                 inGame = 1
                 numGames = numGames + 1
         else:
             if (line.startswith("id,")):
-                # TODO - Add gameKeys to stats
+                # Add gameKeys to stats
+                addGameToStats(gameKeys, gameSituation)
+
                 print "NEW GAME"
                 initializeGame(gameSituation)
                 gameKeys = []
+                gameKeys.append(getKeyFromSituation(gameSituation))
                 numGames = numGames + 1
             else:
                 if (line.startswith("play")):
-                    key = parsePlay(line, gameSituation)
+                    parsePlay(line, gameSituation)
+                    key = getKeyFromSituation(gameSituation)
                     if (key not in gameKeys):
                         gameKeys.append(key)
+    addGameToStats(gameKeys, gameSituation)
     print "total games: %d" % numGames
 
 def batterToFirst(runnerDests):
@@ -98,15 +144,20 @@ def parsePlay(line, gameSituation):
     # Deal with the first part of the string.
     batterEvent = playArray[0]
     doneParsingEvent = False
-    simpleHitMatch = re.match("^([SDTH])(?:\d|/)", batterEvent)
-    if (simpleHitMatch):
-        if (simpleHitMatch.group(1) == 'S'):
+    simpleHitMatch = re.match(r"^([SDTH])(?:\d|/)", batterEvent)
+    simpleHitMatch2 = re.match(r"^([SDTH])\s*$", batterEvent)
+    if (simpleHitMatch or simpleHitMatch2):
+        if (simpleHitMatch):
+            typeOfHit = simpleHitMatch.group(1)
+        else:
+            typeOfHit = simpleHitMatch2.group(1)
+        if (typeOfHit == 'S'):
             runnerDests['B'] = 1
-        elif (simpleHitMatch.group(1) == 'D'):
+        elif (typeOfHit == 'D'):
             runnerDests['B'] = 2
-        elif (simpleHitMatch.group(1) == 'T'):
+        elif (typeOfHit == 'T'):
             runnerDests['B'] = 3
-        elif (simpleHitMatch.group(1) == 'H'):
+        elif (typeOfHit == 'H'):
             runnerDests['B'] = 4
             for runner in runnerDests:
                 runnerDests[runner] = 4
@@ -277,36 +328,30 @@ def parsePlay(line, gameSituation):
             doneParsingEvent = True
     if (not doneParsingEvent):
         # double or triple play
-        doublePlayMatch = re.match(r'^\d\d*\((\d)\)(?:\d*\((\d|B)\))?', batterEvent)
+        doublePlayMatch = re.match(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?', batterEvent)
         if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
             print "double/triple play"
             # The batter is out if the last character is a number, not ')'
+            # (unless there's a "(B)" in the string
             doublePlayString = batterEvent.split('/')[0]
             if (doublePlayString[-1:] != ')'):
                 runnerDests['B'] = 0
             else:
                 runnerDests['B'] = 1
-            runnerDests[int(doublePlayMatch.group(1))] = 0
+            if (doublePlayMatch.group(1) == 'B'):
+                runnerDests['B'] = 0
+            else:
+                runnerDests[int(doublePlayMatch.group(1))] = 0
             if (doublePlayMatch.group(2)):
                 if (doublePlayMatch.group(2) == 'B'):
                     runnerDests['B'] = 0
                 else:
                     runnerDests[int(doublePlayMatch.group(2))] = 0
-            # Unfortunately, since it could be a caught fly ball and throw
-            # out, we have to assume runners don't go anywhere.
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        lineDoublePlayMatch = re.match(r'^\d+\(B\)(?:\d+\((\d)\))?(?:\d+\((\d)\))?', batterEvent)
-        if (lineDoublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
-            print "double/triple play 2"
-            runnerDests['B'] = 0
-            if (lineDoublePlayMatch.group(1)):
-                assert (int(lineDoublePlayMatch.group(1)) in runnerDests)
-                runnerDests[int(lineDoublePlayMatch.group(1))] = 0
-            if (lineDoublePlayMatch.group(2)):
-                assert (int(lineDoublePlayMatch.group(2)) in runnerDests)
-                runnerDests[int(lineDoublePlayMatch.group(2))] = 0
+            if (doublePlayMatch.group(3)):
+                if (doublePlayMatch.group(3) == 'B'):
+                    runnerDests['B'] = 0
+                else:
+                    runnerDests[int(doublePlayMatch.group(3))] = 0
             # Unfortunately, since it could be a caught fly ball and throw
             # out, we have to assume runners don't go anywhere.
             runnersDefaultStayStill = True
@@ -492,9 +537,13 @@ def parsePlay(line, gameSituation):
             elif (runnerItem[1] == 'X'):
                 # See if there was an error.
                 if (re.match('^...(?:\([^)]*?\))*\(\d*E.*\)', runnerItem)):
+                    #if (runner == 'B'):
+                        # It seems to be the case that if it is the batter
+                        # doing stuff, in this case the runner is safe
+                        #runnerDests[runner] = base
                     # So this is probably an error.  See if the intervening
                     # parentheses indicate an out
-                    if (re.match('^....*?(?:\(\d*\)).*?\(\d*E.*\)', runnerItem)):
+                    if (re.match('^....*?\(\d*\).*?\(\d*E.*\)', runnerItem) or re.match('^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
                         # Yup, this is really an out.
                         runnerDests[runner] = 0
                     else:
@@ -588,8 +637,7 @@ def parsePlay(line, gameSituation):
         gameSituation['curScoreDiff'] = -1 * gameSituation['curScoreDiff']
     else:
         gameSituation['runners'] = newRunners
-    # TODO - return the key or something
-    return ()
+    # We're done - the information is "returned" in gameSituation
 
 def main(files):
     #eventFileName = 'sample'
@@ -599,7 +647,12 @@ def main(files):
         parseFile(eventFile)
         eventFile.close()
     print "numGames is %d" % numGames
-
+    outputFile = open('stats', 'w')
+    statKeys = stats.keys()
+    statKeys.sort()
+    for key in statKeys:
+        outputFile.write("%s: %s\n" % (key, stats[key]))
+    outputFile.close()
 
 if (__name__ == '__main__'):
     main(sys.argv[1:])
