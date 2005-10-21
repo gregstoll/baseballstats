@@ -6,6 +6,7 @@ import re, sys
 # TODO - when outputting, add 1 to runners to comply with Birnbaum's data
 stats = {}
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
+numGames = 0
 
 def gameSitString(gameSituation):
     return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (gameSituation['inning'], gameSituation['isHome'], gameSituation['outs'], gameSituation['curScoreDiff'], gameSituation['runners'])
@@ -18,6 +19,7 @@ def initializeGame(gameSituation):
     gameSituation['curScoreDiff'] = 0
 
 def parseFile(file):
+    global numGames
     inGame = 0
     gameSituation = {}
     curGameKeys = []
@@ -28,18 +30,21 @@ def parseFile(file):
                 initializeGame(gameSituation)
                 gameKeys = []
                 inGame = 1
+                numGames = numGames + 1
         else:
             if (line.startswith("id,")):
                 # TODO - Add gameKeys to stats
                 print "NEW GAME"
                 initializeGame(gameSituation)
                 gameKeys = []
+                numGames = numGames + 1
             else:
                 if (line.startswith("play")):
                     key = parsePlay(line, gameSituation)
                     if (key not in gameKeys):
                         gameKeys.append(key)
-        #print line[0:-1]
+    print "total games: %d" % numGames
+
 def batterToFirst(runnerDests):
     runnerDests['B'] = 1
     if 1 in runnerDests:
@@ -105,6 +110,8 @@ def parsePlay(line, gameSituation):
             runnerDests['B'] = 4
             for runner in runnerDests:
                 runnerDests[runner] = 4
+        # Sometimes these aren't specified - assume runners don't move
+        runnersDefaultStayStill = True
         doneParsingEvent = True
     if (not doneParsingEvent):
         if (batterEvent.startswith('HR')):
@@ -131,12 +138,21 @@ def parsePlay(line, gameSituation):
                             assert (dest == 2 or dest == 3)
                             runnerDests[dest - 1] = dest 
                 elif (tempEvent.startswith('CS')):
-                    if (tempEvent[2] == 'H'):
-                        runnerDests[3] = 0
+                    if (re.match('^CS.\([^)]*?E.*?\)', tempEvent)):
+                        # Error, so no out.
+                        if (tempEvent[2] == 'H'):
+                            runnerDests[3] = 4
+                        else:
+                            dest = int(tempEvent[2])
+                            assert (dest == 2 or dest == 3)
+                            runnerDests[dest - 1] = dest
                     else:
-                        dest = int(tempEvent[2])
-                        assert (dest == 2 or dest == 3)
-                        runnerDests[dest - 1] = 0
+                        if (tempEvent[2] == 'H'):
+                            runnerDests[3] = 0
+                        else:
+                            dest = int(tempEvent[2])
+                            assert (dest == 2 or dest == 3)
+                            runnerDests[dest - 1] = 0
                 elif (tempEvent.startswith('POCS')):
                     if (re.match('^POCS.\([^)]*?E.*?\)', tempEvent)):
                         # Error, so no out.
@@ -210,6 +226,8 @@ def parsePlay(line, gameSituation):
                     runnerDests[base] = 0
                 elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
                     pass
+                elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
+                    pass
                 elif (tempEvent.startswith('E')):
                     runnerDests['B'] = 1
                 else:
@@ -274,6 +292,9 @@ def parsePlay(line, gameSituation):
                     runnerDests['B'] = 0
                 else:
                     runnerDests[int(doublePlayMatch.group(2))] = 0
+            # Unfortunately, since it could be a caught fly ball and throw
+            # out, we have to assume runners don't go anywhere.
+            runnersDefaultStayStill = True
             doneParsingEvent = True
     if (not doneParsingEvent):
         lineDoublePlayMatch = re.match(r'^\d+\(B\)(?:\d+\((\d)\))?(?:\d+\((\d)\))?', batterEvent)
@@ -286,6 +307,9 @@ def parsePlay(line, gameSituation):
             if (lineDoublePlayMatch.group(2)):
                 assert (int(lineDoublePlayMatch.group(2)) in runnerDests)
                 runnerDests[int(lineDoublePlayMatch.group(2))] = 0
+            # Unfortunately, since it could be a caught fly ball and throw
+            # out, we have to assume runners don't go anywhere.
+            runnersDefaultStayStill = True
             doneParsingEvent = True
     if (not doneParsingEvent):
         weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?[DT]P', batterEvent)
@@ -574,6 +598,7 @@ def main(files):
         eventFile = open(fileName, 'r')
         parseFile(eventFile)
         eventFile.close()
+    print "numGames is %d" % numGames
 
 
 if (__name__ == '__main__'):

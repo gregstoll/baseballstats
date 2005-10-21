@@ -1,0 +1,2 @@
+Each .EVN and .EVA file has the games played at that ballpark, so we can
+process them all with no duplicates.  This doesn't include post-season games.
