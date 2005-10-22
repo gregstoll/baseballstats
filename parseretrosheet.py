@@ -143,417 +143,402 @@ def parsePlay(line, gameSituation):
     playArray = playString.split('.')
     assert len(playArray) <= 2
     # Deal with the first part of the string.
-    batterEvent = playArray[0]
-    doneParsingEvent = False
-    simpleHitMatch = re.match(r"^([SDTH])(?:\d|/)", batterEvent)
-    simpleHitMatch2 = re.match(r"^([SDTH])\s*$", batterEvent)
-    if (simpleHitMatch or simpleHitMatch2):
-        if (simpleHitMatch):
-            typeOfHit = simpleHitMatch.group(1)
-        else:
-            typeOfHit = simpleHitMatch2.group(1)
-        if (typeOfHit == 'S'):
-            runnerDests['B'] = 1
-        elif (typeOfHit == 'D'):
-            runnerDests['B'] = 2
-        elif (typeOfHit == 'T'):
-            runnerDests['B'] = 3
-        elif (typeOfHit == 'H'):
-            runnerDests['B'] = 4
-            for runner in runnerDests:
-                runnerDests[runner] = 4
-        # Sometimes these aren't specified - assume runners don't move
-        runnersDefaultStayStill = True
-        doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('HR')):
-            runnerDests['B'] = 4
-            for runner in runnerDests:
-                if (runner != 'B'):
+    batterEvents = playArray[0].split(';')
+    for batterEvent in batterEvents:
+        batterEvent = batterEvent.strip()
+    
+        doneParsingEvent = False
+        simpleHitMatch = re.match(r"^([SDTH])(?:\d|/)", batterEvent)
+        simpleHitMatch2 = re.match(r"^([SDTH])\s*$", batterEvent)
+        if (simpleHitMatch or simpleHitMatch2):
+            if (simpleHitMatch):
+                typeOfHit = simpleHitMatch.group(1)
+            else:
+                typeOfHit = simpleHitMatch2.group(1)
+            if (typeOfHit == 'S'):
+                runnerDests['B'] = 1
+            elif (typeOfHit == 'D'):
+                runnerDests['B'] = 2
+            elif (typeOfHit == 'T'):
+                runnerDests['B'] = 3
+            elif (typeOfHit == 'H'):
+                runnerDests['B'] = 4
+                for runner in runnerDests:
                     runnerDests[runner] = 4
+            # Sometimes these aren't specified - assume runners don't move
+            runnersDefaultStayStill = True
             doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('K')):
-            runnerDests['B'] = 0
-            for runner in runnerDests:
-                if (runner != 'B'):
-                    runnerDests[runner] = runner
-            if (batterEvent.startswith('K+')):
-                tempEvent = batterEvent[2:]
-                if (tempEvent.startswith('SB')):
-                    sbArray = tempEvent.split(';')
-                    for entry in sbArray:
-                        if (entry[2] == 'H'):
-                            runnerDests[3] = 4
-                        else:
-                            dest = int(entry[2])
-                            assert (dest == 2 or dest == 3)
-                            runnerDests[dest - 1] = dest 
-                elif (tempEvent.startswith('CS')):
-                    if (re.match('^CS.\([^)]*?E.*?\)', tempEvent)):
-                        # Error, so no out.
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('HR')):
+                runnerDests['B'] = 4
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = 4
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('K')):
+                runnerDests['B'] = 0
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = runner
+                if (batterEvent.startswith('K+')):
+                    tempEvent = batterEvent[2:]
+                    if (tempEvent.startswith('SB')):
                         if (tempEvent[2] == 'H'):
                             runnerDests[3] = 4
                         else:
                             dest = int(tempEvent[2])
                             assert (dest == 2 or dest == 3)
                             runnerDests[dest - 1] = dest
-                    else:
-                        if (tempEvent[2] == 'H'):
-                            runnerDests[3] = 0
+                    elif (tempEvent.startswith('CS')):
+                        if (re.match('^CS.\([^)]*?E.*?\)', tempEvent)):
+                            # Error, so no out.
+                            if (tempEvent[2] == 'H'):
+                                runnerDests[3] = 4
+                            else:
+                                dest = int(tempEvent[2])
+                                assert (dest == 2 or dest == 3)
+                                runnerDests[dest - 1] = dest
                         else:
-                            dest = int(tempEvent[2])
-                            assert (dest == 2 or dest == 3)
-                            runnerDests[dest - 1] = 0
-                elif (tempEvent.startswith('POCS')):
-                    if (re.match('^POCS.\([^)]*?E.*?\)', tempEvent)):
-                        # Error, so no out.
-                        if (tempEvent[4] == 'H'):
-                            runnerDests[3] = 4
+                            if (tempEvent[2] == 'H'):
+                                runnerDests[3] = 0
+                            else:
+                                dest = int(tempEvent[2])
+                                assert (dest == 2 or dest == 3)
+                                runnerDests[dest - 1] = 0
+                    elif (tempEvent.startswith('POCS')):
+                        if (re.match('^POCS.\([^)]*?E.*?\)', tempEvent)):
+                            # Error, so no out.
+                            if (tempEvent[4] == 'H'):
+                                runnerDests[3] = 4
+                            else:
+                                base = int(tempEvent[4])
+                                assert (base == 2 or base == 3)
+                                runnerDests[base-1] = base
                         else:
-                            base = int(tempEvent[4])
-                            assert (base == 2 or base == 3)
-                            runnerDests[base-1] = base
-                    else:
-                        if (tempEvent[4] == 'H'):
-                            runnerDests[3] = 0
+                            if (tempEvent[4] == 'H'):
+                                runnerDests[3] = 0
+                            else:
+                                base = int(tempEvent[4])
+                                assert (base == 2 or base == 3)
+                                runnerDests[base-1] = 0
+                    elif (tempEvent.startswith('PO')):
+                        if (re.match('^PO.\([^)]*?E.*?\)', tempEvent)):
+                            # Error, so no out.
+                            pass
                         else:
-                            base = int(tempEvent[4])
-                            assert (base == 2 or base == 3)
-                            runnerDests[base-1] = 0
-                elif (tempEvent.startswith('PO')):
-                    if (re.match('^PO.\([^)]*?E.*?\)', tempEvent)):
-                        # Error, so no out.
+                            base = int(tempEvent[2])
+                            assert (base == 1 or base == 2 or base == 3)
+                            runnerDests[base] = 0
+                    elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
+                        pass
+                    elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
+                        pass
+                    elif (tempEvent.startswith('E')):
+                        # TODO - is this ok?
+                        #runnerDests['B'] = 1
                         pass
                     else:
+                        print "ERROR - unrecognized K+ event: %s" % tempEvent
+                        assert False
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('NP')):
+                # No play
+                runnerDests['B'] = -1
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = runner
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
+                # Walk
+                runnerDests['B'] = 1
+                batterToFirst(runnerDests)
+                if (batterEvent.startswith('W+') or batterEvent.startswith('IW+') or batterEvent.startswith('I+')):
+                    tempEvent = batterEvent[2:]
+                    if (batterEvent.startswith('IW+')):
+                        tempEvent = batterEvent[3:]
+                    if (tempEvent.startswith('SB')):
+                        sbArray = tempEvent.split(';')
+                        for entry in sbArray:
+                            if (entry[2] == 'H'):
+                                runnerDests[3] = 4
+                            else:
+                                dest = int(entry[2])
+                                assert (dest == 2 or dest == 3)
+                                runnerDests[dest - 1] = dest 
+                    elif (tempEvent.startswith('CS')):
+                        if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
+                            # There was an error, so not an out.
+                            if (tempEvent[2] == 'H'):
+                                runnerDests[3] = 4
+                            else:
+                                dest = int(tempEvent[2])
+                                assert (dest == 2 or dest == 3)
+                                runnerDests[dest - 1] = dest
+                        else:
+                            if (tempEvent[2] == 'H'):
+                                runnerDests[3] = 0
+                            else:
+                                dest = int(tempEvent[2])
+                                assert (dest == 2 or dest == 3)
+                                runnerDests[dest - 1] = 0
+                    elif (tempEvent.startswith('PO')):
                         base = int(tempEvent[2])
                         assert (base == 1 or base == 2 or base == 3)
                         runnerDests[base] = 0
-                elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
-                    pass
-                elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
-                    pass
-                elif (tempEvent.startswith('E')):
-                    # TODO - is this ok?
-                    #runnerDests['B'] = 1
-                    pass
-                else:
-                    print "ERROR - unrecognized K+ event: %s" % tempEvent
-                    assert False
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('NP')):
-            # No play
-            runnerDests['B'] = -1
-            for runner in runnerDests:
-                if (runner != 'B'):
-                    runnerDests[runner] = runner
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
-            # Walk
-            runnerDests['B'] = 1
-            batterToFirst(runnerDests)
-            if (batterEvent.startswith('W+') or batterEvent.startswith('IW+') or batterEvent.startswith('I+')):
-                tempEvent = batterEvent[2:]
-                if (batterEvent.startswith('IW+')):
-                    tempEvent = batterEvent[3:]
-                if (tempEvent.startswith('SB')):
-                    sbArray = tempEvent.split(';')
-                    for entry in sbArray:
-                        if (entry[2] == 'H'):
-                            runnerDests[3] = 4
-                        else:
-                            dest = int(entry[2])
-                            assert (dest == 2 or dest == 3)
-                            runnerDests[dest - 1] = dest 
-                elif (tempEvent.startswith('CS')):
-                    if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
-                        # There was an error, so not an out.
-                        if (tempEvent[2] == 'H'):
-                            runnerDests[3] = 4
-                        else:
-                            dest = int(tempEvent[2])
-                            assert (dest == 2 or dest == 3)
-                            runnerDests[dest - 1] = dest
+                    elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
+                        pass
+                    elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
+                        pass
+                    elif (tempEvent.startswith('E')):
+                        runnerDests['B'] = 1
                     else:
-                        if (tempEvent[2] == 'H'):
-                            runnerDests[3] = 0
-                        else:
-                            dest = int(tempEvent[2])
-                            assert (dest == 2 or dest == 3)
-                            runnerDests[dest - 1] = 0
-                elif (tempEvent.startswith('PO')):
-                    base = int(tempEvent[2])
-                    assert (base == 1 or base == 2 or base == 3)
-                    runnerDests[base] = 0
-                elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
-                    pass
-                elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
-                    pass
-                elif (tempEvent.startswith('E')):
+                        print "ERROR - unrecognized W+ or IW+ event: %s" % tempEvent
+                        assert False
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('HP')):
+                # Hit by pitch
+                batterToFirst(runnerDests)
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('DGR')):
+                # Ground-rule double
+                runnerDests['B'] = 2
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('C/') or batterEvent == 'C'):
+                # Catcher's interference
+                runnerDests['B'] = 1
+                doneParsingEvent = True
+                runnersDefaultStayStill = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('E')):
+                # Error letting the runner reach base
+                runnerDests['B'] = 1 # may be overridden
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('FC')):
+                # Fielder's choice.  Batter goes to first unless overridden
+                runnerDests['B'] = 1 # may be overridden
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('FLE')):
+                # Error on fly foul ball.  Nothing happens.
+                runnerDests['B'] = -1
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = runner
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('SHE')):
+                # Error on sac hit (bunt).  Advances given explicitly
+                runnerDests['B'] = -2
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            # double or triple play
+            doublePlayMatch = re.match(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?', batterEvent)
+            if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
+                if (not quiet):
+                    print "double/triple play"
+                # The batter is out if the last character is a number, not ')'
+                # (unless there's a "(B)" in the string
+                doublePlayString = batterEvent.split('/')[0]
+                if (doublePlayString[-1:] != ')'):
+                    runnerDests['B'] = 0
+                else:
+                    runnerDests['B'] = 1
+                if (doublePlayMatch.group(1) == 'B'):
+                    runnerDests['B'] = 0
+                else:
+                    runnerDests[int(doublePlayMatch.group(1))] = 0
+                if (doublePlayMatch.group(2)):
+                    if (doublePlayMatch.group(2) == 'B'):
+                        runnerDests['B'] = 0
+                    else:
+                        runnerDests[int(doublePlayMatch.group(2))] = 0
+                if (doublePlayMatch.group(3)):
+                    if (doublePlayMatch.group(3) == 'B'):
+                        runnerDests['B'] = 0
+                    else:
+                        runnerDests[int(doublePlayMatch.group(3))] = 0
+                # Unfortunately, since it could be a caught fly ball and throw
+                # out, we have to assume runners don't go anywhere.
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?[DT]P', batterEvent)
+            if (weirdDoublePlayMatch):
+                # This is a double play.  The specifics of who's out will
+                # come later.
+                if (not quiet):
+                    print "weird double/triple play"
+                runnerDests['B'] = 0
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            simpleOutMatch = re.match("^\d\D", batterEvent)
+            if (simpleOutMatch and "/FO" not in batterEvent or (len(batterEvent) == 1 and (int(batterEvent) >= 1 and int(batterEvent) <= 9))):
+                if (not quiet):
+                    print "simple out"
+                if (re.match(r'^\dE', batterEvent)):
+                    if (not quiet):
+                        print "error"
                     runnerDests['B'] = 1
                 else:
-                    print "ERROR - unrecognized W+ or IW+ event: %s" % tempEvent
-                    assert False
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('HP')):
-            # Hit by pitch
-            batterToFirst(runnerDests)
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('DGR')):
-            # Ground-rule double
-            runnerDests['B'] = 2
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('C/') or batterEvent == 'C'):
-            # Catcher's interference
-            runnerDests['B'] = 1
-            doneParsingEvent = True
-            runnersDefaultStayStill = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('E')):
-            # Error letting the runner reach base
-            runnerDests['B'] = 1 # may be overridden
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('FC')):
-            # Fielder's choice.  Batter goes to first unless overridden
-            runnerDests['B'] = 1 # may be overridden
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('FLE')):
-            # Error on fly foul ball.  Nothing happens.
-            runnerDests['B'] = -1
-            for runner in runnerDests:
-                if (runner != 'B'):
-                    runnerDests[runner] = runner
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('SHE')):
-            # Error on sac hit (bunt).  Advances given explicitly
-            runnerDests['B'] = -2
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        # double or triple play
-        doublePlayMatch = re.match(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?', batterEvent)
-        if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
-            if (not quiet):
-                print "double/triple play"
-            # The batter is out if the last character is a number, not ')'
-            # (unless there's a "(B)" in the string
-            doublePlayString = batterEvent.split('/')[0]
-            if (doublePlayString[-1:] != ')'):
-                runnerDests['B'] = 0
-            else:
-                runnerDests['B'] = 1
-            if (doublePlayMatch.group(1) == 'B'):
-                runnerDests['B'] = 0
-            else:
-                runnerDests[int(doublePlayMatch.group(1))] = 0
-            if (doublePlayMatch.group(2)):
-                if (doublePlayMatch.group(2) == 'B'):
                     runnerDests['B'] = 0
-                else:
-                    runnerDests[int(doublePlayMatch.group(2))] = 0
-            if (doublePlayMatch.group(3)):
-                if (doublePlayMatch.group(3) == 'B'):
-                    runnerDests['B'] = 0
-                else:
-                    runnerDests[int(doublePlayMatch.group(3))] = 0
-            # Unfortunately, since it could be a caught fly ball and throw
-            # out, we have to assume runners don't go anywhere.
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?[DT]P', batterEvent)
-        if (weirdDoublePlayMatch):
-            # This is a double play.  The specifics of who's out will
-            # come later.
-            if (not quiet):
-                print "weird double/triple play"
-            runnerDests['B'] = 0
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        simpleOutMatch = re.match("^\d\D", batterEvent)
-        if (simpleOutMatch and "/FO" not in batterEvent):
-            if (not quiet):
-                print "simple out"
-            if (re.match(r'^\dE', batterEvent)):
+                # runners don't move unless explicit
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = runner
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            putOutMatch = re.match(r'^\d*(\d).*?(?:\((.)\))?', batterEvent)
+            if (putOutMatch):
                 if (not quiet):
-                    print "error"
-                runnerDests['B'] = 1
-            else:
-                runnerDests['B'] = 0
-            # runners don't move unless explicit
-            for runner in runnerDests:
-                if (runner != 'B'):
-                    runnerDests[runner] = runner
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        putOutMatch = re.match(r'^\d*(\d).*?(?:\((.)\))?', batterEvent)
-        if (putOutMatch):
-            if (not quiet):
-                print "Got a putout"
-            if (re.search(r'\d?E\d', batterEvent)):
-                # Error on the play - batter goes to first unless
-                # explicit
-                runnerDests['B'] = 1
-            else:
-                if ("/FO" in batterEvent):
-                    # Force out - this means the thing in parentheses
-                    # is the runner who is out.
-                    if (not quiet):
-                        print "force out"
-                    assert putOutMatch.group(2)
-                    runnerDests[int(putOutMatch.group(2))] = 0
+                    print "Got a putout"
+                if (re.search(r'\d?E\d', batterEvent)):
+                    # Error on the play - batter goes to first unless
+                    # explicit
+                    runnerDests['B'] = 1
                 else:
-                    # Determine from putOutMatch.group(1) (who made out) and
-                    # putOutMatch.group(2) (where out is) which base the out was at.
-                    if (putOutMatch.group(2)):
-                        outAtBase.append(putOutMatch.group(2))
+                    if ("/FO" in batterEvent):
+                        # Force out - this means the thing in parentheses
+                        # is the runner who is out.
+                        if (not quiet):
+                            print "force out"
+                        assert putOutMatch.group(2)
+                        runnerDests[int(putOutMatch.group(2))] = 0
                     else:
-                        # If we don't know what base it was at, assume first base.
-                        if (positionToBase[int(putOutMatch.group(1))] == -1):
-                            outAtBase.append(1)
+                        # Determine from putOutMatch.group(1) (who made out) and
+                        # putOutMatch.group(2) (where out is) which base the out was at.
+                        if (putOutMatch.group(2)):
+                            outAtBase.append(putOutMatch.group(2))
                         else:
-                            outAtBase.append(positionToBase[int(putOutMatch.group(1))])
-                runnerDests['B'] = -2
-                defaultBatterBase = 1
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('BK')):
-            # Balk
-            runnerDests['B'] = -1
-            # Advance runners
-            for runner in runnerDests:
-                if (runner != 'B'):
-                    runnerDests[runner] = runner + 1
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('CS')):
-            # Caught stealing
-            if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
-                # There was an error, so not an out.
-                if (not quiet):
-                    print "no caught stealing"
-                if (batterEvent[2] == 'H'):
-                    runnerDests[3] = 4
-                else:
-                    dest = int(batterEvent[2])
-                    assert (dest == 2 or dest == 3)
-                    runnerDests[dest - 1] = dest
-            else:
-                if (batterEvent[2] == 'H'):
-                    # out at home
-                    outAtBase.append(4)
-                else:
-                    dest = int(batterEvent[2])
-                    assert (dest == 2 or dest == 3)
-                    outAtBase.append(dest)
-            runnerDests['B'] = -1
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-            batterEvents = batterEvent.split(';')
-            if (len(batterEvents) > 1 and batterEvents[1].startswith('CS')):
+                            # If we don't know what base it was at, assume first base.
+                            if (positionToBase[int(putOutMatch.group(1))] == -1):
+                                outAtBase.append(1)
+                            else:
+                                outAtBase.append(positionToBase[int(putOutMatch.group(1))])
+                    runnerDests['B'] = -2
+                    defaultBatterBase = 1
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('BK')):
+                # Balk
+                runnerDests['B'] = -1
+                # Advance runners
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = runner + 1
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('CS')):
                 # Caught stealing
-                if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvents[1])):
+                if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
                     # There was an error, so not an out.
                     if (not quiet):
                         print "no caught stealing"
-                    if (batterEvents[1][2] == 'H'):
+                    if (batterEvent[2] == 'H'):
                         runnerDests[3] = 4
                     else:
-                        dest = int(batterEvents[1][2])
+                        dest = int(batterEvent[2])
                         assert (dest == 2 or dest == 3)
                         runnerDests[dest - 1] = dest
                 else:
-                    if (batterEvents[1][2] == 'H'):
+                    if (batterEvent[2] == 'H'):
                         # out at home
                         outAtBase.append(4)
                     else:
-                        dest = int(batterEvents[1][2])
+                        dest = int(batterEvent[2])
                         assert (dest == 2 or dest == 3)
                         outAtBase.append(dest)
- 
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('SB')):
-            # stolen base (could be multiple)
-            sbArray = batterEvent.split(';')
-            for entry in sbArray:
-                if (entry[2] == 'H'):
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('SB')):
+                # stolen base (could be multiple)
+                if (batterEvent[2] == 'H'):
                     runnerDests[3] = 4
                 else:
-                    assert (int(entry[2]) == 2 or int(entry[2]) == 3)
-                    runnerDests[int(entry[2]) - 1] = int(entry[2])
-            runnerDests['B'] = -1
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('DI')):
-            # defensive indifference.  runners resolved later
-            runnerDests['B'] = -1
-            for runner in runnerDests:
-                if (runner != 'B' and runnerDests[runner] == -1):
-                    runnerDests[runner] = runner
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('OA')):
-            # runner advances somehow (resolved later)
-            runnerDests['B'] = -1
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('PB') or batterEvent.startswith('WP')):
-            # Passed ball or wild pitch
-            runnerDests['B'] = -1
-            for runner in runnerDests:
-                if (runner != 'B'):
-                    runnerDests[runner] = runner
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('POCS')):
-            # Pick-off (and caught stealing)
-            if (re.match(r'^POCS.\(.*?E.*?\)', batterEvent)):
-                # There was an error, so not an out
-                if (batterEvent[4] == 'H'):
-                    runnerDests[3] = 4
+                    dest = int(batterEvent[2])
+                    assert(dest == 2 or dest == 3)
+                    runnerDests[dest - 1] = dest
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('DI')):
+                # defensive indifference.  runners resolved later
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                for runner in runnerDests:
+                    if (runner != 'B' and runnerDests[runner] == -1):
+                        runnerDests[runner] = runner
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('OA')):
+                # runner advances somehow (resolved later)
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('PB') or batterEvent.startswith('WP')):
+                # Passed ball or wild pitch
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                for runner in runnerDests:
+                    if (runner != 'B'):
+                        runnerDests[runner] = runner
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('POCS')):
+                # Pick-off (and caught stealing)
+                if (re.match(r'^POCS.\(.*?E.*?\)', batterEvent)):
+                    # There was an error, so not an out
+                    if (batterEvent[4] == 'H'):
+                        runnerDests[3] = 4
+                    else:
+                        assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
+                        runnerDests[int(batterEvent[4]) - 1] = int(batterEvent[4])
                 else:
-                    assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
-                    runnerDests[int(batterEvent[4]) - 1] = int(batterEvent[4])
-            else:
-                if (batterEvent[4] == 'H'):
-                    # out at home
-                    outAtBase.append(4)
+                    if (batterEvent[4] == 'H'):
+                        # out at home
+                        outAtBase.append(4)
+                    else:
+                        assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
+                        outAtBase.append(int(batterEvent[4]))
+                runnersDefaultStayStill = True
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            if (batterEvent.startswith('PO')):
+                # Pick-off
+                if (re.match('^PO.\([^)]*?E.*?\)', batterEvent)):
+                    # Error, so no out.
+                    pass
                 else:
-                    assert (int(batterEvent[4]) == 2 or int(batterEvent[4]) == 3)
-                    outAtBase.append(int(batterEvent[4]))
-            runnersDefaultStayStill = True
-            runnerDests['B'] = -1
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        if (batterEvent.startswith('PO')):
-            # Pick-off
-            if (re.match('^PO.\([^)]*?E.*?\)', batterEvent)):
-                # Error, so no out.
-                pass
-            else:
-                base = int(batterEvent[2])
-                assert (base == 1 or base == 2 or base == 3)
-                runnerDests[base] = 0
-            runnerDests['B'] = -1
-            runnersDefaultStayStill = True
-            doneParsingEvent = True
-    if (not doneParsingEvent):
-        print "ERROR - couldn't parse event %s" % batterEvent
-        print "line is: %s" % line[0:-1]
-        return
+                    base = int(batterEvent[2])
+                    assert (base == 1 or base == 2 or base == 3)
+                    runnerDests[base] = 0
+                if ('B' not in runnerDests):
+                    runnerDests['B'] = -1
+                runnersDefaultStayStill = True
+                doneParsingEvent = True
+        if (not doneParsingEvent):
+            print "ERROR - couldn't parse event %s" % batterEvent
+            print "line is: %s" % line[0:-1]
+            return
     # Now parse runner stuff.
     if (len(playArray) > 1):
         runnerArray = playArray[1].split(';')
@@ -607,17 +592,21 @@ def parsePlay(line, gameSituation):
         unresolvedRunners.append(0)
     # See if there's an out at a base.
     for outBase in outAtBase:
-        # Find the closest unresolved runner behind that base.
-        possibleRunners = [runner for runner in unresolvedRunners if runner < outBase]
-        curRunner = max(possibleRunners)
-        if (not quiet):
-            print "picked runner %d" % curRunner
-        if (curRunner == 0):
+        if (outBase == 'B'):
             runnerDests['B'] = 0
             unresolvedRunners.remove(0)
         else:
-            runnerDests[curRunner] = 0
-            unresolvedRunners.remove(curRunner)
+            # Find the closest unresolved runner behind that base.
+            possibleRunners = [runner for runner in unresolvedRunners if runner < outBase]
+            curRunner = max(possibleRunners)
+            if (not quiet):
+                print "picked runner %d" % curRunner
+            if (curRunner == 0):
+                runnerDests['B'] = 0
+                unresolvedRunners.remove(0)
+            else:
+                runnerDests[curRunner] = 0
+                unresolvedRunners.remove(curRunner)
     unresolvedRunners = [runner for runner in runnerDests if runnerDests[runner] == -1]
     if (runnerDests['B'] == -2):
         if (defaultBatterBase != -1):
