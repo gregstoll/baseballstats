@@ -7,6 +7,7 @@ import re, sys
 stats = {}
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 numGames = 0
+quiet = 0
 
 def gameSitString(gameSituation):
     return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (gameSituation['inning'], gameSituation['isHome'], gameSituation['outs'], gameSituation['curScoreDiff'], gameSituation['runners'])
@@ -76,8 +77,8 @@ def parseFile(file):
             if (line.startswith("id,")):
                 # Add gameKeys to stats
                 addGameToStats(gameKeys, gameSituation)
-
-                print "NEW GAME"
+                if (not quiet):
+                    print "NEW GAME"
                 initializeGame(gameSituation)
                 gameKeys = []
                 gameKeys.append(getKeyFromSituation(gameSituation))
@@ -89,7 +90,6 @@ def parseFile(file):
                     if (key not in gameKeys):
                         gameKeys.append(key)
     addGameToStats(gameKeys, gameSituation)
-    print "total games: %d" % numGames
 
 def batterToFirst(runnerDests):
     runnerDests['B'] = 1
@@ -129,8 +129,9 @@ def parsePlay(line, gameSituation):
     if (gameSituation['runners'][2]):
         runnerDests[3] = -1
         beginningRunners.append(3)
-    print "Game situation is: %s" % gameSitString(gameSituation)
-    print line[0:-1]
+    if (not quiet):
+        print "Game situation is: %s" % gameSitString(gameSituation)
+        print line[0:-1]
     assert playMatch
     assert gameSituation['inning'] == int(playMatch.group(1))
     assert gameSituation['isHome'] == int(playMatch.group(2))
@@ -330,7 +331,8 @@ def parsePlay(line, gameSituation):
         # double or triple play
         doublePlayMatch = re.match(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?', batterEvent)
         if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
-            print "double/triple play"
+            if (not quiet):
+                print "double/triple play"
             # The batter is out if the last character is a number, not ')'
             # (unless there's a "(B)" in the string
             doublePlayString = batterEvent.split('/')[0]
@@ -361,16 +363,19 @@ def parsePlay(line, gameSituation):
         if (weirdDoublePlayMatch):
             # This is a double play.  The specifics of who's out will
             # come later.
-            print "weird double/triple play"
+            if (not quiet):
+                print "weird double/triple play"
             runnerDests['B'] = 0
             runnersDefaultStayStill = True
             doneParsingEvent = True
     if (not doneParsingEvent):
         simpleOutMatch = re.match("^\d\D", batterEvent)
         if (simpleOutMatch and "/FO" not in batterEvent):
-            print "simple out"
+            if (not quiet):
+                print "simple out"
             if (re.match(r'^\dE', batterEvent)):
-                print "error"
+                if (not quiet):
+                    print "error"
                 runnerDests['B'] = 1
             else:
                 runnerDests['B'] = 0
@@ -382,7 +387,8 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         putOutMatch = re.match("^\d*(\d)(?:\((.)\))?", batterEvent)
         if (putOutMatch and not 'DP' in batterEvent):
-            print "Got a putout"
+            if (not quiet):
+                print "Got a putout"
             if (re.search(r'\d?E\d', batterEvent)):
                 # Error on the play - batter goes to first unless
                 # explicit
@@ -391,7 +397,8 @@ def parsePlay(line, gameSituation):
                 if ("/FO" in batterEvent):
                     # Force out - this means the thing in parentheses
                     # is the runner who is out.
-                    print "force out"
+                    if (not quiet):
+                        print "force out"
                     assert putOutMatch.group(2)
                     runnerDests[int(putOutMatch.group(2))] = 0
                 else:
@@ -423,7 +430,8 @@ def parsePlay(line, gameSituation):
             # Caught stealing
             if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
                 # There was an error, so not an out.
-                print "no caught stealing"
+                if (not quiet):
+                    print "no caught stealing"
                 if (batterEvent[2] == 'H'):
                     runnerDests[3] = 4
                 else:
@@ -510,7 +518,7 @@ def parsePlay(line, gameSituation):
     if (not doneParsingEvent):
         print "ERROR - couldn't parse event %s" % batterEvent
         print "line is: %s" % line[0:-1]
-        return ()
+        return
     # Now parse runner stuff.
     if (len(playArray) > 1):
         runnerArray = playArray[1].split(';')
@@ -567,7 +575,8 @@ def parsePlay(line, gameSituation):
         # Find the closest unresolved runner behind that base.
         possibleRunners = [runner for runner in unresolvedRunners if runner < outBase]
         curRunner = max(possibleRunners)
-        print "picked runner %d" % curRunner
+        if (not quiet):
+            print "picked runner %d" % curRunner
         if (curRunner == 0):
             runnerDests['B'] = 0
             unresolvedRunners.remove(0)
@@ -577,7 +586,8 @@ def parsePlay(line, gameSituation):
     unresolvedRunners = [runner for runner in runnerDests if runnerDests[runner] == -1]
     if (runnerDests['B'] == -2):
         if (defaultBatterBase != -1):
-            print "using defaultBatterBase of %d" % defaultBatterBase
+            if (not quiet):
+                print "using defaultBatterBase of %d" % defaultBatterBase
             runnerDests['B'] = defaultBatterBase
         else:
             print "ERROR - unresolved batter!"
@@ -640,9 +650,14 @@ def parsePlay(line, gameSituation):
     # We're done - the information is "returned" in gameSituation
 
 def main(files):
-    #eventFileName = 'sample'
+    global quiet
+    if (files[0] == '-q'):
+        quiet = 1
+        #files = files[1:]
+        del files[0]
     for fileName in files:
         #eventFileName = '2004COL.EVN'
+        print fileName
         eventFile = open(fileName, 'r')
         parseFile(eventFile)
         eventFile.close()
