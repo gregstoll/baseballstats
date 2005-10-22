@@ -234,7 +234,9 @@ def parsePlay(line, gameSituation):
                 elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
                     pass
                 elif (tempEvent.startswith('E')):
-                    runnerDests['B'] = 1
+                    # TODO - is this ok?
+                    #runnerDests['B'] = 1
+                    pass
                 else:
                     print "ERROR - unrecognized K+ event: %s" % tempEvent
                     assert False
@@ -248,11 +250,11 @@ def parsePlay(line, gameSituation):
                     runnerDests[runner] = runner
             doneParsingEvent = True
     if (not doneParsingEvent):
-        if ((batterEvent.startswith('W') and not batterEvent.startswith('WP'))or batterEvent.startswith('IW')):
+        if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
             # Walk
             runnerDests['B'] = 1
             batterToFirst(runnerDests)
-            if (batterEvent.startswith('W+') or batterEvent.startswith('IW+')):
+            if (batterEvent.startswith('W+') or batterEvent.startswith('IW+') or batterEvent.startswith('I+')):
                 tempEvent = batterEvent[2:]
                 if (batterEvent.startswith('IW+')):
                     tempEvent = batterEvent[3:]
@@ -266,12 +268,21 @@ def parsePlay(line, gameSituation):
                             assert (dest == 2 or dest == 3)
                             runnerDests[dest - 1] = dest 
                 elif (tempEvent.startswith('CS')):
-                    if (tempEvent[2] == 'H'):
-                        runnerDests[3] = 0
+                    if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
+                        # There was an error, so not an out.
+                        if (tempEvent[2] == 'H'):
+                            runnerDests[3] = 4
+                        else:
+                            dest = int(tempEvent[2])
+                            assert (dest == 2 or dest == 3)
+                            runnerDests[dest - 1] = dest
                     else:
-                        dest = int(tempEvent[2])
-                        assert (dest == 2 or dest == 3)
-                        runnerDests[dest - 1] = 0
+                        if (tempEvent[2] == 'H'):
+                            runnerDests[3] = 0
+                        else:
+                            dest = int(tempEvent[2])
+                            assert (dest == 2 or dest == 3)
+                            runnerDests[dest - 1] = 0
                 elif (tempEvent.startswith('PO')):
                     base = int(tempEvent[2])
                     assert (base == 1 or base == 2 or base == 3)
@@ -385,8 +396,8 @@ def parsePlay(line, gameSituation):
                     runnerDests[runner] = runner
             doneParsingEvent = True
     if (not doneParsingEvent):
-        putOutMatch = re.match("^\d*(\d)(?:\((.)\))?", batterEvent)
-        if (putOutMatch and not 'DP' in batterEvent):
+        putOutMatch = re.match(r'^\d*(\d).*?(?:\((.)\))?', batterEvent)
+        if (putOutMatch):
             if (not quiet):
                 print "Got a putout"
             if (re.search(r'\d?E\d', batterEvent)):
@@ -435,18 +446,42 @@ def parsePlay(line, gameSituation):
                 if (batterEvent[2] == 'H'):
                     runnerDests[3] = 4
                 else:
-                    assert (int(batterEvent[2]) == 2 or int(batterEvent[2]) == 3)
-                    runnerDests[int(batterEvent[2]) - 1] = int(batterEvent[2])
+                    dest = int(batterEvent[2])
+                    assert (dest == 2 or dest == 3)
+                    runnerDests[dest - 1] = dest
             else:
                 if (batterEvent[2] == 'H'):
                     # out at home
                     outAtBase.append(4)
                 else:
-                    assert (int(batterEvent[2]) == 2 or int(batterEvent[2]) == 3)
-                    outAtBase.append(int(batterEvent[2]))
+                    dest = int(batterEvent[2])
+                    assert (dest == 2 or dest == 3)
+                    outAtBase.append(dest)
             runnerDests['B'] = -1
             runnersDefaultStayStill = True
             doneParsingEvent = True
+            batterEvents = batterEvent.split(';')
+            if (len(batterEvents) > 1 and batterEvents[1].startswith('CS')):
+                # Caught stealing
+                if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvents[1])):
+                    # There was an error, so not an out.
+                    if (not quiet):
+                        print "no caught stealing"
+                    if (batterEvents[1][2] == 'H'):
+                        runnerDests[3] = 4
+                    else:
+                        dest = int(batterEvents[1][2])
+                        assert (dest == 2 or dest == 3)
+                        runnerDests[dest - 1] = dest
+                else:
+                    if (batterEvents[1][2] == 'H'):
+                        # out at home
+                        outAtBase.append(4)
+                    else:
+                        dest = int(batterEvents[1][2])
+                        assert (dest == 2 or dest == 3)
+                        outAtBase.append(dest)
+ 
     if (not doneParsingEvent):
         if (batterEvent.startswith('SB')):
             # stolen base (could be multiple)
