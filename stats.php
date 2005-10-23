@@ -1,6 +1,7 @@
 <?php
 $probsFileName = "probs.txt";
 
+print "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n";
 print "<html><head><title>Win Expectancy Finder</title>\n";
 print "<style type=\"text/css\">\n";
 print "  P.littlespace {margin: 2px;}\n";
