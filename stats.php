@@ -7,8 +7,22 @@ print "  P.littlespace {margin: 2px;}\n";
 print "</style></head>\n";
 print "<body>\n";
 print "<form action=\"" . basename($PHP_SELF) . "\" method=\"post\">\n";
-print "<p class=\"littlespace\">Team: <input type=\"radio\" name=\"team\" value=\"H\" checked>Home\n";
-print "<input type=\"radio\" name=\"team\" value=\"V\">Visitor\n";
+print "<p class=\"littlespace\">Team:\n";
+if (!isset($_POST["expectancy"])) {
+    $toSelect = "H";
+} else {
+    $toSelect = $_POST["team"];
+}
+print "<input type=\"radio\" name=\"team\" value=\"H\"";
+if ($toSelect == "H") {
+    print "checked";
+}
+print ">Home\n";
+print "<input type=\"radio\" name=\"team\" value=\"V\"";
+if ($toSelect == "V") {
+    print "checked";
+}
+print ">Visitor\n";
 print "<p class=\"littlespace\">Inning: <select name=\"inning\">\n";
 for ($i = 1; $i <= 15; $i++) {
     print "<option value=\"$i\"";
@@ -86,6 +100,9 @@ if (isset($_POST["expectancy"])) {
 
 }
 print "<p>Idea taken from <a href=\"http://walkoffbalk.com/tools/winexp/index.php\">Win Expectancy Finder</a> at <a href=\"http://walkoffbalk.com\">walkoffbalk.com</a>.</p>\n";
+print "<ul><li><a href=\"stats.txt\">stats.php</a> - the source for .php file\n";
+print "<li><a href=\"parseretrosheet.txt\">parseretrosheet.py</a> - parses the <a href=\"http://www.retrosheet.org/game.htm\">Retrosheet data</a>\n";
+print "<li><a href=\"processstats.txt\">processstats.py</a> - puts the Retrosheet data in the <a href=\"probs.txt\">probs.txt</a> file.  See <a href=\"http://www.philbirnbaum.com/probs2.txt\">Phil Birnbaum's description of the data file</a></ul>\n";
 print "<p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>\n";
 print "</body></html>\n";
 
