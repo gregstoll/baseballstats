@@ -85,10 +85,21 @@ def parseFile(file):
                 numGames = numGames + 1
             else:
                 if (line.startswith("play")):
-                    parsePlay(line, gameSituation)
-                    key = getKeyFromSituation(gameSituation)
-                    if (key not in gameKeys):
-                        gameKeys.append(key)
+                    try:
+                        parsePlay(line, gameSituation)
+                    except AssertionError:
+                        if (not quiet):
+                            raise
+                        else:
+                            # We're just gonna punt and ignore the error
+                            initializeGame(gameSituation)
+                            gameKeys = []
+                            gameKeys.append(getKeyFromSituation(gameSituation))
+                            numGames = numGames + 1
+                    else:
+                        key = getKeyFromSituation(gameSituation)
+                        if (key not in gameKeys):
+                            gameKeys.append(key)
     addGameToStats(gameKeys, gameSituation)
 
 def batterToFirst(runnerDests):
@@ -178,9 +189,7 @@ def parsePlay(line, gameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('K')):
                 runnerDests['B'] = 0
-                for runner in runnerDests:
-                    if (runner != 'B'):
-                        runnerDests[runner] = runner
+                runnersDefaultStayStill = True
                 if (batterEvent.startswith('K+')):
                     tempEvent = batterEvent[2:]
                     if (tempEvent.startswith('SB')):
@@ -235,8 +244,6 @@ def parsePlay(line, gameSituation):
                     elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
                         pass
                     elif (tempEvent.startswith('E')):
-                        # TODO - is this ok?
-                        #runnerDests['B'] = 1
                         pass
                     else:
                         print "ERROR - unrecognized K+ event: %s" % tempEvent
