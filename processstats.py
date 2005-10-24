@@ -4,6 +4,7 @@ import sys, re
 lineRe = re.compile(r'^\((\d+), (\d+), (\d+), \((\d+), (\d+), (\d+)\), (-?\d+)\): \((\d+), (\d+)\)')
 def main(fileName):
     file = open(fileName, 'r')
+    linesToWrite = []
     for line in file.readlines():
         lineMatch = lineRe.match(line)
         if lineMatch:
@@ -20,9 +21,12 @@ def main(fileName):
             if (lineMatch.group(6) == '1'):
                 baseSum = baseSum + 4
             stringToPrint = stringToPrint + "%s,%s,%s,%s,%s,%s" % (lineMatch.group(1), lineMatch.group(3), baseSum, lineMatch.group(7), lineMatch.group(9), lineMatch.group(8))
-            print stringToPrint
+            linesToWrite.append(stringToPrint)
         else:
             print "ERROR - couldn't parse line %s" %line
+    linesToWrite.sort()
+    for line in linesToWrite:
+        print line
     file.close()
 
 

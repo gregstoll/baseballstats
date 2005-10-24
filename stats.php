@@ -104,7 +104,7 @@ print "<p>This data is from MLB games from 1970-1992 and 2000-2004.</p>\n";
 print "<p>Idea taken from <a href=\"http://walkoffbalk.com/tools/winexp/index.php\">Win Expectancy Finder</a> at <a href=\"http://walkoffbalk.com\">walkoffbalk.com</a>.</p>\n";
 print "<ul><li><a href=\"stats.txt\">stats.php</a> - the source for .php file\n";
 print "<li><a href=\"parseretrosheet.txt\">parseretrosheet.py</a> - parses the <a href=\"http://www.retrosheet.org/game.htm\">Retrosheet data</a>\n";
-print "<li><a href=\"processstats.txt\">processstats.py</a> - puts the Retrosheet data in the <a href=\"probs.txt\">probs.txt</a> file.  See <a href=\"http://www.philbirnbaum.com/probs2.txt\">Phil Birnbaum's description of the data file</a></ul>\n";
+print "<li><a href=\"processstats.txt\">processstats.py</a> - puts the Retrosheet data in the <a href=\"probs.txt\">probs.txt</a> file.  See <a href=\"http://www.philbirnbaum.com/probs2.txt\">Phil Birnbaum's description of the data file</a>.</ul>\n";
 print "<p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>\n";
 print "</body></html>\n";
 
