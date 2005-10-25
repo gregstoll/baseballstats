@@ -9,6 +9,8 @@ runnerNames[5] = "3rd";
 runnerNames[6] = "1st & 3rd";
 runnerNames[7] = "2nd & 3rd";
 runnerNames[8] = "loaded";
+var numEntries = 10;
+var numScores = 8;
 
 function clearAll(elem) {
     clearAllStarting(elem, 0);
@@ -64,12 +66,60 @@ function getDisplayStyle(isVisible) {
     }
 }
 
+function updateInnings(idNumber, value) {
+    var curScore = document.getElementById("score" + idNumber).selectedIndex;
+    var newScore = 2 * numScores - curScore;
+    document.getElementById("score" + idNumber).selectedIndex = newScore;
+    for (var i = idNumber + 1; i < numEntries; i++) {
+        var inningInput = document.getElementById("inning" + i);
+        inningInput.selectedIndex = value;
+        var outsInput = document.getElementById("outs" + i);
+        outsInput.selectedIndex = 0;
+        var runnerInput = document.getElementById("runner" + i);
+        runnerInput.selectedIndex = 0;
+        var scoreInput = document.getElementById("score" + i);
+        scoreInput.selectedIndex = newScore;
+    }
+    // Change the current number of outs and runners as well.
+    var outsInput = document.getElementById("outs" + idNumber);
+    outsInput.selectedIndex = 0;
+    var runnerInput = document.getElementById("runner" + idNumber);
+    runnerInput.selectedIndex = 0;
+    return false;
+}
+
+function updateOuts(idNumber, value) {
+    for (var i = idNumber + 1; i < numEntries; i++) {
+        var outsInput = document.getElementById("outs" + i);
+        outsInput.selectedIndex = value;
+    }
+    return false;
+}
+
+function updateScore(idNumber, value) {
+    for (var i = idNumber + 1; i < numEntries; i++) {
+        var scoreInput = document.getElementById("score" + i);
+        scoreInput.selectedIndex = value;
+    }
+    return false;
+}
+
+function updateRunners(idNumber, value) {
+    for (var i = idNumber + 1; i < numEntries; i++) {
+        var runnerInput = document.getElementById("runner" + i);
+        runnerInput.selectedIndex = value;
+    }
+    return false;
+}
+
+
 function createRow(idNumber) {
     var row = document.createElement("tr");
     row.id = "row" + idNumber;
     var inningTd = document.createElement("td");
     var inningInput = document.createElement("select");
     inningInput.id = "inning" + idNumber;
+    inningInput.setAttribute("onchange", "return updateInnings(" + idNumber + ", this.selectedIndex);");
     for (var i = 1; i <= 15; i++) {
         var visitorInning = document.createElement("option");
         visitorInning.value = "V" + i;
@@ -84,6 +134,7 @@ function createRow(idNumber) {
     row.appendChild(inningTd);
     var outsTd = document.createElement("td");
     var outsInput = document.createElement("select");
+    outsInput.setAttribute("onchange", "return updateOuts(" + idNumber + ", this.selectedIndex);");
     outsInput.id = "outs" + idNumber;
     for (var i = 0; i < 3; i++) {
         var outsOption = document.createElement("option");
@@ -95,6 +146,7 @@ function createRow(idNumber) {
     row.appendChild(outsTd);
     var runnerTd = document.createElement("td");
     var runnerInput = document.createElement("select");
+    runnerInput.setAttribute("onchange", "return updateRunners(" + idNumber + ", this.selectedIndex);");
     runnerInput.id = "runner" + idNumber;
     for (var i = 1; i <= 8; i++) {
         var runnerOption = document.createElement("option");
@@ -104,10 +156,25 @@ function createRow(idNumber) {
     }
     runnerTd.appendChild(runnerInput);
     row.appendChild(runnerTd);
+    var scoreTd = document.createElement("td");
+    var scoreInput = document.createElement("select");
+    scoreInput.setAttribute("onchange", "return updateScore(" + idNumber + ", this.selectedIndex);");
+    scoreInput.id = "score" + idNumber;
+    for (var i = -numScores; i <= numScores; i++) {
+        var scoreOption = document.createElement("option");
+        scoreOption.value = i;
+        if (i == 0) {
+            scoreOption.selected = true;
+        }
+        scoreOption.appendChild(document.createTextNode(i));
+        scoreInput.appendChild(scoreOption);
+    }
+    scoreTd.appendChild(scoreInput);
+    row.appendChild(scoreTd);
     return row;
 }
 
-function addEntries(numEntries) {
+function addEntries() {
     var situationTBody = document.getElementById('situationTBody');
     clearAllAfterFirstElementType(situationTBody, "tr");
     for (var i = 0; i < numEntries; i++) {
@@ -115,5 +182,5 @@ function addEntries(numEntries) {
     }
 }
 
-setTimeout('addEntries(10)', 0);
+setTimeout('addEntries()', 0);
 //]]>
