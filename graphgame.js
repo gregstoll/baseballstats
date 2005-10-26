@@ -119,6 +119,7 @@ function createRow(idNumber) {
     var inningTd = document.createElement("td");
     var inningInput = document.createElement("select");
     inningInput.id = "inning" + idNumber;
+    inningInput.name = "inning" + idNumber;
     inningInput.setAttribute("onchange", "return updateInnings(" + idNumber + ", this.selectedIndex);");
     for (var i = 1; i <= 15; i++) {
         var visitorInning = document.createElement("option");
@@ -136,6 +137,7 @@ function createRow(idNumber) {
     var outsInput = document.createElement("select");
     outsInput.setAttribute("onchange", "return updateOuts(" + idNumber + ", this.selectedIndex);");
     outsInput.id = "outs" + idNumber;
+    outsInput.name = "outs" + idNumber;
     for (var i = 0; i < 3; i++) {
         var outsOption = document.createElement("option");
         outsOption.value = i;
@@ -148,6 +150,7 @@ function createRow(idNumber) {
     var runnerInput = document.createElement("select");
     runnerInput.setAttribute("onchange", "return updateRunners(" + idNumber + ", this.selectedIndex);");
     runnerInput.id = "runner" + idNumber;
+    runnerInput.name = "runner" + idNumber;
     for (var i = 1; i <= 8; i++) {
         var runnerOption = document.createElement("option");
         runnerOption.value = i;
@@ -160,6 +163,7 @@ function createRow(idNumber) {
     var scoreInput = document.createElement("select");
     scoreInput.setAttribute("onchange", "return updateScore(" + idNumber + ", this.selectedIndex);");
     scoreInput.id = "score" + idNumber;
+    scoreInput.name = "score" + idNumber;
     for (var i = -numScores; i <= numScores; i++) {
         var scoreOption = document.createElement("option");
         scoreOption.value = i;
