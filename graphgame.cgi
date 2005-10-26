@@ -34,7 +34,7 @@ for i in range(0, lastSituation + 1):
 (tempPngFile, tempPngFileName) = mkstemp(suffix=".png")
 os.close(tempPngFile)
 g = Gnuplot.Gnuplot()
-g('set data style linespoints')
+g('set data style lines')
 g('set terminal png')
 g('set yrange[0:1]')
 g('set ylabel "Win Probability"')
