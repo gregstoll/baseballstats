@@ -9,7 +9,7 @@ runnerNames[5] = "3rd";
 runnerNames[6] = "1st & 3rd";
 runnerNames[7] = "2nd & 3rd";
 runnerNames[8] = "loaded";
-var numEntries = 10;
+var numEntries = 50;
 var numScores = 8;
 
 function clearAll(elem) {
@@ -171,16 +171,30 @@ function createRow(idNumber) {
     }
     scoreTd.appendChild(scoreInput);
     row.appendChild(scoreTd);
+    var lastTd = document.createElement("td");
+    var lastInput = document.createElement("input");
+    lastInput.setAttribute("type", "submit");
+    lastInput.value = "Last situation";
+    lastInput.name = "situation" + idNumber;
+    lastTd.appendChild(lastInput);
+    row.appendChild(lastTd);
     return row;
 }
 
-function addEntries() {
+function addEntries(entries, reset) {
     var situationTBody = document.getElementById('situationTBody');
-    clearAllAfterFirstElementType(situationTBody, "tr");
-    for (var i = 0; i < numEntries; i++) {
+    var startingI = 0;
+    if (reset) {
+        numEntries = entries;
+        clearAllAfterFirstElementType(situationTBody, "tr");
+    } else {
+        startingI = numEntries;
+        numEntries = numEntries + entries;
+    }
+    for (var i = startingI; i < numEntries; i++) {
         situationTBody.appendChild(createRow(i));
     }
 }
 
-setTimeout('addEntries()', 0);
+setTimeout('addEntries(50, true)', 0);
 //]]>
