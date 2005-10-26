@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-import cgi, os, sys, Gnuplot, re, os.path, urlparse, shutil
+import cgi, os, sys, Gnuplot, re, os.path, urlparse, shutil, time
 from getstats import getProbability
 from tempfile import mkstemp
 
@@ -28,23 +28,24 @@ for i in range(0, lastSituation + 1):
     probs.append(prob)
 #for key in os.environ:
     #print "<p>%s: %s</p>" % (key, os.environ[key])
-(tempPsFile, tempPsFileName) = mkstemp(suffix=".ps")
-tempPngFileName = tempPsFileName[:-3] + ".png"
+(tempPngFile, tempPngFileName) = mkstemp(suffix=".png")
+os.close(tempPngFile)
 g = Gnuplot.Gnuplot()
 g('set data style linespoints')
-# TODO - try using png terminal
-g('set terminal postscript color')
+g('set terminal png')
 g('set yrange[0:1]')
 g('set ylabel "Win Probability"')
 g('set ytics 0, .1, 1.0')
 g('set grid ytics')
-g('set output "%s"' % tempPsFileName)
+g('set output "%s"' % tempPngFileName)
 g('set title "Home win probability"')
 g.plot(probs)
-os.system('pstoimg -type png -flip cw %s > /dev/null' % tempPsFileName)
-os.close(tempPsFile)
+# This is necessary so the file has data when we copy it - apparently
+# g.plot() is a little asynchronous or something.
+time.sleep(.5)
 pictureName = os.path.join(os.getcwd() + '/images', os.path.basename(tempPngFileName))
-shutil.move(tempPngFileName, pictureName)
+#print "<p>%s to %s</p>" % (newTempName, pictureName)
+shutil.copyfile(tempPngFileName, pictureName)
 urlName = urlparse.urljoin(os.environ['SCRIPT_URI'], 'images/' + os.path.basename(pictureName))
 print '<img src="%s">' % urlName
 print '</body></html>'
