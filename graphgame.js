@@ -9,7 +9,7 @@ runnerNames[5] = "3rd";
 runnerNames[6] = "1st & 3rd";
 runnerNames[7] = "2nd & 3rd";
 runnerNames[8] = "loaded";
-var numEntries = 50;
+var numEntries = 150;
 var numScores = 8;
 
 function clearAll(elem) {
@@ -200,5 +200,5 @@ function addEntries(entries, reset) {
     }
 }
 
-setTimeout('addEntries(50, true)', 0);
+setTimeout('addEntries(150, true)', 0);
 //]]>

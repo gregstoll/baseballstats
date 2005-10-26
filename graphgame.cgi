@@ -14,11 +14,14 @@ for key in form:
     if (situationMatch):
         lastSituation = int(situationMatch.group(1))
 probs = []
+inningStarts = []
 for i in range(0, lastSituation + 1):
     inningCombined = form["inning%d" % i].value
     outs = int(form["outs%d" % i].value)
     runners = int(form["runner%d" % i].value)
     scoreDiff = int(form["score%d" % i].value)
+    if (len(inningStarts) == 0 or inningCombined != inningStarts[-1][0]):
+        inningStarts.append((inningCombined, i))
     homeOrVisitor = inningCombined[0]
     inning = int(inningCombined[1:])
     prob = getProbability(homeOrVisitor, inning, outs, runners, scoreDiff)
@@ -36,9 +39,22 @@ g('set terminal png')
 g('set yrange[0:1]')
 g('set ylabel "Win Probability"')
 g('set ytics 0, .1, 1.0')
-g('set grid ytics')
 g('set output "%s"' % tempPngFileName)
 g('set title "Home win probability"')
+# Build the string for the xticks
+xTicksString = "("
+for entry in inningStarts:
+    combinedInning = entry[0]
+    index = entry[1]
+    if (index != 0):
+        xTicksString = xTicksString + ", "
+    xTicksString = xTicksString + '"%s" %d' % (combinedInning, index)
+xTicksString = xTicksString + ")"
+if (len(xTicksString) > 2):
+    g('set xtics %s' % xTicksString)
+    g('set grid ytics xtics')
+else:
+    g('set grid ytics')
 g.plot(probs)
 # This is necessary so the file has data when we copy it - apparently
 # g.plot() is a little asynchronous or something.
