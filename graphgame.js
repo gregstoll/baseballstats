@@ -200,5 +200,5 @@ function addEntries(entries, reset) {
     }
 }
 
-setTimeout('addEntries(100, true)', 0);
+setTimeout('addEntries(125, true)', 0);
 //]]>
