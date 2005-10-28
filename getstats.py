@@ -4,7 +4,9 @@ import re
 fileName = 'probs.txt'
 
 def getProbability(homeOrVisitor, inning, outs, runners, scoreDiff):
-    stringToLookFor = '"%s",%d,%d,%d,%d' % (homeOrVisitor, inning, outs, runners, scoreDiff)
+    return getProbabilityOfString('"%s",%d,%d,%d,%d' % (homeOrVisitor, inning, outs, runners, scoreDiff))
+
+def getProbabilityOfString(stringToLookFor):
     probsRe = re.compile(r'^%s,(\d+),(\d+)' % (stringToLookFor))
     probsFile = open(fileName, 'r')
     for line in probsFile.readlines():

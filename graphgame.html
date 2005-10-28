@@ -9,6 +9,7 @@
     </script>
     <script type="text/javascript" src="graphgame.js"></script>
     <p><a href="javascript:startOver();">Start over</a></p>
+    <p><a href="#inputtext">Input text directly from a previous run</a></p>
     <div id="todolist">
     <form action="graphgame.cgi" method="post">
     <table>
@@ -18,13 +19,11 @@
     </table>
     </form>
     </div>
-    <div>
-      <form action="javascript:void(0);">
-        <p>Title: <input type="text" name="newTodoTitle" id="newTodoTitle"> Next action: <input type="text" name="newTodoNextAction" id="newTodoNextAction">
-        <input type="button" value="Add new todo" onClick="return addTodo(form.newTodoTitle.value, form.newTodoNextAction.value);"></p>
-      </form>
-    </div>
-    <p><b>Status:</b> <span id="status"><span></span></span></p>
+    <p><a name="inputtext"></a>Or, input text here:</p>
+    <form action="graphgame.cgi" method="post">
+        <textarea name="directtext" rows="8" cols="50"></textarea>
+        <input type="submit" name="directtextsubmit" value="Submit">
+    </form>
   <p>
     <a href="http://validator.w3.org/check?uri=referer"><img
         src="http://www.w3.org/Icons/valid-html401"
