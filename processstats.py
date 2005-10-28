@@ -24,11 +24,22 @@ def main(fileName):
             linesToWrite.append(stringToPrint)
         else:
             print "ERROR - couldn't parse line %s" %line
-    linesToWrite.sort()
+    linesToWrite.sort(cmpWithCommaFirst)
     for line in linesToWrite:
         print line
     file.close()
 
+def cmpWithCommaFirst(x, y):
+    if (cmp(x[:3], y[:3]) != 0):
+        return cmp(x[:3], y[:3])
+    xIsComma = (x[5] == ',')
+    yIsComma = (y[5] == ',')
+    if (cmp(x,y) == -1 and yIsComma and not xIsComma):
+        return 1
+    elif (cmp(x,y) == 1 and xIsComma and not yIsComma):
+        return -1
+    else:
+        return cmp(x,y)
 
 if (__name__ == '__main__'):
     main(sys.argv[1])
