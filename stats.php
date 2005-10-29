@@ -90,7 +90,11 @@ if (isset($_POST["expectancy"])) {
             $totalGames = (integer) substr($line, $lastCommaPos2 + 1, ($lastCommaPos - $lastCommaPos2 - 1));
             $wins = (integer) substr($line, $lastCommaPos + 1);
             print "<p class=\"littlespace\">Total games: $totalGames</p><p class=\"littlespace\">Wins: $wins</p><p class=\"littlespace\"><b>Win percentage</b>: ";
-            print "0" . substr($wins/$totalGames, 1, 6);
+            if ($wins == $totalGames) {
+                print "1";
+            } else {
+                print "0" . substr($wins/$totalGames, 1, 6);
+            }
             print "</p>\n";
             $foundData = 1;
         }

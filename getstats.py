@@ -20,7 +20,7 @@ def getProbabilityOfString(stringToLookFor):
             else:
                 print "ERROR - inconsistent re!"
     probsFile.close()
-    return 0.0
+    return -1
 
 if (__name__ == '__main__'):
     print getProbability('V', 1, 0, 1, 0)

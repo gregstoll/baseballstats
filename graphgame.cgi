@@ -22,7 +22,14 @@ for key in form:
         directSituationLines = [line for line in directSituationLines if line != '']
         lastSituation = len(directSituationLines) - 1
 probs = []
+xValues = []
 inningStarts = []
+# Stores (frame number, change in score)
+runEntries = {}
+runEntries['H'] = []
+runEntries['V'] = []
+lastScoreDiff = 0
+lastHomeOrVisitor = 'H'
 for i in range(0, lastSituation + 1):
     if (not hasDirectText):
         inningCombined = form["inning%d" % i].value
@@ -36,16 +43,32 @@ for i in range(0, lastSituation + 1):
         prob = getProbability(homeOrVisitor, inning, outs, runners, scoreDiff)
     else:
         curLine = directSituationLines[i]
-        homeOrVisitor = curLine[1:2]
-        inningCombined = ''.join(''.join(curLine.split(",")[:2]).split('"'))
+        curLine = curLine.strip()
+        curLineComponents = curLine.split(',')
+        homeOrVisitor = curLineComponents[0][1:2]
+        inning = int(curLineComponents[1])
+        inningCombined = homeOrVisitor + str(inning)
+        runners = int(curLineComponents[3])
+        outs = int(curLineComponents[2])
+        scoreDiff = int(curLineComponents[4])
         if (len(inningStarts) == 0 or inningCombined != inningStarts[-1][0]):
             inningStarts.append((inningCombined, i))
-        curLine = curLine.strip()
         prob = getProbabilityOfString(curLine)
-    # We want to show home probabilities
-    if (homeOrVisitor == 'V'):
-        prob = 1 - prob
-    probs.append(prob)
+    # Keep a list of x-values, too
+    if (prob != -1):
+        # We want to show home probabilities
+        if (homeOrVisitor == 'V'):
+            prob = 1 - prob
+        probs.append(prob)
+        xValues.append(i)
+    if (homeOrVisitor == lastHomeOrVisitor):
+        if (scoreDiff != lastScoreDiff):
+            runEntries[homeOrVisitor].append((i, scoreDiff - lastScoreDiff))
+    else:
+        if (scoreDiff != -1 * lastScoreDiff):
+            runEntries[lastHomeOrVisitor].append((i, -1 * lastScoreDiff - scoreDiff))
+    lastHomeOrVisitor = homeOrVisitor
+    lastScoreDiff = scoreDiff
 #for key in os.environ:
     #print "<p>%s: %s</p>" % (key, os.environ[key])
 (tempPngFile, tempPngFileName) = mkstemp(suffix=".png")
@@ -67,12 +90,13 @@ for entry in inningStarts:
         xTicksString = xTicksString + ", "
     xTicksString = xTicksString + '"%s" %d' % (combinedInning, index)
 xTicksString = xTicksString + ")"
+# TODO - use x2tics for runEntries[]
 if (len(xTicksString) > 2):
     g('set xtics %s' % xTicksString)
     g('set grid ytics xtics')
 else:
     g('set grid ytics')
-g.plot(probs)
+g.plot(zip(xValues, probs))
 # This is necessary so the file has data when we copy it - apparently
 # g.plot() is a little asynchronous or something.
 time.sleep(.5)
