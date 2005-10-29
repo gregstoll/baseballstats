@@ -75,11 +75,9 @@ for i in range(0, lastSituation + 1):
 os.close(tempPngFile)
 g = Gnuplot.Gnuplot()
 g('set data style lines')
-g('set terminal png')
 g('set yrange[0:1]')
 g('set ylabel "Win Probability"')
 g('set ytics 0, .1, 1.0')
-g('set output "%s"' % tempPngFileName)
 g('set title "Home win probability"')
 # Build the string for the xticks
 xTicksString = "("
@@ -90,16 +88,39 @@ for entry in inningStarts:
         xTicksString = xTicksString + ", "
     xTicksString = xTicksString + '"%s" %d' % (combinedInning, index)
 xTicksString = xTicksString + ")"
-# TODO - use x2tics for runEntries[]
+# Find the points where runs were scored.
+pointsToPlot = {}
+for homeOrVisitor in runEntries.keys():
+    if (homeOrVisitor == 'H'):
+        lineType = 2
+    else:
+        lineType = 3
+    pointsToPlot[homeOrVisitor] = []
+    for runTuple in runEntries[homeOrVisitor]:
+        index = runTuple[0]
+        yVal = probs[index]
+        pointsToPlot[homeOrVisitor].append((index, yVal))
 if (len(xTicksString) > 2):
     g('set xtics %s' % xTicksString)
     g('set grid ytics xtics')
 else:
     g('set grid ytics')
 g.plot(zip(xValues, probs))
+# Plot the points where runs were scored
+# TODO - indicate how many runs scored?
+if ('H' in pointsToPlot and len(pointsToPlot['H']) > 0):
+    g.replot(Gnuplot.Data(pointsToPlot['H'], title='Runs for Home', with='points linetype 2 pointtype 4'))
+if ('V' in pointsToPlot and len(pointsToPlot['V']) > 0):
+    g.replot(Gnuplot.Data(pointsToPlot['V'], title='Runs for Visitor', with='points linetype 3 pointtype 4'))
+else:
+    g.replot(Gnuplot.Data([]))
+g('set key on')
+g('set terminal png')
+g('set output "%s"' % tempPngFileName)
+g.refresh()
 # This is necessary so the file has data when we copy it - apparently
 # g.plot() is a little asynchronous or something.
-time.sleep(.5)
+time.sleep(0.5)
 pictureName = os.path.join(os.getcwd() + '/images', os.path.basename(tempPngFileName))
 #print "<p>%s to %s</p>" % (newTempName, pictureName)
 shutil.copyfile(tempPngFileName, pictureName)
