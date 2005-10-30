@@ -120,32 +120,27 @@ else:
     g('set grid ytics')
 g.plot(zip(xValues, probs))
 # Plot the points where runs were scored
-# Indicate how many runs scored by the size of the point?
+# Indicate how many runs scored by the number of boxes around it (the boxes
+# get bigger)
 if (doRunsScored):
     if ('H' in pointsToPlot and len(pointsToPlot['H']) > 0):
-        minPointSize = 99
-        for pointToPlot in pointsToPlot['H']:
-            if (pointToPlot[2] < minPointSize):
-                minPointSize = pointToPlot[2]
         haveTitled = False
         for pointToPlot in pointsToPlot['H']:
-            if (doKey and not haveTitled and pointToPlot[2] == minPointSize):
-                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Home', with='points linetype 2 pointtype 4 pointsize %d' % pointToPlot[2]))
-                haveTitled = True
-            else:
-                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 2 pointtype 4 pointsize %d' % pointToPlot[2]))
+            for pointSize in range(1, pointToPlot[2] + 1):
+                if (doKey and not haveTitled and pointSize == 1):
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Home', with='points linetype 2 pointtype 4 pointsize %d' % pointSize))
+                    haveTitled = True
+                else:
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 2 pointtype 4 pointsize %d' % pointSize))
     if ('V' in pointsToPlot and len(pointsToPlot['V']) > 0):
-        minPointSize = 99
-        for pointToPlot in pointsToPlot['V']:
-            if (pointToPlot[2] < minPointSize):
-                minPointSize = pointToPlot[2]
         haveTitled = False
         for pointToPlot in pointsToPlot['V']:
-            if (doKey and not haveTitled and pointToPlot[2] == minPointSize):
-                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Visitor', with='points linetype 3 pointtype 4 pointsize %d' % pointToPlot[2]))
-                haveTitled = True
-            else:
-                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 3 pointtype 4 pointsize %d' % pointToPlot[2]))
+            for pointSize in range(1, pointToPlot[2] + 1):
+                if (doKey and not haveTitled and pointSize == 1):
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Visitor', with='points linetype 3 pointtype 4 pointsize %d' % pointSize))
+                    haveTitled = True
+                else:
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 3 pointtype 4 pointsize %d' % pointSize))
 if (probs[-1] > .5):
     keyLocation = "bottom"
 else:
@@ -166,7 +161,7 @@ shutil.copyfile(tempPngFileName, pictureName)
 urlName = urlparse.urljoin(os.environ['SCRIPT_URI'], 'images/' + os.path.basename(pictureName))
 print '<img src="%s" alt="Win probability graph">' % urlName
 if (doRunsScored):
-    print '<p>Note that the runs scored markers are proportional in side length to the number of runs scored on that play.</p>'
+    print '<p>Note that the number of boxes around a point indicate the number of runs scored on that play.</p>'
 print '<p>Here is a text representation of the game that you can use to input again:</p>'
 print '<pre>'
 # print out textual representation
