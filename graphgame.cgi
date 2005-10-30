@@ -21,6 +21,17 @@ for key in form:
         directSituationLines = [line.strip() for line in directSituationLines]
         directSituationLines = [line for line in directSituationLines if line != '']
         lastSituation = len(directSituationLines) - 1
+title = form["title"].value
+if ("doKey" in form):
+    doKey = form["doKey"].value
+else:
+    doKey = False
+if ("doRunsScored" in form):
+    doRunsScored = form["doRunsScored"].value
+else:
+    doRunsScored = False
+if (not doRunsScored):
+    doKey = False
 probs = []
 xValues = []
 inningStarts = []
@@ -78,7 +89,7 @@ g('set data style lines')
 g('set yrange[0:1]')
 g('set ylabel "Win Probability"')
 g('set ytics 0, .1, 1.0')
-g('set title "Home win probability"')
+g('set title "%s"' % title)
 # Build the string for the xticks
 xTicksString = "("
 for entry in inningStarts:
@@ -89,17 +100,18 @@ for entry in inningStarts:
     xTicksString = xTicksString + '"%s" %d' % (combinedInning, index)
 xTicksString = xTicksString + ")"
 # Find the points where runs were scored.
-pointsToPlot = {}
-for homeOrVisitor in runEntries.keys():
-    if (homeOrVisitor == 'H'):
-        lineType = 2
-    else:
-        lineType = 3
-    pointsToPlot[homeOrVisitor] = []
-    for runTuple in runEntries[homeOrVisitor]:
-        index = runTuple[0]
-        yVal = probs[index]
-        pointsToPlot[homeOrVisitor].append((index, yVal))
+if (doRunsScored):
+    pointsToPlot = {}
+    for homeOrVisitor in runEntries.keys():
+        if (homeOrVisitor == 'H'):
+            lineType = 2
+        else:
+            lineType = 3
+        pointsToPlot[homeOrVisitor] = []
+        for runTuple in runEntries[homeOrVisitor]:
+            index = runTuple[0]
+            yVal = probs[index]
+            pointsToPlot[homeOrVisitor].append((index, yVal, runTuple[1]))
 if (len(xTicksString) > 2):
     g('set xtics %s' % xTicksString)
     g('set grid ytics xtics')
@@ -107,14 +119,40 @@ else:
     g('set grid ytics')
 g.plot(zip(xValues, probs))
 # Plot the points where runs were scored
-# TODO - indicate how many runs scored?
-if ('H' in pointsToPlot and len(pointsToPlot['H']) > 0):
-    g.replot(Gnuplot.Data(pointsToPlot['H'], title='Runs for Home', with='points linetype 2 pointtype 4'))
-if ('V' in pointsToPlot and len(pointsToPlot['V']) > 0):
-    g.replot(Gnuplot.Data(pointsToPlot['V'], title='Runs for Visitor', with='points linetype 3 pointtype 4'))
+# Indicate how many runs scored by the size of the point?
+if (doRunsScored):
+    if ('H' in pointsToPlot and len(pointsToPlot['H']) > 0):
+        minPointSize = 99
+        for pointToPlot in pointsToPlot['H']:
+            if (pointToPlot[2] < minPointSize):
+                minPointSize = pointToPlot[2]
+        haveTitled = False
+        for pointToPlot in pointsToPlot['H']:
+            if (doKey and not haveTitled and pointToPlot[2] == minPointSize):
+                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Home', with='points linetype 2 pointtype 4 pointsize %d' % pointToPlot[2]))
+                haveTitled = True
+            else:
+                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 2 pointtype 4 pointsize %d' % pointToPlot[2]))
+    if ('V' in pointsToPlot and len(pointsToPlot['V']) > 0):
+        minPointSize = 99
+        for pointToPlot in pointsToPlot['V']:
+            if (pointToPlot[2] < minPointSize):
+                minPointSize = pointToPlot[2]
+        haveTitled = False
+        for pointToPlot in pointsToPlot['V']:
+            if (doKey and not haveTitled and pointToPlot[2] == minPointSize):
+                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Visitor', with='points linetype 3 pointtype 4 pointsize %d' % pointToPlot[2]))
+                haveTitled = True
+            else:
+                g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 3 pointtype 4 pointsize %d' % pointToPlot[2]))
+if (probs[-1] > .5):
+    keyLocation = "bottom"
 else:
-    g.replot(Gnuplot.Data([]))
-g('set key on')
+    keyLocation = "top"
+if (doKey):
+    g('set key on %s' % keyLocation)
+else:
+    g('set key off')
 g('set terminal png')
 g('set output "%s"' % tempPngFileName)
 g.refresh()

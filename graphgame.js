@@ -9,7 +9,7 @@ runnerNames[5] = "3rd";
 runnerNames[6] = "1st & 3rd";
 runnerNames[7] = "2nd & 3rd";
 runnerNames[8] = "loaded";
-var numEntries = 150;
+var numEntries = 0;
 var numScores = 8;
 
 function clearAll(elem) {
@@ -112,6 +112,56 @@ function updateRunners(idNumber, value) {
     return false;
 }
 
+function startOver() {
+    for (var i = 0; i < numEntries; i++) {
+        var inningInput = document.getElementById("inning" + i);
+        inningInput.selectedIndex = 0;
+        var outsInput = document.getElementById("outs" + i);
+        outsInput.selectedIndex = 0;
+        var runnerInput = document.getElementById("runner" + i);
+        runnerInput.selectedIndex = 0;
+        var scoreInput = document.getElementById("score" + i);
+        scoreInput.selectedIndex = numScores;
+    }
+}
+
+function setTitle(doTop, newValue) {
+    var input;
+    if (doTop) {
+        input = document.getElementById("formtoptitle");
+    } else {
+        input = document.getElementById("formbottomtitle");
+    }
+    input.value = newValue;
+    return false;
+}
+
+function setDoKey(doTop, newValue) {
+    var input;
+    if (doTop) {
+        input = document.getElementById("formtopdoKey");
+    } else {
+        input = document.getElementById("formbottomdoKey");
+    }
+    input.checked = newValue;
+    return false;
+}
+
+function setDoRunsScored(doTop, newValue) {
+    var input;
+    if (doTop) {
+        input = document.getElementById("formtopdoRunsScored");
+    } else {
+        input = document.getElementById("formbottomdoRunsScored");
+    }
+    input.checked = newValue;
+    if (newValue == false) {
+        setDoKey(false, false);
+        setDoKey(true, false);
+    }
+    return false;
+}
+
 
 function createRow(idNumber) {
     var row = document.createElement("tr");
@@ -200,5 +250,5 @@ function addEntries(entries, reset) {
     }
 }
 
-setTimeout('addEntries(150, true)', 0);
+setTimeout('addEntries(100, true)', 0);
 //]]>

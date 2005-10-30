@@ -12,15 +12,22 @@
     <p><a href="#inputtext">Input text directly from a previous run</a></p>
     <div id="todolist">
     <form action="graphgame.cgi" method="post">
+    <p>Graph title: <input type="text" name="title" id="formtoptitle" value="Home win probability" onchange="return setTitle(false, this.value);"></p>
+    <p>Show when runs scored: <input type="checkbox" name="doRunsScored" id="formtopdoRunsScored" value="doRunsScored" checked onchange="return setDoRunsScored(false, this.checked);"></p>
+    <p>Show legend of when runs scored: <input type="checkbox" name="doKey" id="formtopdoKey" value="doKey" checked onchange="return setDoKey(false, this.checked);"></p>
     <table>
         <tbody id="situationTBody">
             <tr><th>Inning</th><th>Outs</th><th>Runners</th><th>Score diff</th><th></th></tr>
         </tbody>
     </table>
+    <p><a href="javascript:addEntries(50, false);">Add more entries</a></p>
     </form>
     </div>
     <p><a name="inputtext"></a>Or, input text here:</p>
     <form action="graphgame.cgi" method="post">
+        <p>Graph title: <input type="text" name="title" id="formbottomtitle" onchange="return setTitle(true, this.value);" value="Home win probability"></p>
+        <p>Show when runs scored: <input type="checkbox" name="doRunsScored" id="formbottomdoRunsScored" value="doRunsScored" checked onchange="return setDoRunsScored(true, this.checked);"></p>
+        <p>Show legend of when runs scored: <input type="checkbox" name="doKey" id="formbottomdoKey" value="doKey" checked onchange="return setDoKey(true, this.checked);"></p>
         <textarea name="directtext" rows="8" cols="50"></textarea>
         <input type="submit" name="directtextsubmit" value="Submit">
     </form>
