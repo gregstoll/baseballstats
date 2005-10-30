@@ -9,6 +9,7 @@ form = cgi.FieldStorage()
 print 'Content-type: text/html\n\n'
 print '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">'
 print '<html><head><title>Win probability graph</title></head><body>'
+print '<p>These image files are cleaned out every few hours, so please download a copy of the image if you want to keep it.</p>'
 #for key in form:
     #print '<p>%s: %s</p>' % (key, form[key].value)
 hasDirectText = False
