@@ -9,7 +9,7 @@ form = cgi.FieldStorage()
 print 'Content-type: text/html\n\n'
 print '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">'
 print '<html><head><title>Win probability graph</title></head><body>'
-print '<p>These image files are cleaned out every few hours, so please download a copy of the image if you want to keep it.</p>'
+print '<p>These image files are cleaned out every few hours, so please download a copy of the image if you want to keep it. Or see <a href=\"#text\">below</a> to save a text representation that can be easily re-entered.</p>'
 #for key in form:
     #print '<p>%s: %s</p>' % (key, form[key].value)
 hasDirectText = False
@@ -187,7 +187,7 @@ urlName = urlparse.urljoin(os.environ['SCRIPT_URI'], 'images/' + os.path.basenam
 print '<img src="%s" alt="Win probability graph">' % urlName
 if (doRunsScored):
     print '<p>Note that the number of boxes around a point indicate the number of runs scored on that play.</p>'
-print '<p>Here is a text representation of the game that you can use to input again:</p>'
+print '<p><a name=\"text\">Here is a text representation of the game that you can use to input again:</p>'
 print '<pre>'
 # print out textual representation
 for i in range(0, lastSituation + 1):
