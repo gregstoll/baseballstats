@@ -104,6 +104,7 @@ if (isset($_POST["expectancy"])) {
     }
 
 }
+print "<p>To make a graph of the Win Expectancy of a baseball game, use the <a href=\"graphgame.html\">graph a game</a> tool.</p>\n";
 print "<p>This data is from MLB games from 1960-1992 and 2000-2004. It now includes all regular-season event files available at <a href=\"http://www.retrosheet.org/game.htm\">Retrosheet</a>.</p>\n";
 print "<p>Idea taken from <a href=\"http://walkoffbalk.com/tools/winexp/index.php\">Win Expectancy Finder</a> at <a href=\"http://walkoffbalk.com\">walkoffbalk.com</a>.</p>\n";
 print "<ul><li><a href=\"stats.txt\">stats.php</a> - the source for .php file\n";
