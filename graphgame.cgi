@@ -162,12 +162,8 @@ if (doRunsScored):
                     haveTitled = True
                 else:
                     g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 3 pointtype 4 pointsize %d' % pointSize))
-if (probs[-1] > .5):
-    keyLocation = "bottom"
-else:
-    keyLocation = "top"
 if (doKey):
-    g('set key on %s' % keyLocation)
+    g('set key on left top reverse Left')
 else:
     g('set key off')
 pngOptions = ""
