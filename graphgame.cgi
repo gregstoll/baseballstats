@@ -22,6 +22,7 @@ for key in form:
         directSituationLines = form["directtext"].value.split("\n")
         directSituationLines = [line.strip() for line in directSituationLines]
         directSituationLines = [line for line in directSituationLines if line != '']
+        directSituationLines = [line for line in directSituationLines if (not line.startswith('//'))]
         lastSituation = len(directSituationLines) - 1
 title = form["title"].value
 if ("doKey" in form):
@@ -74,6 +75,20 @@ for i in range(0, lastSituation + 1):
             prob = 1 - prob
         probs.append(prob)
         xValues.append(i)
+    else:
+        # Correct for end conditions
+        if (inning >= 9 and homeOrVisitor == 'H' and scoreDiff > 0):
+            prob = 1
+            probs.append(prob)
+            xValues.append(i)
+        elif (inning > 9 and homeOrVisitor == 'V' and scoreDiff > 0):
+            prob = 0
+            probs.append(prob)
+            xValues.append(i)
+        else:
+            # We should never see this value in the graph, but we need to keep
+            # the probs list in sync.
+            probs.append(-1)
     if (homeOrVisitor == lastHomeOrVisitor):
         if (scoreDiff != lastScoreDiff):
             runEntries[homeOrVisitor].append((i, scoreDiff - lastScoreDiff))
@@ -150,7 +165,12 @@ if (doKey):
     g('set key on %s' % keyLocation)
 else:
     g('set key off')
-g('set terminal png')
+pngOptions = ""
+# TODO - make the size an option.
+if (xValues[-1] > 100):
+    # More than 100 entries means we're kind of long, so make the graph bigger.
+    pngOptions = "size %d, %d" % (800, 600)
+g('set terminal png %s ' % pngOptions)
 g('set output "%s"' % tempPngFileName)
 g.refresh()
 # This is necessary so the file has data when we copy it - apparently
