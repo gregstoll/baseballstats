@@ -167,9 +167,12 @@ else:
     g('set key off')
 pngOptions = ""
 # TODO - make the size an option.
-if (xValues[-1] > 100):
+if (xValues[-1] >= 100):
     # More than 100 entries means we're kind of long, so make the graph bigger.
-    pngOptions = "size %d, %d" % (800, 600)
+    if (xValues[-1] >= 150):
+        pngOptions = "size %d, %d" % (1024, 768)
+    else:
+        pngOptions = "size %d, %d" % (800, 600)
 g('set terminal png %s ' % pngOptions)
 g('set output "%s"' % tempPngFileName)
 g.refresh()
