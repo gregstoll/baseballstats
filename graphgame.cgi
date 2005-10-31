@@ -88,6 +88,7 @@ for i in range(0, lastSituation + 1):
         else:
             # We should never see this value in the graph, but we need to keep
             # the probs list in sync.
+            # TODO - put a marker on the graph?
             probs.append(-1)
     if (homeOrVisitor == lastHomeOrVisitor):
         if (scoreDiff != lastScoreDiff):
@@ -97,6 +98,10 @@ for i in range(0, lastSituation + 1):
             runEntries[lastHomeOrVisitor].append((i, -1 * lastScoreDiff - scoreDiff))
     lastHomeOrVisitor = homeOrVisitor
     lastScoreDiff = scoreDiff
+if (inningStarts[-1][1] == lastSituation):
+    # This is just an entry to show the final outcome of the game, so don't
+    # plot on x-axis.
+    inningStarts = inningStarts[:-1]
 #for key in os.environ:
     #print "<p>%s: %s</p>" % (key, os.environ[key])
 (tempPngFile, tempPngFileName) = mkstemp(suffix=".png")
