@@ -155,6 +155,8 @@ function setDoRunsScored(doTop, newValue) {
         input = document.getElementById("formbottomdoRunsScored");
     }
     input.checked = newValue;
+    // If we're not showing where runs are scored, it doesn't make sense
+    // to show the key.
     if (newValue == false) {
         setDoKey(false, false);
         setDoKey(true, false);
@@ -170,7 +172,9 @@ function createRow(idNumber) {
     var inningInput = document.createElement("select");
     inningInput.id = "inning" + idNumber;
     inningInput.name = "inning" + idNumber;
-    inningInput.setAttribute("onchange", "return updateInnings(" + idNumber + ", this.selectedIndex);");
+    inningInput.onchange = function() {
+        return updateInnings(idNumber, this.selectedIndex);
+    }
     for (var i = 1; i <= 18; i++) {
         var visitorInning = document.createElement("option");
         visitorInning.value = "V" + i;
@@ -185,7 +189,9 @@ function createRow(idNumber) {
     row.appendChild(inningTd);
     var outsTd = document.createElement("td");
     var outsInput = document.createElement("select");
-    outsInput.setAttribute("onchange", "return updateOuts(" + idNumber + ", this.selectedIndex);");
+    outsInput.onchange = function() {
+        return updateOuts(idNumber, this.selectedIndex);
+    }
     outsInput.id = "outs" + idNumber;
     outsInput.name = "outs" + idNumber;
     for (var i = 0; i < 3; i++) {
@@ -198,7 +204,9 @@ function createRow(idNumber) {
     row.appendChild(outsTd);
     var runnerTd = document.createElement("td");
     var runnerInput = document.createElement("select");
-    runnerInput.setAttribute("onchange", "return updateRunners(" + idNumber + ", this.selectedIndex);");
+    runnerInput.onchange = function() {
+        return updateRunners(idNumber, this.selectedIndex);
+    }
     runnerInput.id = "runner" + idNumber;
     runnerInput.name = "runner" + idNumber;
     for (var i = 1; i <= 8; i++) {
@@ -211,7 +219,9 @@ function createRow(idNumber) {
     row.appendChild(runnerTd);
     var scoreTd = document.createElement("td");
     var scoreInput = document.createElement("select");
-    scoreInput.setAttribute("onchange", "return updateScore(" + idNumber + ", this.selectedIndex);");
+    scoreInput.onchange = function() {
+        return updateScore(idNumber, this.selectedIndex);
+    }
     scoreInput.id = "score" + idNumber;
     scoreInput.name = "score" + idNumber;
     for (var i = -numScores; i <= numScores; i++) {
