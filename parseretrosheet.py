@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import re, sys
+import re, sys, copy
 
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
@@ -7,7 +7,7 @@ import re, sys
 stats = {}
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 numGames = 0
-quiet = 0
+quiet = 1
 
 def gameSitString(gameSituation):
     return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (gameSituation['inning'], gameSituation['isHome'], gameSituation['outs'], gameSituation['curScoreDiff'], gameSituation['runners'])
@@ -22,29 +22,38 @@ def initializeGame(gameSituation):
 def getKeyFromSituation(situation):
     return (situation['inning'], situation['isHome'], situation['outs'], (situation['runners'][0], situation['runners'][1], situation['runners'][2]), situation['curScoreDiff'])
 
-def addGameToStats(gameKeys, gameSituation):
+def getSituationFromKey(key):
+    situation = {}
+    situation['inning'] = key[0]
+    situation['isHome'] = key[1]
+    situation['outs'] = key[2]
+    situation['runners'] = [key[3][0], key[3][1], key[3][2]]
+    situation['curScoreDiff'] = key[4]
+    return situation
+
+def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation):
     # Add gameKeys to stats
     # Check the last situation to see who won.
-    if (gameSituation['isHome']):
-        if (gameSituation['curScoreDiff'] > 0):
+    if (finalGameSituation['isHome']):
+        if (finalGameSituation['curScoreDiff'] > 0):
             homeWon = True
-        elif (gameSituation['curScoreDiff'] < 0):
+        elif (finalGameSituation['curScoreDiff'] < 0):
             homeWon = False
         else:
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
     else:
-        if (gameSituation['curScoreDiff'] > 0):
+        if (finalGameSituation['curScoreDiff'] > 0):
             # TODO - can this really happen?
             homeWon = False
-        elif (gameSituation['curScoreDiff'] < 0):
+        elif (finalGameSituation['curScoreDiff'] < 0):
             homeWon = True
         else:
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
-    for situationKey in gameKeys:
+    for situationKey in gameSituationKeys:
         isHomeInning = situationKey[1]
         isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
         if (situationKey in stats):
@@ -60,47 +69,82 @@ def addGameToStats(gameKeys, gameSituation):
                 numWins = 0
             stats[situationKey] = (numWins, 1)
 
+def getNextInning(inning):
+    if (inning[1]):
+        return (inning[0]+1, 0)
+    else:
+        return (inning[0], 1)
+
+def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation):
+    inningsToKeys = {}
+    for situationKey in gameSituationKeys:
+        situation = getSituationFromKey(situationKey)
+        key = (situation['inning'], situation['isHome'])
+        if (key in inningsToKeys):
+            inningsToKeys[key].append(situation)
+        else:
+            inningsToKeys[key] = [situation]
+    for inning in inningsToKeys:
+        startingRunDiff = inningsToKeys[inning][0]['curScoreDiff']
+        if (getNextInning(inning) in inningsToKeys):
+            endingRunDiff = -1 * inningsToKeys[getNextInning(inning)][0]['curScoreDiff']
+        else:
+            endingRunDiff = inningsToKeys[inning][-1]['curScoreDiff']
+        if (endingRunDiff - startingRunDiff < 0):
+            print "uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff)
+            assert False
+        # Add the statistics now.
+        for situation in inningsToKeys[inning]:
+            # Make sure we don't duplicate keys.
+            keysUsed = []
+            # Strip off the inning info (for now?) and the curScoreDiff
+            keyToUse = getKeyFromSituation(situation)[2:4] 
+            runsGained = endingRunDiff - situation['curScoreDiff']
+            if (keyToUse in stats):
+                while (len(stats[keyToUse]) < (runsGained + 1)):
+                    stats[keyToUse].append(0)
+            else:
+                stats[keyToUse] = [0] * (runsGained + 1)
+            stats[keyToUse][runsGained] += 1
+
 def parseFile(file):
     global numGames
     inGame = 0
-    gameSituation = {}
-    curGameKeys = []
+    curGameSituation = {}
+    gameSituationKeys = []
     for line in file.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
-                initializeGame(gameSituation)
-                gameKeys = []
-                gameKeys.append(getKeyFromSituation(gameSituation))
+                initializeGame(curGameSituation)
+                gameSituationKeys = []
+                gameSituationKeys.append(getKeyFromSituation(curGameSituation))
                 inGame = 1
                 numGames = numGames + 1
         else:
             if (line.startswith("id,")):
                 # Add gameKeys to stats
-                addGameToStats(gameKeys, gameSituation)
+                addGameToStats(gameSituationKeys, curGameSituation)
                 if (not quiet):
                     print "NEW GAME"
-                initializeGame(gameSituation)
-                gameKeys = []
-                gameKeys.append(getKeyFromSituation(gameSituation))
+                initializeGame(curGameSituation)
+                gameSituationKeys = []
+                gameSituationKeys.append(getKeyFromSituation(curGameSituation))
                 numGames = numGames + 1
             else:
                 if (line.startswith("play")):
                     try:
-                        parsePlay(line, gameSituation)
+                        parsePlay(line, curGameSituation)
                     except AssertionError:
                         if (not quiet):
                             raise
                         else:
                             # We're just gonna punt and ignore the error
-                            initializeGame(gameSituation)
-                            gameKeys = []
-                            gameKeys.append(getKeyFromSituation(gameSituation))
-                            numGames = numGames + 1
+                            inGame = 0
                     else:
-                        key = getKeyFromSituation(gameSituation)
-                        if (key not in gameKeys):
-                            gameKeys.append(key)
-    addGameToStats(gameKeys, gameSituation)
+                        curGameSituationKey = getKeyFromSituation(curGameSituation)
+                        if (curGameSituationKey not in gameSituationKeys):
+                            gameSituationKeys.append(curGameSituationKey)
+    addGameToStats(gameSituationKeys, curGameSituation)
 
 def batterToFirst(runnerDests):
     runnerDests['B'] = 1
@@ -680,6 +724,9 @@ def parsePlay(line, gameSituation):
         gameSituation['runners'] = newRunners
     # We're done - the information is "returned" in gameSituation
 
+# This selects what stats we're compiling.
+#addGameToStats = addGameToStatsWinExpectancy
+addGameToStats = addGameToStatsRunExpectancyPerInning
 def main(files):
     global quiet
     if (files[0] == '-q'):
@@ -693,7 +740,7 @@ def main(files):
         parseFile(eventFile)
         eventFile.close()
     print "numGames is %d" % numGames
-    outputFile = open('stats', 'w')
+    outputFile = open('runsperinningstats', 'w')
     statKeys = stats.keys()
     statKeys.sort()
     for key in statKeys:
