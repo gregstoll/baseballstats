@@ -1,5 +1,6 @@
 //<![CDATA[
 
+var runsXML = null;
 // Taken from http://www.wrox.com/WileyCDA/Section/id-291861.html
 if (!Element.selectNodes) {
     Element.prototype.selectNodes = function (sXPath) {
@@ -79,8 +80,10 @@ function clearAllStartingNode(elem, startingNode) {
 function processResponse(originalRequest) {
     var outs = $F('outs');
     var runners = $F('runners');
-    // TODO
-    var docElem = originalRequest.responseXML.documentElement;
+    if (runsXML == null) {
+        runsXML = originalRequest.responseXML.documentElement;
+    }
+    var docElem = runsXML;
     var elems = docElem.selectNodes('situation[@outs="' + outs + '" and @runners="' + runners + '"]');
     if (elems.length > 0) {
         clearAll($('outTbody'));
@@ -135,7 +138,11 @@ function processResponse(originalRequest) {
 }
 
 function updateProbabilities() {
-    doRequest('runsperinning.xml', true, processResponse, 'GET', null);
+    if (runsXML == null) {
+        doRequest('runsperinning.xml', true, processResponse, 'GET', null);
+    } else {
+        processResponse(null);
+    }
 }
 
 function doRequest(url, async, callback, method, postData) {

@@ -725,6 +725,8 @@ def parsePlay(line, gameSituation):
     # We're done - the information is "returned" in gameSituation
 
 # This selects what stats we're compiling.
+# TODO - do both of these
+reportsToRun = [(addGameToStatsWinExpectancy, 'stats'), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats')]
 #addGameToStats = addGameToStatsWinExpectancy
 addGameToStats = addGameToStatsRunExpectancyPerInning
 def main(files):

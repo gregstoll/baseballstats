@@ -1,0 +1,53 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+  <head>
+    <META http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <title>Runs per inning</title>
+    <style type="text/css">
+        td { text-align: right; }
+    </style>
+  </head>
+  <body>
+    <form action="javascript:void(0);">
+        <p><label for="outs">Outs: </label><select name="outs" id="outs" onchange="updateProbabilities();">
+        <option value="0">0</option>
+        <option value="1">1</option>
+        <option value="2">2</option></select></p>
+    <p><label for="runners">Runners on base: </label><select name="runners" id="runners" onchange="updateProbabilities();">
+        <option value="1">none</option>
+        <option value="2">1st</option>
+        <option value="3">2nd</option>
+        <option value="4">1st &amp; 2nd</option>
+        <option value="5">3rd</option>
+        <option value="6">1st &amp; 3rd</option>
+        <option value="7">2nd &amp; 3rd</option>
+        <option value="8">loaded</option>
+    </select></p>
+    <p><b>Expected runs: </b><span id="outExpected"></span></p>
+    <table>
+    <tbody id="outTbody">
+        <tr><td>Loading...</td></tr>
+    </tbody>
+    </table>
+    </form>
+
+  <p>This uses the same data that the <a href="stats.php">Win Expectancy Finder</a> uses.  Here are the source files:</p>
+  <ul>
+  <li><a href="parseretrosheet.txt">parseretrosheet.py</a> - parses the <a href="http://www.retrosheet.org/game.htm">Retrosheet data</a> and generates the raw XML data.</li>
+  <li><a href="runsperinning.xml">runsperinning.xml</a> - the raw XML data</li>
+  <li><a href="runsperinning.js">runsperinning.js</a> - the Javascript file that gets the XML data and updates this page.</li>
+  <li><a href="prototype-1.4.0.js">prototype-1.4.0.js</a> - <a href="http://prototype.conio.net/">prototype.js</a> is a set of very useful utilities relating to DOM manipulation and XMLHttpRequests.</li>
+  </ul>
+ <p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>
+<p><a href="http://www.gregstoll.com">Greg's home page</a></p>
+<p>
+  <p>
+    <a href="http://validator.w3.org/check?uri=referer"><img
+        src="http://www.w3.org/Icons/valid-html401"
+        alt="Valid HTML 4.01 Strict" height="31" width="88"></a>
+  </p>
+  <script type="text/javascript" src="prototype-1.4.0.js"></script>
+  <script type="text/javascript" src="runsperinning.js"></script>
+  <!--#include virtual="/endOfBody.html"-->
+  </body>
+</html>
