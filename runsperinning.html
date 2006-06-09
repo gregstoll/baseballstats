@@ -2,12 +2,13 @@
 <html>
   <head>
     <META http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-    <title>Runs per inning</title>
+    <title>Expected Runs in an Inning</title>
     <style type="text/css">
         td { text-align: right; }
     </style>
   </head>
   <body>
+    <p><a href="#about">About this project</a></p>
     <form action="javascript:void(0);">
         <p><label for="outs">Outs: </label><select name="outs" id="outs" onchange="updateProbabilities();">
         <option value="0">0</option>
@@ -31,7 +32,14 @@
     </table>
     </form>
 
-  <p>This uses the same data that the <a href="stats.php">Win Expectancy Finder</a> uses.  Here are the source files:</p>
+    <p id="about"><b>About this project:</b> This shows, for a given situation,
+    what the expected number of runs scored in the rest of the inning is,
+    as well as the historical distribution of runs.</p>
+    <p>This is based on the same data that the <a href="stats.php">Win Expectancy Finder</a> uses.  The data is from MLB games from 1957-2005 (excluding 1999).</p>
+    <p>From a technical standpoint, I got to use <a href="http://www.wrox.com/WileyCDA/Section/id-291861.html">XPath</a> to select the elements from the XML 
+    file.  This was also my first project to use the
+    <a href="http://prototype.conio.net/">prototype.js</a> library. Here are
+    my source files:</p>
   <ul>
   <li><a href="parseretrosheet.txt">parseretrosheet.py</a> - parses the <a href="http://www.retrosheet.org/game.htm">Retrosheet data</a> and generates the raw XML data.</li>
   <li><a href="runsperinning.xml">runsperinning.xml</a> - the raw XML data</li>
@@ -39,7 +47,8 @@
   <li><a href="prototype-1.4.0.js">prototype-1.4.0.js</a> - <a href="http://prototype.conio.net/">prototype.js</a> is a set of very useful utilities relating to DOM manipulation and XMLHttpRequests.</li>
   </ul>
  <p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>
-<p><a href="http://www.gregstoll.com">Greg's home page</a></p>
+  <p><a href="/">Greg's home page</a></p>
+  <p><a href="index.html">Baseball statistic calculators</a></p>
 <p>
   <p>
     <a href="http://validator.w3.org/check?uri=referer"><img
