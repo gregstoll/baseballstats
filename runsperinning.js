@@ -1,28 +1,8 @@
 //<![CDATA[
 
 var runsXML = null;
-var runsXMLElem = null;
 var isIE = null;
 var TEXTNODETYPE = 3;
-// Taken from http://www.wrox.com/WileyCDA/Section/id-291861.html
-/*if (!Element.selectNodes) {
-    Element.prototype.selectNodes = function (sXPath) {
-        var oEvaluator = new XPathEvaluator();
-        var oResult = oEvaluator.evaluate(sXPath, this, null, 
-        XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);    
-        
-        var aNodes = new Array;
-        
-        if (oResult != null) {
-            var oElement = oResult.iterateNext();
-            while(oElement) {
-                aNodes.push(oElement);
-                oElement = oResult.iterateNext();
-            }
-        }
-        return aNodes;
-    };
-}*/
 
 function getDOMText(nodes) {
     var toReturn = "";
@@ -80,7 +60,7 @@ function clearAllStartingNode(elem, startingNode) {
     }
 }
 
-function getXPathFromXML(xmlElem, xmlText) {
+function getXPathFromXML(xmlElem) {
     var xpath = null;
     Try.these(function() {xpath = new ActiveXObject("Msxml2.DomDocument2");},
               function() {xpath = new ActiveXObject("Msxml2.DomDocument");},
@@ -88,26 +68,30 @@ function getXPathFromXML(xmlElem, xmlText) {
               function() {xpath = null;});
     if (xpath != null) {
         isIE = true;
-        xpath.loadXML(xmlText);
+        // xmlElem.xml is IE-only, but only IE needs it, so we''re OK.
+        xpath.loadXML(xmlElem.xml);
         return xpath;
     } else {
         isIE = false;
-        xmlElem.selectNodes = function (sXPath) {
-            var oEvaluator = new XPathEvaluator();
-            var oResult = oEvaluator.evaluate(sXPath, this, null, 
-            XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);    
-            
-            var aNodes = new Array;
-            
-            if (oResult != null) {
-                var oElement = oResult.iterateNext();
-                while(oElement) {
-                    aNodes.push(oElement);
-                    oElement = oResult.iterateNext();
+        if (!xmlElem.selectNodes) {
+            // Taken from http://www.wrox.com/WileyCDA/Section/id-291861.html
+            Element.prototype.selectNodes = function(sXPath) {
+                var oEvaluator = new XPathEvaluator();
+                var oResult = oEvaluator.evaluate(sXPath, this, null, 
+                    XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);    
+        
+                var aNodes = new Array;
+        
+                if (oResult != null) {
+                    var oElement = oResult.iterateNext();
+                    while(oElement) {
+                        aNodes.push(oElement);
+                        oElement = oResult.iterateNext();
+                    }
                 }
-            }
-            return aNodes;
-        };
+                return aNodes;
+            };
+        }
         return xmlElem;
     }
 }
@@ -116,19 +100,11 @@ function processResponse(originalRequest) {
     var outs = $F('outs');
     var runners = $F('runners');
     if (runsXML == null) {
-        runsXMLElem = originalRequest.responseXML.documentElement;
-        runsXML = originalRequest.responseText;
+        runsXML = originalRequest.responseXML.documentElement;
     }
-    var docElem = runsXMLElem;
-    var xpath = getXPathFromXML(docElem, runsXML);
-    // FFV - this expression doesn''t return any values in IE 6.
-    var mozXPathExpr = 'situation[@outs="' + outs + '" and @runners="' + runners + '"]';
-    var ieXPathExpr = '/situations/situation[@outs="' + outs + '" and @runners="' + runners + '"]';
-    if (isIE) {
-        xpathExpr = ieXPathExpr;
-    } else {
-        xpathExpr = mozXPathExpr;
-    }
+    var docElem = runsXML;
+    var xpath = getXPathFromXML(docElem);
+    var xpathExpr = '//situation[@outs="' + outs + '" and @runners="' + runners + '"]';
     var elems = xpath.selectNodes(xpathExpr);
     if (elems.length > 0) {
         clearAll($('outTbody'));
@@ -144,19 +120,15 @@ function processResponse(originalRequest) {
         $('outTbody').appendChild(headerRow);
         
         var element = elems[0];
-        if (isIE) {
-            var elementXPath = getXPathFromXML(element, element.xml);
-        } else {
-            var elementXPath = getXPathFromXML(element, null);
-        }
-        // FFV - this expression doesn''t return any values in IE 6.
-        mozXPathExpr = 'total';
-        ieXPathExpr = '/situation/total';
-        if (isIE) {
-            xpathExpr = ieXPathExpr;
-        } else {
-            xpathExpr = mozXPathExpr;
-        }
+        var elementXPath = getXPathFromXML(element);
+        // FFV - I can''t get these two to play together.
+        // 'total' doesn''t return anything for IE, while
+        // '/situation/total' doesn''t for mozilla, and
+        // '//total' (bizarrely) returns the first total
+        // in the xml document, which is scary.
+        mozXpathExpr = 'total';
+        ieXpathExpr = '/situation/total';
+        xpathExpr = (isIE) ? ieXpathExpr : mozXpathExpr;
         var total = parseInt(getDOMText(elementXPath.selectNodes(xpathExpr)[0].childNodes));
 
         var totalRow = document.createElement('tr');
