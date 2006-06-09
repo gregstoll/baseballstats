@@ -1,8 +1,11 @@
 //<![CDATA[
 
 var runsXML = null;
+var runsXMLElem = null;
+var isIE = null;
+var TEXTNODETYPE = 3;
 // Taken from http://www.wrox.com/WileyCDA/Section/id-291861.html
-if (!Element.selectNodes) {
+/*if (!Element.selectNodes) {
     Element.prototype.selectNodes = function (sXPath) {
         var oEvaluator = new XPathEvaluator();
         var oResult = oEvaluator.evaluate(sXPath, this, null, 
@@ -19,12 +22,12 @@ if (!Element.selectNodes) {
         }
         return aNodes;
     };
-}
+}*/
 
 function getDOMText(nodes) {
     var toReturn = "";
     for (var i = 0; i < nodes.length; i++) {
-        if (nodes[i].nodeType == Node.TEXT_NODE) {
+        if (nodes[i].nodeType == TEXTNODETYPE) {
             toReturn = toReturn + nodes[i].nodeValue;
         }
     }
@@ -77,14 +80,56 @@ function clearAllStartingNode(elem, startingNode) {
     }
 }
 
+function getXPathFromXML(xmlElem, xmlText) {
+    var xpath = null;
+    Try.these(function() {xpath = new ActiveXObject("Msxml2.DomDocument2");},
+              function() {xpath = new ActiveXObject("Msxml2.DomDocument");},
+              function() {xpath = new ActiveXObject("Microsoft.XMLDOM");},
+              function() {xpath = null;});
+    if (xpath != null) {
+        isIE = true;
+        xpath.loadXML(xmlText);
+        return xpath;
+    } else {
+        isIE = false;
+        xmlElem.selectNodes = function (sXPath) {
+            var oEvaluator = new XPathEvaluator();
+            var oResult = oEvaluator.evaluate(sXPath, this, null, 
+            XPathResult.ORDERED_NODE_ITERATOR_TYPE, null);    
+            
+            var aNodes = new Array;
+            
+            if (oResult != null) {
+                var oElement = oResult.iterateNext();
+                while(oElement) {
+                    aNodes.push(oElement);
+                    oElement = oResult.iterateNext();
+                }
+            }
+            return aNodes;
+        };
+        return xmlElem;
+    }
+}
+
 function processResponse(originalRequest) {
     var outs = $F('outs');
     var runners = $F('runners');
     if (runsXML == null) {
-        runsXML = originalRequest.responseXML.documentElement;
+        runsXMLElem = originalRequest.responseXML.documentElement;
+        runsXML = originalRequest.responseText;
     }
-    var docElem = runsXML;
-    var elems = docElem.selectNodes('situation[@outs="' + outs + '" and @runners="' + runners + '"]');
+    var docElem = runsXMLElem;
+    var xpath = getXPathFromXML(docElem, runsXML);
+    // FFV - this expression doesn''t return any values in IE 6.
+    var mozXPathExpr = 'situation[@outs="' + outs + '" and @runners="' + runners + '"]';
+    var ieXPathExpr = '/situations/situation[@outs="' + outs + '" and @runners="' + runners + '"]';
+    if (isIE) {
+        xpathExpr = ieXPathExpr;
+    } else {
+        xpathExpr = mozXPathExpr;
+    }
+    var elems = xpath.selectNodes(xpathExpr);
     if (elems.length > 0) {
         clearAll($('outTbody'));
         var headerRow = document.createElement('tr');
@@ -99,7 +144,21 @@ function processResponse(originalRequest) {
         $('outTbody').appendChild(headerRow);
         
         var element = elems[0];
-        var total = parseInt(getDOMText(element.selectNodes('total')[0].childNodes));
+        if (isIE) {
+            var elementXPath = getXPathFromXML(element, element.xml);
+        } else {
+            var elementXPath = getXPathFromXML(element, null);
+        }
+        // FFV - this expression doesn''t return any values in IE 6.
+        mozXPathExpr = 'total';
+        ieXPathExpr = '/situation/total';
+        if (isIE) {
+            xpathExpr = ieXPathExpr;
+        } else {
+            xpathExpr = mozXPathExpr;
+        }
+        var total = parseInt(getDOMText(elementXPath.selectNodes(xpathExpr)[0].childNodes));
+
         var totalRow = document.createElement('tr');
         var totalHeader = document.createElement('th');
         totalHeader.appendChild(document.createTextNode('Total'));
