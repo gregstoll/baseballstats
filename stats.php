@@ -7,12 +7,13 @@ print "<style type=\"text/css\">\n";
 print "  P.littlespace {margin: 2px;}\n";
 print "</style></head>\n";
 print "<body>\n";
-print "<form action=\"" . basename($PHP_SELF) . "\" method=\"post\">\n";
+print "<form action=\"" . basename($PHP_SELF) . "\" method=\"GET\">\n";
 print "<p class=\"littlespace\">Team:\n";
-if (!isset($_POST["expectancy"])) {
+$isSubmitted = isset($_GET["team"]) && isset($_GET["inning"]) && isset($_GET["outs"]) && isset($_GET["runners"]) && isset($_GET["scorediff"]);
+if (!isSubmitted) {
     $toSelect = "H";
 } else {
-    $toSelect = $_POST["team"];
+    $toSelect = $_GET["team"];
 }
 print "<input type=\"radio\" name=\"team\" value=\"H\"";
 if ($toSelect == "H") {
@@ -27,8 +28,8 @@ print ">Visitor\n";
 print "<p class=\"littlespace\">Inning: <select name=\"inning\">\n";
 for ($i = 1; $i <= 15; $i++) {
     print "<option value=\"$i\"";
-    if ((!isset($_POST["expectancy"]) && $i == 1) ||
-        (isset($_POST["expectancy"]) && $i == $_POST["inning"])) {
+    if ((!$isSubmitted && $i == 1) ||
+        ($isSubmitted && $i == $_GET["inning"])) {
         print " selected";
     }
     print ">$i</option>\n";
@@ -37,18 +38,18 @@ print "</select>\n";
 print "<p class=\"littlespace\">Outs: <select name=\"outs\">\n";
 for ($i = 0; $i <= 2; $i++) {
     print "<option value=\"$i\"";
-    if ((!isset($_POST["expectancy"]) && $i == 0) ||
-        (isset($_POST["expectancy"]) && $i == $_POST["outs"])) {
+    if ((!$isSubmitted && $i == 0) ||
+        ($isSubmitted && $i == $_GET["outs"])) {
         print " selected";
     }
     print ">$i</option>\n";
 }
 print "</select>\n";
 print "<p class=\"littlespace\">Runners on base: <select name=\"runners\">\n";
-if (!isset($_POST["expectancy"])) {
+if ($isSubmitted) {
     $toSelect = 1;
 } else {
-    $toSelect = $_POST["runners"];
+    $toSelect = $_GET["runners"];
 }
 $runnerText = array(1 => "none",
 2 => "1st",
@@ -69,17 +70,17 @@ print "</select>\n";
 print "<p class=\"littlespace\">Score difference: <select name=\"scorediff\">\n";
 for ($i = -8; $i <= 8; $i++) {
     print "<option value=\"$i\"";
-    if ((!isset($_POST["expectancy"]) && $i == 0) ||
-        (isset($_POST["expectancy"]) && $i == $_POST["scorediff"])) {
+    if ((!$isSubmitted && $i == 0) ||
+        ($isSubmitted && $i == $_GET["scorediff"])) {
         print " selected";
     }
     print ">$i</option>\n";
 }
 print "</select>\n";
-print "<p class=\"littlespace\"><input type=\"submit\" value=\"Get expectancy\" name=\"expectancy\"></p>\n";
+print "<p class=\"littlespace\"><input type=\"submit\" value=\"Get expectancy\"></p>\n";
 print "</form>\n";
-if (isset($_POST["expectancy"])) {
-    $lineToLookFor = "\"" . $_POST["team"] . "\"," . $_POST["inning"] . "," . $_POST["outs"] . "," . $_POST["runners"] . "," . $_POST["scorediff"] . ",";
+if ($isSubmitted) {
+    $lineToLookFor = "\"" . $_GET["team"] . "\"," . $_GET["inning"] . "," . $_GET["outs"] . "," . $_GET["runners"] . "," . $_GET["scorediff"] . ",";
     print "<!-- Line to look for: $lineToLookFor -->\n";
     $foundData = 0;
     $lines = file($probsFileName);
