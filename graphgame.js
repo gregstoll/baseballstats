@@ -12,60 +12,6 @@ runnerNames[8] = "loaded";
 var numEntries = 0;
 var numScores = 8;
 
-function clearAll(elem) {
-    clearAllStarting(elem, 0);
-}
-
-function clearAllButFirstElement(elem) {
-    clearAllStarting(elem, 1);
-}
-
-function clearAllAfterFirstElementType(elem, elemType) {
-    if (!elem || elem.childNodes.length == 0) {
-        return;
-    }
-    var curChild = elem.childNodes[0];
-    while (curChild != null && curChild.nodeName.toUpperCase() != elemType.toUpperCase()) {
-        curChild = curChild.nextSibling;
-    }
-    if (curChild != null) {
-        clearAllStartingNode(elem, curChild.nextSibling);
-    }
-}
-
-function clearAllStarting(elem, starting) {
-    if (!elem || (elem.childNodes.length < starting)) {
-        return;
-    }
-    // Calling clearAllStartingNode(elem, elem.childNodes[starting]) doesn't
-    // work - the startingNode gets set to void for some reason.
-    var curChild = elem.childNodes[starting];
-    var nextChild = null;
-    while (curChild != null) {
-        nextChild = curChild.nextSibling;
-        elem.removeChild(curChild);
-        curChild = nextChild;
-    }
-}
-
-function clearAllStartingNode(elem, startingNode) {
-    var curChild = startingNode;
-    var nextChild = null;
-    while (curChild != null) {
-        nextChild = curChild.nextSibling;
-        elem.removeChild(curChild);
-        curChild = nextChild;
-    }
-}
-
-function getDisplayStyle(isVisible) {
-    if (!isVisible) {
-        return "none";
-    } else {
-        return "";
-    }
-}
-
 function updateInnings(idNumber, value) {
     var curScore = document.getElementById("score" + idNumber).selectedIndex;
     var newScore = 2 * numScores - curScore;

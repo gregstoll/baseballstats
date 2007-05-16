@@ -46,7 +46,7 @@ for ($i = 0; $i <= 2; $i++) {
 }
 print "</select>\n";
 print "<p class=\"littlespace\">Runners on base: <select name=\"runners\">\n";
-if ($isSubmitted) {
+if (!$isSubmitted) {
     $toSelect = 1;
 } else {
     $toSelect = $_GET["runners"];
