@@ -149,19 +149,19 @@ if (doRunsScored):
         for pointToPlot in pointsToPlot['H']:
             for pointSize in range(1, pointToPlot[2] + 1):
                 if (doKey and not haveTitled and pointSize == 1):
-                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Home', with='points linetype 2 pointtype 4 pointsize %d' % pointSize))
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Home', with_='points linetype 2 pointtype 4 pointsize %d' % pointSize))
                     haveTitled = True
                 else:
-                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 2 pointtype 4 pointsize %d' % pointSize))
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with_='points linetype 2 pointtype 4 pointsize %d' % pointSize))
     if ('V' in pointsToPlot and len(pointsToPlot['V']) > 0):
         haveTitled = False
         for pointToPlot in pointsToPlot['V']:
             for pointSize in range(1, pointToPlot[2] + 1):
                 if (doKey and not haveTitled and pointSize == 1):
-                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Visitor', with='points linetype 3 pointtype 4 pointsize %d' % pointSize))
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], title='Runs for Visitor', with_='points linetype 3 pointtype 4 pointsize %d' % pointSize))
                     haveTitled = True
                 else:
-                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with='points linetype 3 pointtype 4 pointsize %d' % pointSize))
+                    g.replot(Gnuplot.Data([(pointToPlot[0], pointToPlot[1])], with_='points linetype 3 pointtype 4 pointsize %d' % pointSize))
 if (doKey):
     g('set key on left top reverse Left')
 else:

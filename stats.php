@@ -7,10 +7,10 @@ print "<style type=\"text/css\">\n";
 print "  P.littlespace {margin: 2px;}\n";
 print "</style></head>\n";
 print "<body>\n";
-print "<form action=\"" . basename($PHP_SELF) . "\" method=\"GET\">\n";
+print "<form action=\"" . $_SERVER["SCRIPT_NAME"] . "\" method=\"GET\">\n";
 print "<p class=\"littlespace\">Team:\n";
 $isSubmitted = isset($_GET["team"]) && isset($_GET["inning"]) && isset($_GET["outs"]) && isset($_GET["runners"]) && isset($_GET["scorediff"]);
-if (!isSubmitted) {
+if (!$isSubmitted) {
     $toSelect = "H";
 } else {
     $toSelect = $_GET["team"];
