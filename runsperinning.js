@@ -44,7 +44,7 @@ function processResponse(originalRequest) {
         totalTd.appendChild(document.createTextNode(total));
         totalRow.appendChild(totalTd);
         var totalTd = document.createElement('td');
-        totalTd.appendChild(document.createTextNode('100.00000'));
+        totalTd.appendChild(document.createTextNode('100.00000%'));
         totalRow.appendChild(totalTd);
         $('outTbody').appendChild(totalRow);
         var runArray = new Array();
@@ -63,7 +63,7 @@ function processResponse(originalRequest) {
             curTd.appendChild(document.createTextNode(curNum));
             curRow.appendChild(curTd);
             var curTd = document.createElement('td');
-            curTd.appendChild(document.createTextNode(curProb.toFixed(5)));
+            curTd.appendChild(document.createTextNode(curProb.toFixed(5) + '%'));
             curRow.appendChild(curTd);
             $('outTbody').appendChild(curRow);
         }

@@ -107,12 +107,12 @@ def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, 
                 stats[keyToUse] = [0] * (runsGained + 1)
             stats[keyToUse][runsGained] += 1
 
-def parseFile(file, reports):
+def parseFile(f, reports):
     global numGames
     inGame = 0
     curGameSituation = {}
     gameSituationKeys = []
-    for line in file.readlines():
+    for line in f.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
                 initializeGame(curGameSituation)
@@ -727,10 +727,7 @@ def parsePlay(line, gameSituation):
     # We're done - the information is "returned" in gameSituation
 
 # This selects what stats we're compiling.
-# TODO - do both of these
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
-#addGameToStats = addGameToStatsWinExpectancy
-#addGameToStats = addGameToStatsRunExpectancyPerInning
 def main(files):
     global quiet
     if (files[0] == '-q'):

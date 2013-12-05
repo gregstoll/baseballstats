@@ -3,9 +3,9 @@ import sys, re
 
 lineRe = re.compile(r'^\((\d), \((\d), (\d), (\d)\)\): \[(.*)\]\s*$')
 def main(fileName):
-    file = open(fileName, 'r')
+    f = open(fileName, 'r')
     print '<situations>'
-    for line in file.readlines():
+    for line in f.readlines():
         lineMatch = lineRe.match(line)
         if lineMatch:
             # Starting at one to make compliant with other file
@@ -31,7 +31,7 @@ def main(fileName):
         else:
             print "ERROR - couldn't parse line %s" %line
     print '</situations>'
-    file.close()
+    f.close()
 
 def cmpWithCommaFirst(x, y):
     if (cmp(x[:3], y[:3]) != 0):

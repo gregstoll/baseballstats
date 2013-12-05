@@ -3,9 +3,9 @@ import sys, re
 
 lineRe = re.compile(r'^\((\d+), (\d+), (\d+), \((\d+), (\d+), (\d+)\), (-?\d+)\): \((\d+), (\d+)\)')
 def main(fileName):
-    file = open(fileName, 'r')
+    f = open(fileName, 'r')
     linesToWrite = []
-    for line in file.readlines():
+    for line in f.readlines():
         lineMatch = lineRe.match(line)
         if lineMatch:
             if (lineMatch.group(2) == '1'):
@@ -27,7 +27,7 @@ def main(fileName):
     linesToWrite.sort(cmpWithCommaFirst)
     for line in linesToWrite:
         print line
-    file.close()
+    f.close()
 
 def cmpWithCommaFirst(x, y):
     if (cmp(x[:3], y[:3]) != 0):

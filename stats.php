@@ -107,7 +107,7 @@ if ($isSubmitted) {
 }
 ?>
 <p>To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
-<p>This data is from MLB games from 1957-2005 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
+<p>This data is from MLB games from 1957-2013 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
 <p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.</p>
 <ul>
 <li><a href="stats.txt">stats.php</a> - the source for .php file</li>
