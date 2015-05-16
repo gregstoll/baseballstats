@@ -337,6 +337,10 @@ def parsePlay(line, gameSituation):
                                 dest = int(tempEvent[2])
                                 assert (dest == 2 or dest == 3)
                                 runnerDests[dest - 1] = 0
+                    elif (tempEvent.startswith('POCS')):
+                        base = int(tempEvent[4])
+                        assert (base == 1 or base == 2 or base == 3)
+                        runnerDests[base] = 0
                     elif (tempEvent.startswith('PO')):
                         base = int(tempEvent[2])
                         assert (base == 1 or base == 2 or base == 3)
@@ -763,6 +767,7 @@ def main(args):
             for report in reportsToRun:
                 report[2].clear()
             for fileName in yearsToFiles[year]:
+                print fileName
                 eventFile = open(fileName, 'r')
                 parseFile(eventFile, reportsToRun)
                 eventFile.close()
