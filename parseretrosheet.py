@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import re, sys, copy
+import re, sys, copy, getopt, os, os.path
 
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
@@ -7,7 +7,7 @@ import re, sys, copy
 #stats = {}
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 numGames = 0
-quiet = 1
+quiet = True
 
 def gameSitString(gameSituation):
     return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (gameSituation['inning'], gameSituation['isHome'], gameSituation['outs'], gameSituation['curScoreDiff'], gameSituation['runners'])
@@ -726,28 +726,68 @@ def parsePlay(line, gameSituation):
         gameSituation['runners'] = newRunners
     # We're done - the information is "returned" in gameSituation
 
+def usage():
+    print "-q: quiet"
+    print "-h: help"
+    print "-y: generate data sorted by year"
+
 # This selects what stats we're compiling.
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
-def main(files):
+def main(args):
     global quiet
-    if (files[0] == '-q'):
-        quiet = 1
-        #files = files[1:]
-        del files[0]
-    for fileName in files:
-        #eventFileName = '2004COL.EVN'
-        print fileName
-        eventFile = open(fileName, 'r')
-        parseFile(eventFile, reportsToRun)
-        eventFile.close()
-    print "numGames is %d" % numGames
-    for report in reportsToRun:
-        outputFile = open(report[1], 'w')
-        statKeys = report[2].keys()
-        statKeys.sort()
-        for key in statKeys:
-            outputFile.write("%s: %s\n" % (key, report[2][key]))
-        outputFile.close()
+    sortByYear = False
+    try:
+        opts, files = getopt.getopt(args, 'qhy')
+    except getopt.GetoptError as err:
+        print str(err)
+        sys.exit(2)
+    for o, a in opts:
+        if o == '-h':
+            usage()
+            sys.exit(1)
+        elif o == '-y':
+            sortByYear = True
+        elif o == '-q':
+            quiet = True
+        else:
+            assert False, "unhandled option: " + str(o)
+    if sortByYear:
+        yearsToFiles = {}
+        for fileName in files:
+            year = int(os.path.basename(fileName)[:4])
+            if year not in yearsToFiles:
+                yearsToFiles[year] = []
+            yearsToFiles[year].append(fileName)
+        for year in sorted(yearsToFiles):
+            print year
+            for report in reportsToRun:
+                report[2].clear()
+            for fileName in yearsToFiles[year]:
+                eventFile = open(fileName, 'r')
+                parseFile(eventFile, reportsToRun)
+                eventFile.close()
+            for report in reportsToRun:
+                outputFile = open('statsyears/' + report[1] + '.' + str(year), 'w')
+                statKeys = report[2].keys()
+                statKeys.sort()
+                for key in statKeys:
+                    outputFile.write("%s: %s\n" % (key, report[2][key]))
+                outputFile.close()
+    else:
+        for fileName in files:
+            #eventFileName = '2004COL.EVN'
+            print fileName
+            eventFile = open(fileName, 'r')
+            parseFile(eventFile, reportsToRun)
+            eventFile.close()
+        print "numGames is %d" % numGames
+        for report in reportsToRun:
+            outputFile = open(report[1], 'w')
+            statKeys = report[2].keys()
+            statKeys.sort()
+            for key in statKeys:
+                outputFile.write("%s: %s\n" % (key, report[2][key]))
+            outputFile.close()
 
 if (__name__ == '__main__'):
     main(sys.argv[1:])
