@@ -21,14 +21,30 @@
         });
         $( "#years" ).val( $( "#slider-range" ).slider( "values", 0 ) +
           " - " + $( "#slider-range" ).slider( "values", 1 ) );
+        $( "#getButton" ).click(function() {
+            var startYear = $("#slider-range").slider("values", 0);
+            var endYear = $("#slider-range").slider("values", 1);
+            var whichTeam = $('input[name="team"]:checked').val();
+            var stateString = '"' + whichTeam + '",' + $('#inning').val() + ',' + $('#outs').val() + ',' + $('#runners').val() + ',' + $('#scorediff').val();
+
+            $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
+                var total = parseInt(xhr.responseJSON.total);
+                var wins = parseInt(xhr.responseJSON.wins);
+                $('#totalGames').text(total);
+                $('#wins').text(wins);
+                var percent = (100 * wins) / total;
+                var displayPercent = Math.round(percent * 100)/100;
+                $('#winPercentage').text(displayPercent + '%');
+            }});
+        });
       });
     </script>
 </head>
 <body>
 <p class="littlespace">Team:
-<input type="radio" name="team" value="H">Home</input>
-<input type="radio" name="team" value="V">Visitor</input></p>
-<p class="littlespace">Inning: <select name="inning">
+<input type="radio" name="team" value="H">Home
+<input type="radio" name="team" value="V" checked="checked">Visitor</p>
+<p class="littlespace">Inning: <select id="inning">
     <option value="1">1</option>
     <option value="2">2</option>
     <option value="3">3</option>
@@ -45,12 +61,12 @@
     <option value="14">14</option>
     <option value="15">15</option>
 </select>
-<p class="littlespace">Outs: <select name="outs">
+<p class="littlespace">Outs: <select id="outs">
     <option value="0">0</option>
     <option value="1">1</option>
     <option value="2">2</option>
 </select>
-<p class="littlespace">Runners on base: <select name="runners">
+<p class="littlespace">Runners on base: <select id="runners">
     <option value="1">none</option>
     <option value="2">1st</option>
     <option value="3">2nd</option>
@@ -60,7 +76,7 @@
     <option value="7">2nd &amp; 3rd</option>
     <option value="8">loaded</option>
 </select>
-<p class="littlespace">Score difference: <select name="scorediff">
+<p class="littlespace">Score difference: <select id="scorediff">
     <option value="-8">-8</option>
     <option value="-7">-7</option>
     <option value="-6">-6</option>
@@ -85,13 +101,12 @@
 </p>
 <div id="slider-range" style="width:300px;"></div>
 
-
-<p class="littlespace"><input type="submit" value="Get expectancy"></p>
+<p class="littlespace"><button id="getButton">Get expectancy</button></p>
 
 <div id="output">
 <p class="littlespace">Total games: <span id="totalGames"></span></p>
 <p class="littlespace">Wins: <span id="wins"></span></p>
-<p class="littlespace"><b>Win percentage</b>: <span id="winPercentage"></span></p>
+<p class="littlespace">Win percentage: <b><span id="winPercentage"></span></b></p>
 </div>
 
 <p>To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
