@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Win Expectancy Finder</title>
+    <link rel="stylesheet" href="jqueryui/jquery-ui.css">
+    <script src="jquery-1.11.3.min.js"></script>
+    <script src="jqueryui/jquery-ui.js"></script>
+    <style type="text/css">
+           P.littlespace {margin: 2px;}
+    </style>
+    <script>
+      $(function() {
+        $( "#slider-range" ).slider({
+          range: true,
+          min: 1957,
+          max: 2014,
+          values: [ 1957, 2014 ],
+          slide: function( event, ui ) {
+            $( "#years" ).val( ui.values[ 0 ] + " - " + ui.values[ 1 ] );
+          }
+        });
+        $( "#years" ).val( $( "#slider-range" ).slider( "values", 0 ) +
+          " - " + $( "#slider-range" ).slider( "values", 1 ) );
+      });
+    </script>
+</head>
+<body>
+<p class="littlespace">Team:
+<input type="radio" name="team" value="H">Home</input>
+<input type="radio" name="team" value="V">Visitor</input></p>
+<p class="littlespace">Inning: <select name="inning">
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+    <option value="10">10</option>
+    <option value="11">11</option>
+    <option value="12">12</option>
+    <option value="13">13</option>
+    <option value="14">14</option>
+    <option value="15">15</option>
+</select>
+<p class="littlespace">Outs: <select name="outs">
+    <option value="0">0</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+</select>
+<p class="littlespace">Runners on base: <select name="runners">
+    <option value="1">none</option>
+    <option value="2">1st</option>
+    <option value="3">2nd</option>
+    <option value="4">1st &amp; 2nd</option>
+    <option value="5">3rd</option>
+    <option value="6">1st &amp; 3rd</option>
+    <option value="7">2nd &amp; 3rd</option>
+    <option value="8">loaded</option>
+</select>
+<p class="littlespace">Score difference: <select name="scorediff">
+    <option value="-8">-8</option>
+    <option value="-7">-7</option>
+    <option value="-6">-6</option>
+    <option value="-5">-5</option>
+    <option value="-4">-4</option>
+    <option value="-3">-3</option>
+    <option value="-2">-2</option>
+    <option value="-1">-1</option>
+    <option value="0" selected="selected">0</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+</select>
+<p>
+<label for="years">Years to include:</label>
+<input type="text" id="years" readonly style="border:0;">
+</p>
+<div id="slider-range" style="width:300px;"></div>
+
+
+<p class="littlespace"><input type="submit" value="Get expectancy"></p>
+
+<div id="output">
+<p class="littlespace">Total games: <span id="totalGames"></span></p>
+<p class="littlespace">Wins: <span id="wins"></span></p>
+<p class="littlespace"><b>Win percentage</b>: <span id="winPercentage"></span></p>
+</div>
+
+<p>To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
+<p>This data is from MLB games from 1957-2013 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
+<p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.</p>
+  <p><a href="http://www.windowsphone.com/s?appid=ab476634-9a24-4f0c-bc7a-4f65a12c33dd"><img src="DownloadWPMed.png" border="1" alt="Download from the Windows Phone Store" title="Download from the Windows Phone Store"></a></p>
+<ul>
+<li><a href="stats.txt">stats.php</a> - the source for .php file</li>
+<li><a href="parseretrosheet.txt">parseretrosheet.py</a> - parses the <a href="http://www.retrosheet.org/game.htm">Retrosheet data</a></li>
+<li><a href="processstats.txt">processstats.py</a> - puts the Retrosheet data in the <a href="probs.txt">probs.txt</a> file.  See <a href="http://www.philbirnbaum.com/probs2.txt">Phil Birnbaum's description of the data file</a>.</li>
+</ul>
+<p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>
+<p><a href="/">Greg's home page</a></p>
+<p><a href="index.html">Baseball statistic calculators</a></p>
+<p>
+    <a href="http://validator.w3.org/check?uri=referer"><img
+        src="http://www.w3.org/Icons/valid-html401"
+        alt="Valid HTML 4.01 Transitional" height="31" width="88"></a>
+</p>
+<script src="http://www.google-analytics.com/urchin.js" type="text/javascript"></script>
+<script type="text/javascript">
+_uacct = "UA-362292-1";
+urchinTracker();
+</script>
+</body></html>
