@@ -2,14 +2,57 @@
 <html lang="en">
 <head>
     <title>Win Expectancy Finder</title>
-    <link rel="stylesheet" href="jqueryui/jquery-ui.css">
+    <!-- <link rel="stylesheet" href="jqueryui/jquery-ui.css"> -->
+    <link rel="stylesheet" href="jqueryui/themes/ui-lightness/jquery-ui.css">
     <script src="jquery-1.11.3.min.js"></script>
     <script src="jqueryui/jquery-ui.js"></script>
     <style type="text/css">
            P.littlespace {margin: 2px;}
     </style>
     <script>
+      function calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear)
+      {
+          var isHome = whichTeam === "H";
+          if (!isHome)
+          {
+              scorediff *= -1;
+          }
+          var stateString = '"' + whichTeam + '",' + inning + ',' + outs + ',' + runners + ',' + scorediff;
+
+          $('#progressbar').show();
+          $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
+              var total = parseInt(xhr.responseJSON.total);
+              var wins = parseInt(xhr.responseJSON.wins);
+              $('#progressbar').hide();
+              if (total === 0)
+              {
+                  $("#output").fadeOut();
+                  $("#outputNone").effect("highlight");
+                  $("#outputNone").fadeIn();
+                  return;
+              }
+              var percent = (100 * wins) / total;
+              var displayPercent = Math.round(percent * 100)/100;
+              var displayHome = isHome; 
+              if (displayPercent < 50)
+              {
+                  displayPercent = 100 - displayPercent;
+                  wins = total - wins;
+                  displayHome = !displayHome;
+              }
+              $('#totalGames').text(total);
+              $('#wins').text(wins);
+              var winnerTeamText = displayHome ? "Home" : "Visitor";
+              $('#winPercentage').text(winnerTeamText + " " + displayPercent + '%');
+              $('#winnerTeam').text(winnerTeamText);
+              $("#outputNone").fadeOut();
+              $("#output").effect("highlight");
+              $("#output").fadeIn();
+          }});
+      }
       $(function() {
+        $('#progressbar').progressbar({value: false});
+        $('#progressbar').hide();
         $( "#slider-range" ).slider({
           range: true,
           min: 1957,
@@ -19,24 +62,48 @@
             $( "#years" ).val( ui.values[ 0 ] + " - " + ui.values[ 1 ] );
           }
         });
+        $("#output").hide();
+        $("#outputNone").hide();
         $( "#years" ).val( $( "#slider-range" ).slider( "values", 0 ) +
           " - " + $( "#slider-range" ).slider( "values", 1 ) );
         $( "#getButton" ).click(function() {
             var startYear = $("#slider-range").slider("values", 0);
             var endYear = $("#slider-range").slider("values", 1);
             var whichTeam = $('input[name="team"]:checked').val();
-            var stateString = '"' + whichTeam + '",' + $('#inning').val() + ',' + $('#outs').val() + ',' + $('#runners').val() + ',' + $('#scorediff').val();
+            var scorediff = parseInt($('#scorediff').val());
+            var inning = $('#inning').val();
+            var outs = $('#outs').val();
+            var runners = $('#runners').val();
 
-            $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
-                var total = parseInt(xhr.responseJSON.total);
-                var wins = parseInt(xhr.responseJSON.wins);
-                $('#totalGames').text(total);
-                $('#wins').text(wins);
-                var percent = (100 * wins) / total;
-                var displayPercent = Math.round(percent * 100)/100;
-                $('#winPercentage').text(displayPercent + '%');
-            }});
+            window.location.hash = whichTeam + "." + scorediff + "." + inning + "." + outs + "." + runners + "." + startYear + "." + endYear;
+
+            calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
         });
+        if (window.location.hash)
+        {
+            var hash = window.location.hash.substring(1);
+            var parts = hash.split(".");
+            if (parts.length === 7)
+            {
+                var whichTeam = parts[0];
+                var scorediff = parseInt(parts[1]);
+                var inning = parts[2];
+                var outs = parts[3];
+                var runners = parts[4];
+                var startYear = parseInt(parts[5]);
+                var endYear = parseInt(parts[6]);
+
+                $('input[name="team"]').val([whichTeam]);
+                $('#scorediff').val(scorediff);
+                $('#inning').val(inning);
+                $('#outs').val(outs);
+                $('#runners').val(runners);
+                $('#slider-range').slider("values", [startYear, endYear]);
+                $( "#years" ).val( startYear + " - " + endYear );
+
+                calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
+            }
+        }
       });
     </script>
 </head>
@@ -76,41 +143,45 @@
     <option value="7">2nd &amp; 3rd</option>
     <option value="8">loaded</option>
 </select>
-<p class="littlespace">Score difference: <select id="scorediff">
-    <option value="-8">-8</option>
-    <option value="-7">-7</option>
-    <option value="-6">-6</option>
-    <option value="-5">-5</option>
-    <option value="-4">-4</option>
-    <option value="-3">-3</option>
-    <option value="-2">-2</option>
-    <option value="-1">-1</option>
-    <option value="0" selected="selected">0</option>
-    <option value="1">1</option>
-    <option value="2">2</option>
-    <option value="3">3</option>
-    <option value="4">4</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-    <option value="7">7</option>
-    <option value="8">8</option>
+<p class="littlespace">Score: <select id="scorediff">
+    <option value="-8">Visitor +8</option>
+    <option value="-7">Visitor +7</option>
+    <option value="-6">Visitor +6</option>
+    <option value="-5">Visitor +5</option>
+    <option value="-4">Visitor +4</option>
+    <option value="-3">Visitor +3</option>
+    <option value="-2">Visitor +2</option>
+    <option value="-1">Visitor +1</option>
+    <option value="0" selected="selected">Tie</option>
+    <option value="1">Home +1</option>
+    <option value="2">Home +2</option>
+    <option value="3">Home +3</option>
+    <option value="4">Home +4</option>
+    <option value="5">Home +5</option>
+    <option value="6">Home +6</option>
+    <option value="7">Home +7</option>
+    <option value="8">Home +8</option>
 </select>
-<p>
+<p class="littlespace">
 <label for="years">Years to include:</label>
 <input type="text" id="years" readonly style="border:0;">
 </p>
 <div id="slider-range" style="width:300px;"></div>
 
-<p class="littlespace"><button id="getButton">Get expectancy</button></p>
+<p><button id="getButton">Get expectancy</button></p>
+<div id="progressbar" style="margin-top: -10px; height: 20px; width: 300px;"></div>
 
-<div id="output">
+<div id="output" style="width: 300px; display: none;">
 <p class="littlespace">Total games: <span id="totalGames"></span></p>
-<p class="littlespace">Wins: <span id="wins"></span></p>
+<p class="littlespace">Wins for <span id="winnerTeam"></span>: <span id="wins"></span></p>
 <p class="littlespace">Win percentage: <b><span id="winPercentage"></span></b></p>
+</div>
+<div id="outputNone" style="display: none;">
+<p class="littlespace">No data found!</p>
 </div>
 
 <p>To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
-<p>This data is from MLB games from 1957-2013 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
+<p>This data is from MLB games from 1957-2014 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
 <p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.</p>
   <p><a href="http://www.windowsphone.com/s?appid=ab476634-9a24-4f0c-bc7a-4f65a12c33dd"><img src="DownloadWPMed.png" border="1" alt="Download from the Windows Phone Store" title="Download from the Windows Phone Store"></a></p>
 <ul>
