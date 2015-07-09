@@ -34,30 +34,46 @@
               var percent = (100 * wins) / total;
               var displayPercent = Math.round(percent * 100)/100;
               var displayHome = isHome; 
+              var homeMoneyLine = '';
+              var visitorMoneyLine = '';
               if (displayPercent < 50)
               {
                   displayPercent = 100 - displayPercent;
                   wins = total - wins;
                   displayHome = !displayHome;
               }
+              var ml = Math.round((displayPercent/(100 - displayPercent)) * -100);
+              var oml = "+" + (-1 * ml);
+              if (displayHome) {
+                  homeMoneyLine = ml;
+                  visitorMoneyLine = oml;
+              } else {
+                  homeMoneyLine = oml;
+                  visitorMoneyLine = ml;
+              }
+
               $('#totalGames').text(total);
               $('#wins').text(wins);
               var winnerTeamText = displayHome ? "Home" : "Visitor";
               $('#winPercentage').text(winnerTeamText + " " + displayPercent + '%');
               $('#winnerTeam').text(winnerTeamText);
+              $('#homeMoneyLine').text(homeMoneyLine);
+              $('#visitorMoneyLine').text(visitorMoneyLine);
               $("#outputNone").fadeOut();
               $("#output").effect("highlight");
               $("#output").fadeIn();
           }});
       }
+      var MIN_YEAR = 1957;
+      var MAX_YEAR = 2014;
       $(function() {
         $('#progressbar').progressbar({value: false});
         $('#progressbar').hide();
         $( "#slider-range" ).slider({
           range: true,
-          min: 1957,
-          max: 2014,
-          values: [ 1957, 2014 ],
+          min: MIN_YEAR,
+          max: MAX_YEAR,
+          values: [ MIN_YEAR, MAX_YEAR ],
           slide: function( event, ui ) {
             $( "#years" ).val( ui.values[ 0 ] + " - " + ui.values[ 1 ] );
           }
@@ -75,7 +91,11 @@
             var outs = $('#outs').val();
             var runners = $('#runners').val();
 
-            window.location.hash = whichTeam + "." + scorediff + "." + inning + "." + outs + "." + runners + "." + startYear + "." + endYear;
+            var hash = whichTeam + "." + scorediff + "." + inning + "." + outs + "." + runners;
+            if (startYear != MIN_YEAR || endYear != MAX_YEAR) {
+                hash += "." + startYear + "." + endYear;
+            }
+            window.location.hash = hash;
 
             calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
         });
@@ -83,15 +103,19 @@
         {
             var hash = window.location.hash.substring(1);
             var parts = hash.split(".");
-            if (parts.length === 7)
+            if (parts.length === 7 || parts.length === 5)
             {
                 var whichTeam = parts[0];
                 var scorediff = parseInt(parts[1]);
                 var inning = parts[2];
                 var outs = parts[3];
                 var runners = parts[4];
-                var startYear = parseInt(parts[5]);
-                var endYear = parseInt(parts[6]);
+                var startYear = MIN_YEAR;
+                var endYear = MAX_YEAR;
+                if (parts.length === 7) {
+                    startYear = parseInt(parts[5]);
+                    endYear = parseInt(parts[6]);
+                }
 
                 $('input[name="team"]').val([whichTeam]);
                 $('#scorediff').val(scorediff);
@@ -103,14 +127,129 @@
 
                 calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
             }
+            $('#runners').change(function() { updateDiamond($('#runners').val()); });
+            $('#runners').keypress(function() { updateDiamond($('#runners').val()); });
+            $('#diamond').click(function(e) { clickDiamond(e); });
         }
+        updateDiamond($('#runners').val());
       });
+      function getBaseColor(on) {
+          return on ? '#ff0000' : '#eeeeee';
+      }
+      function getBaseSize(canvas) {
+          return Math.max(canvas.width*0.1, 10);
+      }
+      function updateDiamond(curState) {
+          var first = (curState - 1) & 1;
+          var second = (curState - 1) & 2;
+          var third = (curState - 1) & 4;
+
+          var canvas = document.getElementById('diamond');
+          var ctx = canvas.getContext("2d");
+          var width = canvas.width;
+          var height = canvas.height;
+          ctx.fillStyle = '#006400';
+          ctx.fillRect(0, 0, width, height);
+
+          ctx.strokeStyle = '#a0522d';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(width/2, height*0.85);
+          ctx.lineTo(width*0.85, height/2);
+          ctx.stroke();
+          ctx.moveTo(width*0.85, height/2);
+          ctx.lineTo(width/2, height*0.15);
+          ctx.stroke();
+          ctx.moveTo(width/2, height*0.15);
+          ctx.lineTo(width*0.15, height/2);
+          ctx.stroke();
+          ctx.moveTo(width*0.15, height/2);
+          ctx.lineTo(width/2, height*0.85);
+          ctx.stroke();
+
+          var baseSize = getBaseSize(canvas);
+          ctx.fillStyle = getBaseColor(first);
+          var baseCenter = [width*0.85, height/2];
+          ctx.beginPath();
+          ctx.moveTo(baseCenter[0], baseCenter[1] + baseSize);
+          ctx.lineTo(baseCenter[0] + baseSize, baseCenter[1]);
+          ctx.lineTo(baseCenter[0], baseCenter[1] - baseSize);
+          ctx.lineTo(baseCenter[0] - baseSize, baseCenter[1]);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = getBaseColor(second);
+          baseCenter = [width/2, height*0.15];
+          ctx.beginPath();
+          ctx.moveTo(baseCenter[0], baseCenter[1] + baseSize);
+          ctx.lineTo(baseCenter[0] + baseSize, baseCenter[1]);
+          ctx.lineTo(baseCenter[0], baseCenter[1] - baseSize);
+          ctx.lineTo(baseCenter[0] - baseSize, baseCenter[1]);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = getBaseColor(third);
+          baseCenter = [width*0.15, height/2];
+          ctx.beginPath();
+          ctx.moveTo(baseCenter[0], baseCenter[1] + baseSize);
+          ctx.lineTo(baseCenter[0] + baseSize, baseCenter[1]);
+          ctx.lineTo(baseCenter[0], baseCenter[1] - baseSize);
+          ctx.lineTo(baseCenter[0] - baseSize, baseCenter[1]);
+          ctx.closePath();
+          ctx.fill();
+          // home plate
+          ctx.fillStyle = getBaseColor(false);
+          baseCenter = [width/2, height*0.85];
+          ctx.beginPath();
+          ctx.moveTo(baseCenter[0], baseCenter[1] + baseSize);
+          ctx.lineTo(baseCenter[0] + baseSize, baseCenter[1]);
+          ctx.lineTo(baseCenter[0] + baseSize, baseCenter[1] - baseSize);
+          ctx.lineTo(baseCenter[0] - baseSize, baseCenter[1] - baseSize);
+          ctx.lineTo(baseCenter[0] - baseSize, baseCenter[1]);
+          ctx.closePath();
+          ctx.fill();
+      }
+      function clickDiamond(e) {
+          var canvas = document.getElementById('diamond');
+          var x = e.pageX - canvas.offsetLeft;
+          var y = e.pageY - canvas.offsetTop;
+          var width = canvas.width;
+          var height = canvas.height;
+          
+          var baseSize = getBaseSize(canvas);
+          var firstBaseCenter = [width*0.85, height/2];
+          var secondBaseCenter = [width/2, height*0.15];
+          var thirdBaseCenter = [width*0.15, height/2];
+          var runnersFn = undefined;
+          if (!runnersFn) {
+              if ((firstBaseCenter[0] - x) * (firstBaseCenter[0] - x) + (firstBaseCenter[1] - y) * (firstBaseCenter[1] - y) < baseSize * baseSize)
+              {
+                  runnersFn = function(s) { return s ^ 1; };
+              }
+          }
+          if (!runnersFn) {
+              if ((secondBaseCenter[0] - x) * (secondBaseCenter[0] - x) + (secondBaseCenter[1] - y) * (secondBaseCenter[1] - y) < baseSize * baseSize)
+              {
+                  runnersFn = function(s) { return s ^ 2; };
+              }
+          }
+          if (!runnersFn) {
+              if ((thirdBaseCenter[0] - x) * (thirdBaseCenter[0] - x) + (thirdBaseCenter[1] - y) * (thirdBaseCenter[1] - y) < baseSize * baseSize)
+              {
+                  runnersFn = function(s) { return s ^ 4; };
+              }
+          }
+          if (runnersFn) {
+              var val = $('#runners').val();
+              $('#runners').val(runnersFn(val - 1) + 1);
+              updateDiamond($('#runners').val());
+          }
+      }
     </script>
 </head>
 <body>
 <p class="littlespace">Team:
-<input type="radio" name="team" value="H">Home
-<input type="radio" name="team" value="V" checked="checked">Visitor</p>
+<input type="radio" name="team" value="H" id="teamH"><label for="teamH">Home</label>
+<input type="radio" name="team" value="V" checked="checked" id="teamV"><label for="teamV">Visitor</label>
+</p>
 <p class="littlespace">Inning: <select id="inning">
     <option value="1">1</option>
     <option value="2">2</option>
@@ -133,7 +272,8 @@
     <option value="1">1</option>
     <option value="2">2</option>
 </select>
-<p class="littlespace">Runners on base: <select id="runners">
+<div style="float: left;">
+    <p class="littlespace">Runners on base: <select id="runners">
     <option value="1">none</option>
     <option value="2">1st</option>
     <option value="3">2nd</option>
@@ -142,8 +282,8 @@
     <option value="6">1st &amp; 3rd</option>
     <option value="7">2nd &amp; 3rd</option>
     <option value="8">loaded</option>
-</select>
-<p class="littlespace">Score: <select id="scorediff">
+</select></p>
+<p class="littlespace" style="clear: both;">Score: <select id="scorediff">
     <option value="-8">Visitor +8</option>
     <option value="-7">Visitor +7</option>
     <option value="-6">Visitor +6</option>
@@ -175,12 +315,15 @@
 <p class="littlespace">Total games: <span id="totalGames"></span></p>
 <p class="littlespace">Wins for <span id="winnerTeam"></span>: <span id="wins"></span></p>
 <p class="littlespace">Win percentage: <b><span id="winPercentage"></span></b></p>
+<p class="littlespace">Home money line: <b><span id="homeMoneyLine"></span></b></p>
+<p class="littlespace">Visitor money line: <b><span id="visitorMoneyLine"></span></b></p>
 </div>
 <div id="outputNone" style="display: none;">
 <p class="littlespace">No data found!</p>
 </div>
-
-<p>To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
+</div>
+<canvas id="diamond" width="200" height="200" style="float: left; margin-left: 25px;"></canvas>
+<p style="clear: both;">To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
 <p>This data is from MLB games from 1957-2014 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
 <p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.</p>
   <p><a href="http://www.windowsphone.com/s?appid=ab476634-9a24-4f0c-bc7a-4f65a12c33dd"><img src="DownloadWPMed.png" border="1" alt="Download from the Windows Phone Store" title="Download from the Windows Phone Store"></a></p>
