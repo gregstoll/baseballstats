@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <meta charset="utf-8" /> 
     <title>Win Expectancy Finder</title>
     <!-- <link rel="stylesheet" href="jqueryui/jquery-ui.css"> -->
     <link rel="stylesheet" href="jqueryui/themes/ui-lightness/jquery-ui.css">
@@ -39,7 +40,7 @@
               var visitorMoneyLine = '';
               if (displayPercent < 50)
               {
-                  displayPercent = 100 - displayPercent;
+                  displayPercent = Math.round((100 - displayPercent) * 100)/100;
                   wins = total - wins;
                   displayHome = !displayHome;
               }
@@ -67,6 +68,27 @@
       }
       var MIN_YEAR = 1957;
       var MAX_YEAR = 2014;
+      function doCalculation() {
+        var startYear = $("#slider-range").slider("values", 0);
+        var endYear = $("#slider-range").slider("values", 1);
+        // ugh
+        if (isNaN(startYear)) { startYear = MIN_YEAR; }
+        if (isNaN(endYear)) { endYear = MAX_YEAR; }
+        var scorediff = parseInt($('#scorediff').val());
+        var wholeInning = $('input[name="inningR"]:checked').val();
+        var whichTeam = wholeInning.substr(0, 1);
+        var inning = wholeInning.substr(1);
+        var outs = $('#outs').val();
+        var runners = $('#runners').val();
+
+        var hash = whichTeam + "." + scorediff + "." + inning + "." + outs + "." + runners;
+        if (startYear != MIN_YEAR || endYear != MAX_YEAR) {
+            hash += "." + startYear + "." + endYear;
+        }
+        window.location.hash = hash;
+
+        calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
+      }
       $(function() {
         $('#progressbar').progressbar({value: false});
         $('#progressbar').hide();
@@ -77,29 +99,13 @@
           values: [ MIN_YEAR, MAX_YEAR ],
           slide: function( event, ui ) {
             $( "#years" ).val( ui.values[ 0 ] + " - " + ui.values[ 1 ] );
-          }
+          },
         });
         $("#output").hide();
         $("#outputNone").hide();
         $( "#years" ).val( $( "#slider-range" ).slider( "values", 0 ) +
           " - " + $( "#slider-range" ).slider( "values", 1 ) );
-        $( "#getButton" ).click(function() {
-            var startYear = $("#slider-range").slider("values", 0);
-            var endYear = $("#slider-range").slider("values", 1);
-            var whichTeam = $('input[name="team"]:checked').val();
-            var scorediff = parseInt($('#scorediff').val());
-            var inning = $('#inning').val();
-            var outs = $('#outs').val();
-            var runners = $('#runners').val();
-
-            var hash = whichTeam + "." + scorediff + "." + inning + "." + outs + "." + runners;
-            if (startYear != MIN_YEAR || endYear != MAX_YEAR) {
-                hash += "." + startYear + "." + endYear;
-            }
-            window.location.hash = hash;
-
-            calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
-        });
+        $( "#getButton" ).click(doCalculation);
         if (window.location.hash)
         {
             var hash = window.location.hash.substring(1);
@@ -116,11 +122,14 @@
                 if (parts.length === 7) {
                     startYear = parseInt(parts[5]);
                     endYear = parseInt(parts[6]);
+                    if (isNaN(startYear) || isNaN(endYear)) {
+                        startYear = MIN_YEAR;
+                        endYear = MAX_YEAR;
+                    }
                 }
 
-                $('input[name="team"]').val([whichTeam]);
+                $('input[name="inningR"]').filter('[value="' + whichTeam + inning + '"]').attr('checked', true);
                 $('#scorediff').val(scorediff);
-                $('#inning').val(inning);
                 $('#outs').val(outs);
                 $('#runners').val(runners);
                 $('#slider-range').slider("values", [startYear, endYear]);
@@ -129,10 +138,20 @@
                 calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
             }
             $('#runners').change(function() { updateDiamond($('#runners').val()); });
-            $('#runners').keypress(function() { updateDiamond($('#runners').val()); });
             $('#diamond').click(function(e) { clickDiamond(e); });
+        } else {
+            $('input[name="inningR"]:checked').val('V1');
+            $('input[name="inningR"]').filter('[value="V1"]').attr('checked', true);
         }
         updateDiamond($('#runners').val());
+        $('input[name="inningR"]').change(function() {
+            doCalculation();
+        });
+        $('#scorediff').change(doCalculation);
+        $('#outs').change(doCalculation);
+        $('#runners').change(doCalculation);
+        $('#slider-range').slider("values", [startYear, endYear]);
+        $('#slider-range').on('slidestop', doCalculation);
       });
       function getBaseColor(on) {
           return on ? '#ff0000' : '#eeeeee';
@@ -242,32 +261,42 @@
               var val = $('#runners').val();
               $('#runners').val(runnersFn(val - 1) + 1);
               updateDiamond($('#runners').val());
+              doCalculation();
           }
       }
     </script>
 </head>
 <body>
-<p class="littlespace">Team:
-<input type="radio" name="team" value="H" id="teamH"><label for="teamH">Home</label>
-<input type="radio" name="team" value="V" checked="checked" id="teamV"><label for="teamV">Visitor</label>
-</p>
-<p class="littlespace">Inning: <select id="inning">
-    <option value="1">1</option>
-    <option value="2">2</option>
-    <option value="3">3</option>
-    <option value="4">4</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-    <option value="7">7</option>
-    <option value="8">8</option>
-    <option value="9">9</option>
-    <option value="10">10</option>
-    <option value="11">11</option>
-    <option value="12">12</option>
-    <option value="13">13</option>
-    <option value="14">14</option>
-    <option value="15">15</option>
-</select>
+<p class="littlespace">Inning:</p>
+<table>
+    <tr><th></th> <th>1</th> <th>2</th> <th>3</th> <th>4</th> <th>5</th> <th>6</th> <th>7</th> <th>8</th> <th>9</th> <th>10</th> <th>11</th></tr>
+    <tr><th>V</th>
+        <td><input type="radio" name="inningR" value="V1"></td>
+        <td><input type="radio" name="inningR" value="V2"></td>
+        <td><input type="radio" name="inningR" value="V3"></td>
+        <td><input type="radio" name="inningR" value="V4"></td>
+        <td><input type="radio" name="inningR" value="V5"></td>
+        <td><input type="radio" name="inningR" value="V6"></td>
+        <td><input type="radio" name="inningR" value="V7"></td>
+        <td><input type="radio" name="inningR" value="V8"></td>
+        <td><input type="radio" name="inningR" value="V9"></td>
+        <td><input type="radio" name="inningR" value="V10"></td>
+        <td><input type="radio" name="inningR" value="V11"></td>
+    </tr>
+    <tr><th>H</th>
+        <td><input type="radio" name="inningR" value="H1"></td>
+        <td><input type="radio" name="inningR" value="H2"></td>
+        <td><input type="radio" name="inningR" value="H3"></td>
+        <td><input type="radio" name="inningR" value="H4"></td>
+        <td><input type="radio" name="inningR" value="H5"></td>
+        <td><input type="radio" name="inningR" value="H6"></td>
+        <td><input type="radio" name="inningR" value="H7"></td>
+        <td><input type="radio" name="inningR" value="H8"></td>
+        <td><input type="radio" name="inningR" value="H9"></td>
+        <td><input type="radio" name="inningR" value="H10"></td>
+        <td><input type="radio" name="inningR" value="H11"></td>
+    </tr>
+</table>
 <p class="littlespace">Outs: <select id="outs">
     <option value="0">0</option>
     <option value="1">1</option>
@@ -309,7 +338,7 @@
 </p>
 <div id="slider-range" style="width:300px;"></div>
 
-<p><button id="getButton">Get expectancy</button></p>
+<!-- <p><button id="getButton">Get expectancy</button></p> -->
 <div id="progressbar" style="margin-top: -10px; height: 20px; width: 300px;"></div>
 
 <div id="output" style="width: 300px; display: none;">
