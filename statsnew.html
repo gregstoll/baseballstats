@@ -137,12 +137,13 @@
 
                 calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear);
             }
-            $('#runners').change(function() { updateDiamond($('#runners').val()); });
-            $('#diamond').click(function(e) { clickDiamond(e); });
         } else {
             $('input[name="inningR"]:checked').val('V1');
             $('input[name="inningR"]').filter('[value="V1"]').attr('checked', true);
+            doCalculation();
         }
+        $('#runners').change(function() { updateDiamond($('#runners').val()); });
+        $('#diamond').click(function(e) { clickDiamond(e); });
         updateDiamond($('#runners').val());
         $('input[name="inningR"]').change(function() {
             doCalculation();
