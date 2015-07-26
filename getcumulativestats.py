@@ -3,9 +3,10 @@ from __future__ import print_function
 import re, os, cgi
 
 pathPrefix = 'statsyears/statscumulative.'
+leverageFileName = 'statsyears/leverage'
 
 def getProbabilityOfStringForYear(stringToLookFor, year):
-    probsRe = re.compile(r'^%s,(\d+),(\d+)' % (stringToLookFor))
+    probsRe = re.compile(r'^%s,(\d+),(\d+)' % (stringToLookFor,))
     fileName = pathPrefix + str(year)
     if not os.path.exists(fileName):
         return (0,0)
@@ -28,14 +29,25 @@ def getProbabilityOfString(stringToLookFor, startYear, endYear):
     total = endTotal - startTotal
     return (wins, total)
 
+def getLeverageOfString(stringToLookFor):
+    leverageRe = re.compile(r'%s,([0-9.]+)' % (stringToLookFor,))
+    with open(leverageFileName, 'r') as leverageFile:
+        for line in leverageFile.readlines():
+            if (line.startswith(stringToLookFor)):
+                leverageMatch = leverageRe.match(line)
+                if leverageMatch:
+                    return float(leverageMatch.group(1))
+    return 0.0 
+
 def main():
     form = cgi.FieldStorage()
     stateString = form.getfirst('stateString')
     startYear = form.getfirst('startYear')
     endYear = form.getfirst('endYear')
     (wins, total) = getProbabilityOfString(stateString, int(startYear), int(endYear))
+    leverage = getLeverageOfString(stateString)
     print("Content-type: application/json\n")
-    print('{"wins": %s, "total": %s}' % (wins, total), end='')
+    print('{"wins": %s, "total": %s, "leverage": %s}' % (wins, total, leverage), end='')
 
 if (__name__ == '__main__'):
     main()

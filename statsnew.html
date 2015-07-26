@@ -10,6 +10,9 @@
     <script src="jqueryui/jquery-ui.js"></script>
     <style type="text/css">
            P.littlespace {margin: 2px;}
+           .leverageVeryHigh {background-color: red; font-weight: 900;}
+           .leverageHigh {background-color: #66f; font-weight: 900;}
+           .leverageMedium {background-color: #ccc; font-weight: 900;}
     </style>
     <script>
       function calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear)
@@ -25,6 +28,7 @@
           $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
               var total = parseInt(xhr.responseJSON.total);
               var wins = parseInt(xhr.responseJSON.wins);
+              var leverageIndex = parseFloat(xhr.responseJSON.leverage);
               $('#progressbar').hide();
               if (total === 0)
               {
@@ -53,7 +57,18 @@
                   homeMoneyLine = oml;
                   visitorMoneyLine = ml;
               }
-
+              var leverageDescription = 'Low';
+              var leverageClass = 'leverageLow';
+              if (leverageIndex >= 3.0) {
+                  leverageDescription = 'Very High';
+                  leverageClass = 'leverageVeryHigh';
+              } else if (leverageIndex >= 1.6) {
+                  leverageDescription = 'High';
+                  leverageClass = 'leverageHigh';
+              } else if (leverageIndex >= 0.8) {
+                  leverageDescription = 'Medium';
+                  leverageClass = 'leverageMedium';
+              }
               $('#totalGames').text(total);
               $('#wins').text(wins);
               var winnerTeamText = displayHome ? "Home" : "Visitor";
@@ -61,6 +76,8 @@
               $('#winnerTeam').text(winnerTeamText);
               $('#homeMoneyLine').text(homeMoneyLine);
               $('#visitorMoneyLine').text(visitorMoneyLine);
+              $('#leverageIndex').text(leverageIndex + ' (' + leverageDescription + ')');
+              $('#leverageIndex').attr('class', leverageClass);
               $("#outputNone").fadeOut();
               $("#output").effect("highlight");
               $("#output").fadeIn();
@@ -346,6 +363,7 @@
 <p class="littlespace">Total games: <span id="totalGames"></span></p>
 <p class="littlespace">Wins for <span id="winnerTeam"></span>: <span id="wins"></span></p>
 <p class="littlespace">Win percentage: <b><span id="winPercentage"></span></b></p>
+<p class="littlespace">Leverage index: <b><span id="leverageIndex"></span></b></p>
 <p class="littlespace">Home money line: <b><span id="homeMoneyLine"></span></b></p>
 <p class="littlespace">Visitor money line: <b><span id="visitorMoneyLine"></span></b></p>
 </div>
@@ -356,7 +374,7 @@
 <canvas id="diamond" width="200" height="200" style="float: left; margin-left: 25px;"></canvas>
 <p style="clear: both;">To make a graph of the Win Expectancy of a baseball game, use the <a href="graphgame.html">graph a game</a> tool.</p>
 <p>This data is from MLB games from 1957-2014 (excluding 1999). It now includes almost all regular-season event files available at <a href="http://www.retrosheet.org/game.htm">Retrosheet</a>.</p>
-<p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.</p>
+<p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.  Leverage Index calculations based on <a href="http://www.hardballtimes.com/crucial-situations/">this article</a>.</p>
   <p><a href="http://www.windowsphone.com/s?appid=ab476634-9a24-4f0c-bc7a-4f65a12c33dd"><img src="DownloadWPMed.png" border="1" alt="Download from the Windows Phone Store" title="Download from the Windows Phone Store"></a></p>
 <ul>
 <li><a href="stats.txt">stats.php</a> - the source for .php file</li>
