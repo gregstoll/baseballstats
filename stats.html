@@ -22,7 +22,8 @@
       // x (if 0 < x < 1900) => first year + x
       // x (if x < 0) => last year + x
       // x (if x >= 1900) => that year
-      var extraYears = [[0, 0], [2006, 0], [-3, 0]];
+      //var extraYears = [[0, 0], [2006, 0], [-3, 0]];
+      var extraYears = [];
       function createOutputDivIfNotExist(parentId, divId, isPrimary)
       {
           if (!$('#' + divId).length)
@@ -516,9 +517,10 @@
 <p>Idea taken from <a href="http://walkoffbalk.com/tools/winexp/index.php">Win Expectancy Finder</a> at <a href="http://walkoffbalk.com">walkoffbalk.com</a>.  Here's a <a href="http://www.hardballtimes.com/main/article/the-one-about-win-probability/">good article about Win Expectancy</a>.  Leverage Index calculations based on <a href="http://www.hardballtimes.com/crucial-situations/">this article</a>.</p>
   <p><a href="http://www.windowsphone.com/s?appid=ab476634-9a24-4f0c-bc7a-4f65a12c33dd"><img src="DownloadWPMed.png" border="1" alt="Download from the Windows Phone Store" title="Download from the Windows Phone Store"></a></p>
 <ul>
-<li><a href="stats.txt">stats.php</a> - the source for .php file</li>
+<li><a href="getcumulativestats.py">getcumulativestats.cgi</a> - the source for .php file</li>
 <li><a href="parseretrosheet.txt">parseretrosheet.py</a> - parses the <a href="http://www.retrosheet.org/game.htm">Retrosheet data</a></li>
 <li><a href="processstats.txt">processstats.py</a> - puts the Retrosheet data in the <a href="probs.txt">probs.txt</a> file.  See <a href="http://www.philbirnbaum.com/probs2.txt">Phil Birnbaum's description of the data file</a>.</li>
+<li><a href="processcumulativestats.txt">processcumulativestats.py</a> - puts the Retrosheet data into cumulative files per year.</li>
 </ul>
 <p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>
 <p><a href="/">Greg's home page</a></p>
