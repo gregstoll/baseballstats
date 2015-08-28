@@ -877,6 +877,7 @@
             window.location.hash = hash;
 
             // TODO - show progress bar
+            // only show progress bar if any output thingy is out of date!
             this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.years[0], s.years[1], 'output');
             var i;
             for (i = 0; i < extraYears.length; ++i)
