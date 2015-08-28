@@ -8,7 +8,7 @@
     <meta name="viewport" content="width=device-width">
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/react.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/JSXTransformer.js"></script> -->
-    <script src="reactbuild/react.js"></script>
+    <script src="reactbuild/react-with-addons.js"></script>
         <script src="reactbuild/JSXTransformer.js"></script>
         <!-- from https://github.com/mpowaga/react-slider -->
     <script src="reactbuild/react-slider.js"></script>
@@ -27,7 +27,7 @@
         .horizontal-slider {
             width: 100%;
             max-width: 500px;
-            height: 10px;
+            height: 15px;
             border: 1px solid grey;
         }
         .vertical-slider {
@@ -50,19 +50,15 @@
             background: #ddd;
         }
         .bar.bar-1 {
-            background: #f00;
-        }
-        .bar.bar-2 {
-            background: #0f0;
+            background: #f8b74d;
         }
         .horizontal-slider .bar {
-            top: 20px;
-            height: 10px;
+            height: 15px;
         }
         .horizontal-slider .handle {
-            top: 1px;
-            width: 10px;
-            height: 8px;
+            top: -1px;
+            width: 15px;
+            height: 17px;
             line-height: 48px;
         }
         .vertical-slider .handle {
@@ -82,6 +78,29 @@
         #horizontal-2 .bar.bar-2 {
             background: #ddd;
         }
+
+        /* transitions */
+        .outputTransition-enter {
+          opacity: 0.01;
+        }
+        .outputTransition-enter.outputTransition-enter-active {
+          opacity: 1;
+          transition: opacity 0.5s ease-in;
+        }
+        .outputTransition-leave {
+          opacity: 1;
+        }
+        .outputTransition-leave.outputTransition-leave-active {
+          opacity: 0.01;
+          transition: opacity 0.2s ease-in;
+        }
+        /*.outputTransition-appear {
+              opacity: 0.01;
+              transition: opacity .5s ease-in;
+        }
+        .outputTransition-appear.outputTransition-appear-active {
+              opacity: 1;
+        }*/
     </style>
     <script>
       // Set this up to do extra calculations every time.
@@ -89,8 +108,7 @@
       // x (if 0 < x < 1900) => first year + x
       // x (if x < 0) => last year + x
       // x (if x >= 1900) => that year
-      //var extraYears = [[0, 0], [2006, 0], [-3, 0]];
-      var extraYears = [];
+      var extraYears = [[0, 0], [2006, 0], [-3, 0]];
       function createOutputDivIfNotExist(parentId, divId, isPrimary)
       {
           if (!$('#' + divId).length)
@@ -492,6 +510,8 @@
     </script>
     <script type="text/jsx">
     React.initializeTouchEvents(true);
+    var ReactCSSTransitionGroup = React.addons.CSSTransitionGroup;
+
     var InningHeader = React.createClass({
         render: function() {
             return <th>{this.props.inningNum}</th>;
@@ -503,7 +523,7 @@
         },
         render: function () {
             return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}"
-             checked={this.props.inning.homeOrVisitor == this.props.chosenInning.homeOrVisitor && this.props.inning.num == this.props.chosenInning.num}
+             defaultChecked={this.props.inning.homeOrVisitor == this.props.chosenInning.homeOrVisitor && this.props.inning.num == this.props.chosenInning.num}
              onClick={this.handleClick}
              /></td>;
         }
@@ -517,19 +537,19 @@
             var headers = [];
             for (i = 1; i <= this.props.numInnings; ++i)
             {
-                headers.push(<InningHeader inningNum={i} />);
+                headers.push(<InningHeader key={i} inningNum={i} />);
             }
             var visitorChoices = [];
             for (i = 1; i <= this.props.numInnings; ++i)
             {
                 var thisInning = {homeOrVisitor: 'V', num: i};
-                visitorChoices.push(<InningChoice inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning} />);
+                visitorChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning} />);
             }
             var homeChoices = [];
             for (i = 1; i <= this.props.numInnings; ++i)
             {
                 var thisInning = {homeOrVisitor: 'H', num: i};
-                homeChoices.push(<InningChoice inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning} />);
+                homeChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning} />);
             }
             return <table>
                 <thead>
@@ -670,22 +690,231 @@
         },
     });
     var YearsSlider = React.createClass({
+        onChange: function(value) {
+            if (this.setYearsEvent != undefined) {
+                window.clearTimeout(this.setYearsEvent);
+            }
+            // update view here
+            // We don't want to wait for the AJAX request to be sent
+            // (which will take at least this.TIMEOUT ms) to update the text
+            // here, so store it in our state instead of props.
+            this.setState({years: [value[0], value[1]]});
+            this.setYearsEvent = window.setTimeout(function() { this.doActualChange(value)}.bind(this), this.TIMEOUT);
+        },
+        doActualChange: function(value) {
+            this.setYearsEvent = undefined;
+            this.props.setYears([value[0], value[1]]);
+        },
+        componentDidMount: function() {
+            // delay before triggering setYears
+            this.TIMEOUT = 500;
+            this.setYearsEvent = undefined;
+        },
+        componentWillMount: function() {
+            this.setState({years: this.props.years});
+        },
+        componentWillReceiveProps: function(nextProps) {
+            this.setState({years: nextProps.years});
+        },
         render: function() {
             return <div>
-                <ReactSlider className="horizontal-slider" orientation="horizontal" defaultValue={[MIN_YEAR, MAX_YEAR]} min={MIN_YEAR} max={MAX_YEAR} />;
-                /* TODO <p className="littleSpace">{this.props */
+                <p className="littlespace">Years to include: {this.state.years[0]} - {this.state.years[1]}</p>
+                <ReactSlider className="horizontal-slider" orientation="horizontal" withBars={true} defaultValue={[this.state.years[0], this.state.years[1]]} min={MIN_YEAR} max={MAX_YEAR} onChange={this.onChange} />
             </div>
         }
     });
+    var StatsResults = React.createClass({
+        componentDidMount: function() {
+            var node = React.findDOMNode(this);
+            $('.realOutput', node).effect("highlight");
+        },
+        componentDidUpdate: function(prevProps, prevState) {
+            var differences = false;
+            var properties = Object.keys(this.props);
+            for (var i in properties) {
+                if (properties[i] != 'years' && this.props[properties[i]] != prevProps[properties[i]]) {
+                    //alert(properties[i]);
+                    differences = true;
+                    break;
+                }
+            }
+            //alert(this.props.wins + ' ' + prevProps.wins + ' ' + differences);
+            if (differences) {
+                var node = React.findDOMNode(this);
+                //alert('update: ' + this.props.name + ' ' + $('.realOutput', node).size());
+                $('.realOutput', node).effect("highlight");
+            }
+        },
+        render: function() {
+            var mainDivStyle = {width: '300px', float: 'left'};
+            if (!this.props.isPrimary) {
+                mainDivStyle.marginTop = '20px';
+            }
+            if (this.props.isInitial) {
+                return <div style={mainDivStyle}/>
+            }
+            var key = this.props.name;// + Math.random();
+            if (this.props.total === 0) {
+                key = key + 'none';
+                return <div style={mainDivStyle}>
+                    <ReactCSSTransitionGroup transitionName="outputTransition" transitionAppear={false} transitionLeave={false}>
+                    <div className="realOutput" key={key}>No data found!</div>
+                    </ReactCSSTransitionGroup>
+                    </div>
+            }
+            var r = this.props;
+            var wins = r.wins;
+            var percent = (100 * wins) / r.total;
+            var displayPercent = Math.round(percent * 100)/100;
+            var displayHome = r.isHome; 
+            var homeMoneyLine = '';
+            var visitorMoneyLine = '';
+            if (displayPercent < 50)
+            {
+                displayPercent = Math.round((100 - displayPercent) * 100)/100;
+                wins = r.total - wins;
+                displayHome = !displayHome;
+            }
+            var ml = Math.round((displayPercent/(100 - displayPercent)) * -100);
+            var oml = "+" + (-1 * ml);
+            if (displayHome) {
+                homeMoneyLine = ml;
+                visitorMoneyLine = oml;
+            } else {
+                homeMoneyLine = oml;
+                visitorMoneyLine = ml;
+            }
+            // TODO - refactor leverage stuff
+            var leverageDescription = 'Low';
+            var leverageClass = 'leverageLow';
+            if (r.leverageIndex >= 3.0) {
+                leverageDescription = 'Very High';
+                leverageClass = 'leverageVeryHigh';
+            } else if (r.leverageIndex >= 1.6) {
+                leverageDescription = 'High';
+                leverageClass = 'leverageHigh';
+            } else if (r.leverageIndex >= 0.8) {
+                leverageDescription = 'Medium';
+                leverageClass = 'leverageMedium';
+            }
+            leverageClass = 'leverageIndex ' + leverageClass;
+            var winnerTeamText = displayHome ? "Home" : "Visitor";
+            // make this something that always changes
+            // this uses ReactCSSTransitionGroup when change from some to no output
+            var yearsStyle = r.isPrimary ? {display : 'none'} : {};
+            return <div style={mainDivStyle}>
+                <ReactCSSTransitionGroup transitionName="outputTransition" transitionAppear={false}>
+                <div className="realOutput" key={key}>
+                <p className="littlespace" style={yearsStyle}>Years: {r.years[0]} - {r.years[1]}</p>
+                <p className="littlespace">Total games: {r.total}</p>
+                <p className="littlespace">Wins for {winnerTeamText}: {wins}</p>
+                <p className="littlespace">Win percentage: <b>{winnerTeamText} {displayPercent}%</b></p>
+                <p className="littlespace">Leverage index: <b className={leverageClass}>{r.leverageIndex} ({leverageDescription})</b></p>
+                <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
+                <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
+                </div>
+                </ReactCSSTransitionGroup>
+            </div>;
+        }
+    });
     var BaseballSituation = React.createClass({
+        addInitialState: function(state, name, years) {
+            state['results' + name] = {total: 0, wins: 0, leverageIndex: 0, isHome: false, isInitial: true, years: years};
+        },
         getInitialState: function() {
-            // TODO - parse query hash here!
-            return {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0};
+            var state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR]};
+            this.addInitialState(state, 'output', []);
+            var i;
+            for (i = 0; i < extraYears.length; ++i)
+            {
+                var localStartYear = extraYears[i][0];
+                var localEndYear = extraYears[i][1];
+                var transformedYears = transformYears(localStartYear, localEndYear);
+                this.addInitialState(state, 'output' + i, transformedYears);
+            }
+            // parse query hash
+            if (window.location.hash) {
+                var hash = window.location.hash.substring(1);
+                var parts = hash.split(".");
+                if (parts.length === 7 || parts.length === 5) {
+                    var whichTeam = parts[0];
+                    var scorediff = parseInt(parts[1]);
+                    var inning = parts[2];
+                    var outs = parts[3];
+                    var runners = parts[4];
+                    var startYear = MIN_YEAR;
+                    var endYear = MAX_YEAR;
+                    if (parts.length === 7) {
+                        startYear = parseInt(parts[5]);
+                        endYear = parseInt(parts[6]);
+                        if (isNaN(startYear) || isNaN(endYear)) {
+                            startYear = MIN_YEAR;
+                            endYear = MAX_YEAR;
+                        }
+                    }
+
+                    state.inning.homeOrVisitor = parts[0];
+                    state.score = parseInt(parts[1]);
+                    state.inning.num = parseInt(parts[2]);
+                    state.outs = parseInt(parts[3]);
+                    state.runners = parseInt(parts[4]);
+                    state.years[0] = startYear;
+                    state.years[1] = endYear;
+                }
+            }
+            return state;
+        },
+        componentDidMount: function() {
+            this.updateCalculations();
         },
         updateCalculations: function() {
-            // TODO - update query hash
             var s = this.state;
-            calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, MIN_YEAR, MAX_YEAR, 'output');
+            // update query hash
+            var hash = s.inning.homeOrVisitor + "." + s.score + "." + s.inning.num + "." + s.outs + "." + s.runners;
+            if (s.years[0] != MIN_YEAR || s.years[1] != MAX_YEAR) {
+                hash += "." + s.years[0] + "." + s.years[1];
+            }
+            window.location.hash = hash;
+
+            // TODO - show progress bar
+            this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.years[0], s.years[1], 'output');
+            var i;
+            for (i = 0; i < extraYears.length; ++i)
+            {
+                var localStartYear = extraYears[i][0];
+                var localEndYear = extraYears[i][1];
+                var transformedYears = transformYears(localStartYear, localEndYear);
+                localStartYear = transformedYears[0];
+                localEndYear = transformedYears[1];
+                this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, localStartYear, localEndYear, 'output' + i);
+            }
+        },
+        calculateStats: function(whichTeam, scorediff, inning, outs, runners, startYear, endYear, name) {
+            var isHome = whichTeam === "H";
+            if (!isHome)
+            {
+                scorediff *= -1;
+            }
+            var stateString = '"' + whichTeam + '",' + inning + ',' + outs + ',' + runners + ',' + scorediff;
+            $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
+
+                var theseResults = this.state['results' + name];
+                theseResults.total = parseInt(xhr.responseJSON.total);
+                theseResults.wins = parseInt(xhr.responseJSON.wins);
+                theseResults.leverageIndex = parseFloat(xhr.responseJSON.leverage);
+                theseResults.isHome = isHome;
+                theseResults.isInitial = false;
+                newState = {}
+                newState['results' + name] = theseResults;
+                this.setState(newState);
+
+                // TODO - use callback fn to setState() to decrement progress bar count or something?
+                /*this.setState(function(previousState, currentProps) {
+                    var allResults = previousState.results;
+                    allResults[name] = theseResults;
+                    return {results: allResults};
+                });*/
+            }.bind(this)});
         },
         setInning: function(newInning) {
             this.setState({inning: newInning}, this.updateCalculations);
@@ -699,18 +928,42 @@
         setScore: function(newScore) {
             this.setState({score: newScore}, this.updateCalculations);
         },
+        setYears: function(newYears) {
+            this.setState({years: newYears}, this.updateCalculations);
+        },
+        createStatsResults: function(isPrimary, name, years) {
+            return <StatsResults isPrimary={isPrimary} name={name}
+             total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [] : years} />
+        },
         render: function () {
             var NUM_INNINGS = 11;
+            var primaryStatsResultsList = []
+            primaryStatsResultsList.push(this.createStatsResults(true, 'output', []));
+            var i;
+            var statsResultsList = [];
+            for (i = 0; i < extraYears.length; ++i)
+            {
+                var localStartYear = extraYears[i][0];
+                var localEndYear = extraYears[i][1];
+                var transformedYears = transformYears(localStartYear, localEndYear);
+                statsResultsList.push(this.createStatsResults(false, 'output' + i, transformedYears));
+            }
             return <div>
                 <InningTable numInnings={NUM_INNINGS} inning={this.state.inning} setInning={this.setInning} />
                 <div style={{float: 'left'}}>
                     <OutsControl outs={this.state.outs} setOuts={this.setOuts} />
                     <RunnersOnBaseList runners={this.state.runners} setRunners={this.setRunners} />
                     <ScoreTable score={this.state.score} setScore={this.setScore} />
-                    <YearsSlider />
+                    <YearsSlider years={this.state.years} setYears={this.setYears} />
                 </div>
                 <div style={{float: 'left', marginLeft: '25px'}}>
                     <RunnersOnBaseDiamond runners={this.state.runners} setRunners={this.setRunners} />
+                </div>
+                <div style={{clear: 'both'}}>
+                    {primaryStatsResultsList}
+                </div>
+                <div style={{clear: 'both'}}>
+                    {statsResultsList}
                 </div>
                 <div style={{clear: 'both'}} />
             </div>;
@@ -718,7 +971,6 @@
     });
 
     React.render(
-     /* <h1>Hello, world!</h1>*/
       <BaseballSituation />,
       document.getElementById("reactTest")
     );

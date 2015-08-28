@@ -8,40 +8,47 @@ def main(directory):
     fileNames = sorted(fileNames)
     print fileNames
     existingLineMap = {}
-    for fileName in fileNames:
-        year = fileNameRe.match(fileName).group(1)
-        f = open(os.path.join(directory, fileName), 'r')
+    startYear = int(fileNameRe.match(fileNames[0]).group(1))
+    endYear = int(fileNameRe.match(fileNames[-1]).group(1))
+    for year in range(startYear, endYear+1):
+        fileName = 'stats.' + str(year)
+        f = None
+        try:
+            f = open(os.path.join(directory, fileName), 'r')
+        except:
+            pass
         linesToWrite = []
         newExistingLineMap = {}
-        for line in f.readlines():
-            lineMatch = lineRe.match(line)
-            if lineMatch:
-                if (lineMatch.group(2) == '1'):
-                    keyString = '"H",'
+        if f != None:
+            for line in f.readlines():
+                lineMatch = lineRe.match(line)
+                if lineMatch:
+                    if (lineMatch.group(2) == '1'):
+                        keyString = '"H",'
+                    else:
+                        keyString = '"V",'
+                    # Starting at one to make compliant with other file
+                    baseSum = 1
+                    if (lineMatch.group(4) == '1'):
+                        baseSum = baseSum + 1
+                    if (lineMatch.group(5) == '1'):
+                        baseSum = baseSum + 2
+                    if (lineMatch.group(6) == '1'):
+                        baseSum = baseSum + 4
+                    keyString = keyString + "%s,%s,%s,%s" % (lineMatch.group(1), lineMatch.group(3), baseSum, lineMatch.group(7))
+                    total = int(lineMatch.group(9))
+                    wins = int(lineMatch.group(8))
+                    if keyString in existingLineMap:
+                        total += existingLineMap[keyString][1]
+                        wins += existingLineMap[keyString][0]
+                    newExistingLineMap[keyString] = (wins, total)
+                    if keyString in existingLineMap:
+                        del existingLineMap[keyString]
+                    stringToPrint = keyString + ",%s,%s" % (total, wins)
+                    linesToWrite.append(stringToPrint)
                 else:
-                    keyString = '"V",'
-                # Starting at one to make compliant with other file
-                baseSum = 1
-                if (lineMatch.group(4) == '1'):
-                    baseSum = baseSum + 1
-                if (lineMatch.group(5) == '1'):
-                    baseSum = baseSum + 2
-                if (lineMatch.group(6) == '1'):
-                    baseSum = baseSum + 4
-                keyString = keyString + "%s,%s,%s,%s" % (lineMatch.group(1), lineMatch.group(3), baseSum, lineMatch.group(7))
-                total = int(lineMatch.group(9))
-                wins = int(lineMatch.group(8))
-                if keyString in existingLineMap:
-                    total += existingLineMap[keyString][1]
-                    wins += existingLineMap[keyString][0]
-                newExistingLineMap[keyString] = (wins, total)
-                if keyString in existingLineMap:
-                    del existingLineMap[keyString]
-                stringToPrint = keyString + ",%s,%s" % (total, wins)
-                linesToWrite.append(stringToPrint)
-            else:
-                print "ERROR - couldn't parse line %s" %line
-        f.close()
+                    print "ERROR - couldn't parse line %s" %line
+            f.close()
         print len(existingLineMap)
         for existingKey in existingLineMap:
             linesToWrite.append(existingKey + ",%s,%s" % (existingLineMap[existingKey][1], existingLineMap[existingKey][0]))

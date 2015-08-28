@@ -1,0 +1,3 @@
+- call ./parseretrosheet.py [-y] -q data/*
+- if you want cumulative, call ./processcumulativestats.py statsyears
+- call ./processleveragefromcumulative.py
