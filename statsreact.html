@@ -565,7 +565,7 @@
         },
         createStatsResults: function(isPrimary, name, years) {
             return <StatsResults isPrimary={isPrimary} name={name}
-             total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [] : years} />
+             total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [] : years} key={name} />
         },
         render: function () {
             var NUM_INNINGS = 11;
