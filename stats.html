@@ -305,13 +305,13 @@
                 <line x1={WIDTH*0.85} y1={HEIGHT/2} x2={WIDTH/2} y2={HEIGHT*0.15} strokeWidth="5" stroke="#a0522d" />
                 <line x1={WIDTH/2} y1={HEIGHT*0.15} x2={WIDTH*0.15} y2={HEIGHT/2} strokeWidth="5" stroke="#a0522d" />
                 <line x1={WIDTH*0.15} y1={HEIGHT/2} x2={WIDTH/2} y2={HEIGHT*0.85} strokeWidth="5" stroke="#a0522d" />
-                /* home plate */
+                { /* home plate */ }
                 <polygon points={homePoints} strokeWidth="0" fill={this.getBaseColor(false)} />
-                /* first base */
+                { /* first base */ }
                 <polygon points={firstPoints} strokeWidth="0" fill={this.getBaseColor(first)} onClick={this.toggleFirst} />
-                /* second base */
+                { /* second base */ }
                 <polygon points={secondPoints} strokeWidth="0" fill={this.getBaseColor(second)} onClick={this.toggleSecond}/>
-                /* third base */
+                { /* third base */ }
                 <polygon points={thirdPoints} strokeWidth="0" fill={this.getBaseColor(third)} onClick={this.toggleThird}/>
             </svg>
             </div>;
