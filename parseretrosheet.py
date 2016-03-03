@@ -31,7 +31,7 @@ def getSituationFromKey(key):
     situation['curScoreDiff'] = key[4]
     return situation
 
-def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats):
+def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, gameId):
     # Add gameKeys to stats
     # Check the last situation to see who won.
     if (finalGameSituation['isHome']):
@@ -75,7 +75,7 @@ def getNextInning(inning):
     else:
         return (inning[0], 1)
 
-def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, stats):
+def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, stats, gameId):
     inningsToKeys = {}
     for situationKey in gameSituationKeys:
         situation = getSituationFromKey(situationKey)
@@ -112,9 +112,11 @@ def parseFile(f, reports):
     inGame = 0
     curGameSituation = {}
     gameSituationKeys = []
+    curId = None
     for line in f.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
+                curId = line[3:]
                 initializeGame(curGameSituation)
                 gameSituationKeys = []
                 gameSituationKeys.append(getKeyFromSituation(curGameSituation))
@@ -124,10 +126,11 @@ def parseFile(f, reports):
             if (line.startswith("id,")):
                 # Add gameKeys to stats
                 for report in reports:
-                    report[0](gameSituationKeys, curGameSituation, report[2])
+                    report[0](gameSituationKeys, curGameSituation, report[2], curId)
                 if (not quiet):
                     print "NEW GAME"
                 initializeGame(curGameSituation)
+                curId = line[3:]
                 gameSituationKeys = []
                 gameSituationKeys.append(getKeyFromSituation(curGameSituation))
                 numGames = numGames + 1
@@ -146,7 +149,7 @@ def parseFile(f, reports):
                         if (curGameSituationKey not in gameSituationKeys):
                             gameSituationKeys.append(curGameSituationKey)
     for report in reports:
-        report[0](gameSituationKeys, curGameSituation, report[2])
+        report[0](gameSituationKeys, curGameSituation, report[2], curId)
 
 def batterToFirst(runnerDests):
     runnerDests['B'] = 1
@@ -730,6 +733,33 @@ def parsePlay(line, gameSituation):
         gameSituation['runners'] = newRunners
     # We're done - the information is "returned" in gameSituation
 
+def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
+    if (finalGameSituation['isHome']):
+        if (finalGameSituation['curScoreDiff'] > 0):
+            homeWon = True
+        elif (finalGameSituation['curScoreDiff'] < 0):
+            homeWon = False
+        else:
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+    else:
+        if (finalGameSituation['curScoreDiff'] > 0):
+            # TODO - can this really happen?
+            homeWon = False
+        elif (finalGameSituation['curScoreDiff'] < 0):
+            homeWon = True
+        else:
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+    if not homeWon:
+        return
+    if (9, True, 2, (0, 0, 0), -6) in gameSituationKeys:
+        print "GOT IT with gameId:"
+        print gameId
+        sys.exit(0)
+
 def usage():
     print "-q: quiet"
     print "-h: help"
@@ -737,6 +767,7 @@ def usage():
 
 # This selects what stats we're compiling.
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
+#reportsToRun = [(findImprobableGame, 'improbable', {})]
 def main(args):
     global quiet
     sortByYear = False
