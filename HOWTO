@@ -1,3 +1,5 @@
-- call ./parseretrosheet.py [-y] -q data/*
-- if you want cumulative, call ./processcumulativestats.py statsyears
+- call ./parseretrosheet.py data/*
+- call ./parseretrosheet.py -y data/*
+- call ./processcumulativestats.py statsyears
 - call ./processleveragefromcumulative.py
+- in index.html, look for MAX_YEAR and set it to the new max year

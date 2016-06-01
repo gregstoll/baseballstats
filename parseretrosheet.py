@@ -8,6 +8,7 @@ import re, sys, copy, getopt, os, os.path
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 numGames = 0
 quiet = True
+skipOutput = False
 
 def gameSitString(gameSituation):
     return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (gameSituation['inning'], gameSituation['isHome'], gameSituation['outs'], gameSituation['curScoreDiff'], gameSituation['runners'])
@@ -341,9 +342,13 @@ def parsePlay(line, gameSituation):
                                 assert (dest == 2 or dest == 3)
                                 runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('POCS')):
-                        base = int(tempEvent[4])
-                        assert (base == 1 or base == 2 or base == 3)
-                        runnerDests[base] = 0
+                        if (tempEvent[4] == 'H'):
+                            # ...this is weird
+                            runnerDests[3] = 0
+                        else:
+                            base = int(tempEvent[4])
+                            assert (base == 1 or base == 2 or base == 3)
+                            runnerDests[base] = 0
                     elif (tempEvent.startswith('PO')):
                         base = int(tempEvent[2])
                         assert (base == 1 or base == 2 or base == 3)
@@ -761,7 +766,8 @@ def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
         sys.exit(0)
 
 def usage():
-    print "-q: quiet"
+    print "-v: verbose"
+    print "-s: skip output, just parse everything"
     print "-h: help"
     print "-y: generate data sorted by year"
 
@@ -769,10 +775,10 @@ def usage():
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
 #reportsToRun = [(findImprobableGame, 'improbable', {})]
 def main(args):
-    global quiet
+    global quiet, skipOutput
     sortByYear = False
     try:
-        opts, files = getopt.getopt(args, 'qhy')
+        opts, files = getopt.getopt(args, 'vhsy')
     except getopt.GetoptError as err:
         print str(err)
         sys.exit(2)
@@ -782,8 +788,10 @@ def main(args):
             sys.exit(1)
         elif o == '-y':
             sortByYear = True
-        elif o == '-q':
-            quiet = True
+        elif o == '-v':
+            quiet = False
+        elif o == '-s':
+            skipOutput = True
         else:
             assert False, "unhandled option: " + str(o)
     if sortByYear:
@@ -802,13 +810,14 @@ def main(args):
                 eventFile = open(fileName, 'r')
                 parseFile(eventFile, reportsToRun)
                 eventFile.close()
-            for report in reportsToRun:
-                outputFile = open('statsyears/' + report[1] + '.' + str(year), 'w')
-                statKeys = report[2].keys()
-                statKeys.sort()
-                for key in statKeys:
-                    outputFile.write("%s: %s\n" % (key, report[2][key]))
-                outputFile.close()
+            if not skipOutput:
+                for report in reportsToRun:
+                    outputFile = open('statsyears/' + report[1] + '.' + str(year), 'w')
+                    statKeys = report[2].keys()
+                    statKeys.sort()
+                    for key in statKeys:
+                        outputFile.write("%s: %s\n" % (key, report[2][key]))
+                    outputFile.close()
     else:
         for fileName in files:
             #eventFileName = '2004COL.EVN'
@@ -817,13 +826,14 @@ def main(args):
             parseFile(eventFile, reportsToRun)
             eventFile.close()
         print "numGames is %d" % numGames
-        for report in reportsToRun:
-            outputFile = open(report[1], 'w')
-            statKeys = report[2].keys()
-            statKeys.sort()
-            for key in statKeys:
-                outputFile.write("%s: %s\n" % (key, report[2][key]))
-            outputFile.close()
+        if not skipOutput:
+            for report in reportsToRun:
+                outputFile = open(report[1], 'w')
+                statKeys = report[2].keys()
+                statKeys.sort()
+                for key in statKeys:
+                    outputFile.write("%s: %s\n" % (key, report[2][key]))
+                outputFile.close()
 
 if (__name__ == '__main__'):
     main(sys.argv[1:])
