@@ -998,14 +998,13 @@ class TestParsePlay(unittest.TestCase):
         self.assertEqual(sitCopy, situation)
 
     def test_groundout_safe_and_score(self):
-        # TODO - fails, this is from spec
-        return
-        (situation, playString) = self.util_setup(0, False, 'FO/G5.3-H;B-1')
-        situation['runners'] = [0, 0, 1]
+        (situation, playString) = self.util_setup(0, False, '54(1)/FO/G5.3-H;B-1')
+        situation['runners'] = [1, 0, 1]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['runners'] = [1, 0, 0]
         sitCopy['curScoreDiff'] = 1
+        sitCopy['outs'] = 1
         self.assertEqual(sitCopy, situation)
 
     def test_explicit_sacrifice(self):
@@ -1386,12 +1385,38 @@ class TestParsePlay(unittest.TestCase):
 
     def test_pickoff_caught_stealing(self):
         (situation, playString) = self.util_setup(0, False, 'POCS2(14)')
-        situation['runners'] = [0, 1, 0]
+        situation['runners'] = [1, 0, 0]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['runners'] = [0, 0, 0]
         sitCopy['outs'] = 1
         self.assertEqual(sitCopy, situation)
+
+    def test_stolen_base(self):
+        (situation, playString) = self.util_setup(0, False, 'SB2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_stolen_base_multiple(self):
+        (situation, playString) = self.util_setup(0, False, 'SB3;SB2')
+        situation['runners'] = [1, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_stolen_base_multiple_home(self):
+        (situation, playString) = self.util_setup(0, False, 'SBH;SB2')
+        situation['runners'] = [1, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
 
 
 if (__name__ == '__main__'):
