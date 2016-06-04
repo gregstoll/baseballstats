@@ -10,6 +10,8 @@ positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 numGames = 0
 quiet = True
 skipOutput = False
+stopOnFirstError = False
+knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300']
 
 def gameSitString(gameSituation):
     return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (gameSituation['inning'], gameSituation['isHome'], gameSituation['outs'], gameSituation['curScoreDiff'], gameSituation['runners'])
@@ -120,7 +122,7 @@ def parseFile(f, reports):
     for line in f.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
-                curId = line[3:]
+                curId = line[3].strip()
                 initializeGame(curGameSituation)
                 gameSituationKeys = []
                 gameSituationKeys.append(getKeyFromSituation(curGameSituation))
@@ -134,7 +136,7 @@ def parseFile(f, reports):
                 if (not quiet):
                     print "NEW GAME"
                 initializeGame(curGameSituation)
-                curId = line[3:]
+                curId = line[3:].strip()
                 gameSituationKeys = []
                 gameSituationKeys.append(getKeyFromSituation(curGameSituation))
                 numGames = numGames + 1
@@ -143,7 +145,10 @@ def parseFile(f, reports):
                     try:
                         parsePlay(line, curGameSituation)
                     except AssertionError:
-                        if (not quiet):
+                        print "Error in game " + curId
+                        if (curId in knownBadGames):
+                            print "known bad game"
+                        if (curId not in knownBadGames and (not quiet or stopOnFirstError)):
                             raise
                         else:
                             # We're just gonna punt and ignore the error
@@ -173,7 +178,7 @@ def batterToFirst(runnerDests):
             runnerDests[3] = 3
  
 def parsePlay(line, gameSituation):
-    playRe = re.compile(r'^play,(\d+),([01]),.*?,.*?,.*?,(.*)$')
+    playRe = re.compile(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$')
     playMatch = playRe.match(line)
     # if runnerDests[x] = 0, runner (or batter) is out
     # if runnerDests[x] = 4, runner (or batter) scores
@@ -243,8 +248,11 @@ def parsePlay(line, gameSituation):
             if (batterEvent.startswith('K')):
                 runnerDests['B'] = 0
                 runnersDefaultStayStill = True
-                if (batterEvent.startswith('K+')):
-                    tempEvent = batterEvent[2:]
+                if (batterEvent.startswith('K+') or batterEvent.startswith('K23+')):
+                    if batterEvent.startswith('K+'):
+                        tempEvent = batterEvent[2:]
+                    else:
+                        tempEvent = batterEvent[4:]
                     if (tempEvent.startswith('SB')):
                         if (tempEvent[2] == 'H'):
                             runnerDests[3] = 4
@@ -294,7 +302,8 @@ def parsePlay(line, gameSituation):
                             runnerDests[base] = 0
                     elif (tempEvent.startswith('PB') or tempEvent.startswith('WP')):
                         pass
-                    elif (tempEvent.startswith('OA') or tempEvent.startswith('DI')):
+                    # OBA is used instead of OA in BOS196704300
+                    elif (tempEvent.startswith('OA') or tempEvent.startswith('OBA') or tempEvent.startswith('DI')):
                         pass
                     elif (tempEvent.startswith('E')):
                         pass
@@ -501,9 +510,13 @@ def parsePlay(line, gameSituation):
                 # Balk
                 runnerDests['B'] = -1
                 # Advance runners
-                for runner in runnerDests:
-                    if (runner != 'B'):
-                        runnerDests[runner] = runner + 1
+                # actually, this should be explicit, game NYA196209092
+                # has a balk where the runner doesn't advance from
+                # second??
+                #for runner in runnerDests:
+                #    if (runner != 'B'):
+                #        runnerDests[runner] = runner + 1
+                runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
             if (batterEvent.startswith('CS')):
@@ -639,7 +652,7 @@ def parsePlay(line, gameSituation):
                         #runnerDests[runner] = base
                     # So this is probably an error.  See if the intervening
                     # parentheses indicate an out
-                    if (re.match('^....*?\(\d*\).*?\(\d*E.*\)', runnerItem) or re.match('^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
+                    if (re.match('^....*?\(\d*(/TH)?\).*?\(\d*E.*\)', runnerItem) or re.match('^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
                         # Yup, this is really an out.
                         runnerDests[runner] = 0
                     else:
@@ -699,9 +712,12 @@ def parsePlay(line, gameSituation):
                     runnerDests[runner] = runner
             else:
                 print "ERROR - unresolved runners %s!" % unresolvedRunners
+                print "runnerDests: %s" % (runnerDests)
                 assert False
     # Check that no new entries to runnerDests
     newRunners = [runner for runner in runnerDests if runner not in beginningRunners]
+    if (not quiet):
+        print "runnerDests: %s" % (runnerDests)
     if ('B' not in newRunners):
         print "ERROR - don't know what happened to B!"
         assert False
@@ -771,7 +787,7 @@ def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
 def usage():
     print "-t: just run tests"
     print "-v: verbose"
-    print "-s: skip output, just parse everything"
+    print "-s: skip output, just parse everything and stop on first error"
     print "-h: help"
     print "-y: generate data sorted by year"
 
@@ -779,7 +795,7 @@ def usage():
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
 #reportsToRun = [(findImprobableGame, 'improbable', {})]
 def main(args):
-    global quiet, skipOutput, TestBatterToFirst
+    global quiet, skipOutput, stopOnFirstError
     sortByYear = False
     try:
         opts, files = getopt.getopt(args, 'vhsy')
@@ -796,6 +812,7 @@ def main(args):
             quiet = False
         elif o == '-s':
             skipOutput = True
+            stopOnFirstError = True
         else:
             assert False, "unhandled option: " + str(o)
     if sortByYear:
@@ -1265,6 +1282,17 @@ class TestParsePlay(unittest.TestCase):
         sitCopy['outs'] = 1
         self.assertEqual(sitCopy, situation)
 
+    def test_strikeout_putout_caught_stealing(self):
+        # see game BAL196505282, end of 5th inning
+        (situation, playString) = self.util_setup(0, False, 'K23+CS3(34)/DP')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['outs'] = 2
+        self.assertEqual(sitCopy, situation)
+
+
     def test_no_play(self):
         (situation, playString) = self.util_setup(0, False, 'NP')
         situation['runners'] = [1, 0, 1]
@@ -1415,6 +1443,26 @@ class TestParsePlay(unittest.TestCase):
         parsePlay(playString, situation)
         sitCopy['runners'] = [0, 1, 0]
         sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_weird_error_running(self):
+        # game KCA200607040, bottom of the 3rd
+        (situation, playString) = self.util_setup(0, False, 'S7/L.3-H;2-H;1XH(7432/TH)(E7)')
+        situation['runners'] = [1, 1, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        sitCopy['curScoreDiff'] = 2
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_error_running(self):
+        # game KCA200607210, bottom of the 3rd
+        (situation, playString) = self.util_setup(0, False, 'FC1.1X2(6E4);B-1')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
 
