@@ -1,5 +1,6 @@
 #!/usr/bin/python
 import re, sys, copy, getopt, os, os.path
+import unittest
 
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
@@ -17,7 +18,9 @@ def initializeGame(gameSituation):
     gameSituation['inning'] = 1
     gameSituation['isHome'] = 0
     gameSituation['outs'] = 0
+    # Runners on first, second, third
     gameSituation['runners'] = [0, 0, 0]
+    # Number of runs the currently batting team is ahead by (can be negative)
     gameSituation['curScoreDiff'] = 0
 
 def getKeyFromSituation(situation):
@@ -46,7 +49,7 @@ def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, ga
             return
     else:
         if (finalGameSituation['curScoreDiff'] > 0):
-            # TODO - can this really happen?
+            # FODO - can this really happen?
             homeWon = False
         elif (finalGameSituation['curScoreDiff'] < 0):
             homeWon = True
@@ -750,7 +753,7 @@ def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
             return
     else:
         if (finalGameSituation['curScoreDiff'] > 0):
-            # TODO - can this really happen?
+            # FODO - can this really happen?
             homeWon = False
         elif (finalGameSituation['curScoreDiff'] < 0):
             homeWon = True
@@ -766,6 +769,7 @@ def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
         sys.exit(0)
 
 def usage():
+    print "-t: just run tests"
     print "-v: verbose"
     print "-s: skip output, just parse everything"
     print "-h: help"
@@ -775,7 +779,7 @@ def usage():
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
 #reportsToRun = [(findImprobableGame, 'improbable', {})]
 def main(args):
-    global quiet, skipOutput
+    global quiet, skipOutput, TestBatterToFirst
     sortByYear = False
     try:
         opts, files = getopt.getopt(args, 'vhsy')
@@ -835,5 +839,566 @@ def main(args):
                     outputFile.write("%s: %s\n" % (key, report[2][key]))
                 outputFile.close()
 
+class TestBatterToFirst(unittest.TestCase):
+    def util_test_expected(self, beginRunnerDests, endRunnerDests):
+        rd = beginRunnerDests.copy()
+        batterToFirst(rd)
+        self.assertEqual(endRunnerDests, rd)
+
+    def test_empty(self):
+        self.util_test_expected({}, {'B': 1})
+
+    def test_first(self):
+        self.util_test_expected({1: 1}, {'B': 1, 1: 2})
+
+    def test_second(self):
+        self.util_test_expected({2: 2}, {'B': 1, 2: 2})
+
+    def test_third(self):
+        self.util_test_expected({3: 3}, {'B': 1, 3: 3})
+
+    def test_firstSecond(self):
+        self.util_test_expected({1: 1, 2: 2}, {'B': 1, 1: 2, 2: 3})
+
+    def test_firstThird(self):
+        self.util_test_expected({1: 1, 3: 3}, {'B': 1, 1: 2, 3: 3})
+
+    def test_secondThird(self):
+        self.util_test_expected({2: 2, 3: 3}, {'B': 1, 2: 2, 3: 3})
+
+    def test_loaded(self):
+        self.util_test_expected({1: 1, 2: 2, 3: 3}, {'B': 1, 1: 2, 2: 3, 3: 4})
+
+class TestParsePlay(unittest.TestCase):
+    def util_setup(self, outs, isHome, playString):
+        inning = 1
+        if isHome != True and isHome != False:
+            self.fail('bad value for isHome')
+        situation = {}
+        initializeGame(situation)
+        situation['inning'] = inning
+        situation['isHome'] = 1 if isHome else 0
+        situation['outs'] = outs
+        return (situation, 'play,' + str(inning) + ',' + str(situation['isHome']) + ',,,,' + playString)
+    
+    def test_simpleout(self):
+        (situation, playString) = self.util_setup(0, False, '8')
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_simpleout_oneout(self):
+        (situation, playString) = self.util_setup(1, False, '8')
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 2
+        self.assertEqual(sitCopy, situation)
+
+    def test_simpleout_nextinning_top(self):
+        (situation, playString) = self.util_setup(2, False, '8')
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 0
+        sitCopy['isHome'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_simpleout_nextinning_bottom(self):
+        (situation, playString) = self.util_setup(2, True, '8')
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 0
+        sitCopy['isHome'] = 0
+        sitCopy['inning'] = 2
+        self.assertEqual(sitCopy, situation)
+
+    def test_simpleout_nextinning_top_clearrunners(self):
+        (situation, playString) = self.util_setup(2, False, '8')
+        situation['runners'][0] = 1
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 0
+        sitCopy['isHome'] = 1
+        sitCopy['runners'][0] = 0
+        self.assertEqual(sitCopy, situation)
+
+    def test_simpleout_nextinning_bottom_clearrunners(self):
+        (situation, playString) = self.util_setup(2, True, '8')
+        situation['runners'][0] = 1
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 0
+        sitCopy['isHome'] = 0
+        sitCopy['inning'] = 2
+        sitCopy['runners'][0] = 0
+        self.assertEqual(sitCopy, situation)
+
+    def test_forceout(self):
+        (situation, playString) = self.util_setup(0, False, '83')
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_out_advanceFirstSecond(self):
+        (situation, playString) = self.util_setup(0, False, '8.1-2')
+        situation['runners'][0] = 1
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_out_advanceSecondThird(self):
+        (situation, playString) = self.util_setup(0, False, '8.2-3')
+        situation['runners'][1] = 1
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_out_advanceThirdScore(self):
+        (situation, playString) = self.util_setup(0, False, '8.3-H')
+        situation['runners'][2] = 1
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_out_advanceSecondThirdScore(self):
+        (situation, playString) = self.util_setup(0, False, '8.2-3;3-H')
+        situation['runners'] = [0, 1, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 0, 1]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_out_advanceSecondThirdAllScore(self):
+        (situation, playString) = self.util_setup(0, False, '8.2-H;3-H')
+        situation['runners'] = [0, 1, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 2
+        self.assertEqual(sitCopy, situation)
+
+    def test_groundout_advance(self):
+        (situation, playString) = self.util_setup(0, False, '54(B)/BG25/SH.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_groundout_safe_and_score(self):
+        # TODO - fails, this is from spec
+        return
+        (situation, playString) = self.util_setup(0, False, 'FO/G5.3-H;B-1')
+        situation['runners'] = [0, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_explicit_sacrifice(self):
+        (situation, playString) = self.util_setup(0, False, '23/SH.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [0, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_doubleplay(self):
+        (situation, playString) = self.util_setup(0, False, '64(1)3/GDP/G6')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 2
+        sitCopy['runners'] = [0, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_doubleplay_lineout(self):
+        (situation, playString) = self.util_setup(0, False, '8(B)84(2)/LDP/L8')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 2
+        sitCopy['runners'] = [0, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_doubleplay_lineout_unassisted(self):
+        (situation, playString) = self.util_setup(0, False, '3(B)3(1)/LDP')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 2
+        sitCopy['runners'] = [0, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_catchers_interference(self):
+        (situation, playString) = self.util_setup(0, False, 'C/E2')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_catchers_interference_runner(self):
+        (situation, playString) = self.util_setup(0, False, 'C/E2.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_catchers_interference_runner_explicit(self):
+        (situation, playString) = self.util_setup(0, False, 'C/E2.B-1;1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_pitchers_interference(self):
+        (situation, playString) = self.util_setup(0, False, 'C/E1')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_first_basemans_interference(self):
+        (situation, playString) = self.util_setup(0, False, 'C/E3')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_single(self):
+        (situation, playString) = self.util_setup(0, False, 'S7')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_double(self):
+        (situation, playString) = self.util_setup(0, False, 'D7/G5.3-H;2-H;1-H')
+        situation['runners'] = [1, 1, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        sitCopy['curScoreDiff'] = 3
+        self.assertEqual(sitCopy, situation)
+
+    def test_triple(self):
+        (situation, playString) = self.util_setup(0, False, 'T9/F9LD.2-H')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 1]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_groundrule_double(self):
+        (situation, playString) = self.util_setup(0, False, 'DGR/L9LS.2-H')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_throwing_error(self):
+        (situation, playString) = self.util_setup(0, False, 'E1/TH/BG15.1-3')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_fielding_error(self):
+        (situation, playString) = self.util_setup(0, False, 'E3.1-2;B-1')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_fielders_choice_out_at_home(self):
+        (situation, playString) = self.util_setup(0, False, 'FC5/G5.3XH(52)')
+        situation['runners'] = [0, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_fielders_choice_no_outs(self):
+        (situation, playString) = self.util_setup(0, False, 'FC3/G3S.3-H;1-2')
+        situation['runners'] = [1, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_error_on_foul_ball(self):
+        (situation, playString) = self.util_setup(0, False, 'FLE5/P5F')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_home_run(self):
+        (situation, playString) = self.util_setup(0, False, 'H/L7D')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_home_run_explicit_runners(self):
+        (situation, playString) = self.util_setup(0, False, 'HR/F78XD.2-H;1-H')
+        situation['runners'] = [1, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 3
+        self.assertEqual(sitCopy, situation)
+
+    def test_home_run_inside_park(self):
+        (situation, playString) = self.util_setup(0, False, 'HR9/F9LS.3-H;1-H')
+        situation['runners'] = [1, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 3
+        self.assertEqual(sitCopy, situation)
+
+    def test_home_run_inside_park_just_h(self):
+        (situation, playString) = self.util_setup(0, False, 'H9/F9LS.3-H;1-H')
+        situation['runners'] = [1, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 3
+        self.assertEqual(sitCopy, situation)
+
+    def test_home_run_inside_park_just_h_no_runners(self):
+        (situation, playString) = self.util_setup(0, False, 'H9/F9LS')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_hit_by_pitch(self):
+        (situation, playString) = self.util_setup(0, False, 'HP.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_hit_by_pitch_no_runners(self):
+        (situation, playString) = self.util_setup(0, False, 'HP')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_strikeout(self):
+        (situation, playString) = self.util_setup(0, False, 'K')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_strikeout_putout(self):
+        (situation, playString) = self.util_setup(0, False, 'K23')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_strikeout_passed_ball(self):
+        (situation, playString) = self.util_setup(0, False, 'K+PB.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_strikeout_miscue(self):
+        (situation, playString) = self.util_setup(0, False, 'K+WP.B-1')
+        situation['runners'] = [0, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_strikeout_putout_other_runner_advance(self):
+        (situation, playString) = self.util_setup(0, False, 'K23+WP.2-3')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 1]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_no_play(self):
+        (situation, playString) = self.util_setup(0, False, 'NP')
+        situation['runners'] = [1, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_walk(self):
+        (situation, playString) = self.util_setup(0, False, 'W.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_intentional_walk(self):
+        (situation, playString) = self.util_setup(0, False, 'IW')
+        situation['runners'] = [0, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_walk_wild_pitch(self):
+        (situation, playString) = self.util_setup(0, False, 'W+WP.2-3')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [1, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_balk(self):
+        (situation, playString) = self.util_setup(0, False, 'BK.3-H;1-2')
+        situation['runners'] = [1, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        sitCopy['curScoreDiff'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_caught_stealing(self):
+        (situation, playString) = self.util_setup(0, False, 'CSH(12)')
+        situation['runners'] = [0, 0, 1]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_caught_stealing_advance(self):
+        (situation, playString) = self.util_setup(0, False, 'CS2(24).2-3')
+        situation['runners'] = [1, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 1]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_caught_stealing_error(self):
+        (situation, playString) = self.util_setup(0, False, 'CS2(2E4).1-3')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_defensive_indifference(self):
+        (situation, playString) = self.util_setup(0, False, 'DI.1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_other_advance(self):
+        # "Thompson out trying to advance after ball eluded catcher"
+        (situation, playString) = self.util_setup(0, False, 'OA.2X3(25)')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_wild_pitch(self):
+        (situation, playString) = self.util_setup(0, False, 'WP.2-3;1-2')
+        situation['runners'] = [1, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_passed_ball(self):
+        (situation, playString) = self.util_setup(0, False, 'PB.2-3')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 1]
+        self.assertEqual(sitCopy, situation)
+
+    def test_pickoff(self):
+        (situation, playString) = self.util_setup(0, False, 'PO2(14)')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+    def test_pickoff_error(self):
+        (situation, playString) = self.util_setup(0, False, 'PO1(E3).1-2')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 1, 0]
+        self.assertEqual(sitCopy, situation)
+
+    def test_pickoff_caught_stealing(self):
+        (situation, playString) = self.util_setup(0, False, 'POCS2(14)')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['runners'] = [0, 0, 0]
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
+
 if (__name__ == '__main__'):
-    main(sys.argv[1:])
+    if (len(sys.argv) > 1 and sys.argv[1] == '-t'):
+        # get rid of the -t
+        unittest.main(argv=[sys.argv[0]] + sys.argv[2:])
+    else:
+        main(sys.argv[1:])
+
+
