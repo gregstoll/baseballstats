@@ -931,23 +931,23 @@ class TestParsePlay(unittest.TestCase):
 
     def test_simpleout_nextinning_top_clearrunners(self):
         (situation, playString) = self.util_setup(2, False, '8')
-        situation['runners'][0] = 1
+        situation['runners'] = [1, 0, 0]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['outs'] = 0
         sitCopy['isHome'] = 1
-        sitCopy['runners'][0] = 0
+        sitCopy['runners'] = [0, 0, 0]
         self.assertEqual(sitCopy, situation)
 
     def test_simpleout_nextinning_bottom_clearrunners(self):
         (situation, playString) = self.util_setup(2, True, '8')
-        situation['runners'][0] = 1
+        situation['runners'] = [1, 0, 0]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['outs'] = 0
         sitCopy['isHome'] = 0
         sitCopy['inning'] = 2
-        sitCopy['runners'][0] = 0
+        sitCopy['runners'] = [0, 0, 0]
         self.assertEqual(sitCopy, situation)
 
     def test_forceout(self):
@@ -959,7 +959,7 @@ class TestParsePlay(unittest.TestCase):
 
     def test_out_advanceFirstSecond(self):
         (situation, playString) = self.util_setup(0, False, '8.1-2')
-        situation['runners'][0] = 1
+        situation['runners'] = [1, 0, 0]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['outs'] = 1
@@ -968,7 +968,7 @@ class TestParsePlay(unittest.TestCase):
 
     def test_out_advanceSecondThird(self):
         (situation, playString) = self.util_setup(0, False, '8.2-3')
-        situation['runners'][1] = 1
+        situation['runners'] = [0, 1, 0]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['outs'] = 1
@@ -977,7 +977,7 @@ class TestParsePlay(unittest.TestCase):
 
     def test_out_advanceThirdScore(self):
         (situation, playString) = self.util_setup(0, False, '8.3-H')
-        situation['runners'][2] = 1
+        situation['runners'] = [0, 0, 1]
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy['outs'] = 1
