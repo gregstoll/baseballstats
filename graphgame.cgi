@@ -203,8 +203,8 @@ for i in range(0, lastSituation + 1):
         print directSituationLines[i]
 print '</pre>'
 # TODO - output .csv representation of probs or something?
-print '<p><a href="http://validator.w3.org/check?uri=referer"><img src="http://www.w3.org/Icons/valid-html401" alt="Valid HTML 4.01 Transitional" height="31" width="88"></a></p>'
-print '<script src="http://www.google-analytics.com/urchin.js" type="text/javascript"></script>'
+print '<p><a href="https://validator.w3.org/check?uri=referer"><img src="https://www.w3.org/Icons/valid-html401" alt="Valid HTML 4.01 Transitional" height="31" width="88"></a></p>'
+print '<script src="//www.google-analytics.com/urchin.js" type="text/javascript"></script>'
 print '<script type="text/javascript">'
 print '_uacct = "UA-362292-1";'
 print 'urchinTracker();'
