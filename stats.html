@@ -6,20 +6,32 @@
     <meta name="viewport" content="width=device-width">
     <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/react.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/JSXTransformer.js"></script> -->
+    <!--#include virtual="/bootstraphead.html"-->
     <script src="reactbuild/react-with-addons.js"></script>
         <script src="reactbuild/JSXTransformer.js"></script>
         <!-- from https://github.com/mpowaga/react-slider -->
     <script src="reactbuild/react-slider.js"></script>
-    <script src="jquery-1.11.3.min.js"></script>
+    <!-- <script src="jquery-1.11.3.min.js"></script> -->
     <script src="jqueryui/jquery-ui.js"></script>
     <style type="text/css">
            P.littlespace {margin: 2px;}
            .leverageVeryHigh {background-color: #f22; font-weight: 900;}
            .leverageHigh {background-color: #99f; font-weight: 900;}
            .leverageMedium {background-color: #ccc; font-weight: 900;}
-           .scoreTable tr th { /*border: 1px solid black;*/ }
-           .scoreTable tr td { /*border: 1px solid black;*/ font-size: 150%;}
-           .scoreTable tbody tr td { /*border: 1px solid black;*/ font-size: 150%;}
+           table.scoreTable td { /*border: 1px solid black;*/ font-size: 150%;}
+           table.scoreTable td { padding: 1px 5px 1px 5px; }
+
+           table.innings td { padding: 1px; }
+           table.innings input[type="radio"] {
+               border-radius: 100% !important;
+               margin-block-end: 0;
+               margin-block-start: 3px;
+               margin-inline-end: 3px;
+               margin-inline-start: 5px;
+           }
+           table.innings th {
+               text-align: center;
+           }
 
            /* slider stuff */
         .horizontal-slider {
@@ -176,7 +188,7 @@
                 var thisInning = {homeOrVisitor: 'H', num: i};
                 homeChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning} />);
             }
-            return <table>
+            return <table className="innings">
                 <thead>
                     <tr>
                         <th></th>
@@ -210,7 +222,7 @@
             var HEIGHT_MARGIN = 5;
 
             var circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
-            return <p className="littlespace">Outs:
+            return <p className="littlespace" style={{"display": "flex", "align-items": "center"}}><span>Outs:</span>
             <svg width={WIDTH} height={HEIGHT} onClick={this.handleClick}>
                 <circle cx={WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getOutsColor(this.props.outs >= 1)} />
                 <circle cx={(3*WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getOutsColor(this.props.outs >= 2)} />
@@ -578,7 +590,7 @@
                 var localStartYear = extraYears[i][0];
                 var localEndYear = extraYears[i][1];
                 var transformedYears = transformYears(localStartYear, localEndYear);
-                statsResultsList.push(this.createStatsResults(false, 'output' + i, transformedYears));
+                statsResultsList.ph(is.eateStatsResults(f6lse, 'output' + i, transformedYears));
             }
             return <div>
                 <InningTable numInnings={NUM_INNINGS} inning={this.state.inning} setInning={this.setInning} />
@@ -610,6 +622,8 @@
     </script>
 </head>
 <body>
+  <!--#include virtual="/navbar.html"-->
+  <div class="container">
 <div id="reactTarget"></div>
 <p style="clear: both;">
 <a href="https://www.microsoft.com/store/apps/9nblgggzkgt4"><img src="https://cmsresources.windowsphone.com/devcenter/en-us/legacy_v1/img/badgegenerator/English_wstore_black_258x67.png" alt="Download from Windows Store" /></a> <a href="http://www.windowsphone.com/s?appid=ab476634-9a24-4f0c-bc7a-4f65a12c33dd"><img src="DownloadWPMed.png" alt="Download from the Windows Phone Store" title="Download from the Windows Phone Store"></a></p>
@@ -624,16 +638,12 @@
 <li><a href="processcumulativestats.txt">processcumulativestats.py</a> - puts the Retrosheet data into cumulative files per year.</li>
 </ul>
 <p>The information used here was obtained free of charge from and is copyrighted by Retrosheet.  Interested parties may contact Retrosheet at 20 Sunset Rd., Newark, DE 19711.</p>
-<p><a href="/">Greg's home page</a></p>
+<!-- <p><a href="/">Greg's home page</a></p> -->
 <p><a href="index.html">Baseball statistic calculators</a></p>
-<p>
-    <a href="https://validator.w3.org/check?uri=referer"><img
-        src="https://www.w3.org/Icons/valid-html401"
-        alt="Valid HTML 4.01 Transitional" height="31" width="88"></a>
-</p>
 <script src="https://www.google-analytics.com/urchin.js" type="text/javascript"></script>
 <script type="text/javascript">
 _uacct = "UA-362292-1";
 urchinTracker();
 </script>
+</div>
 </body></html>
