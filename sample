@@ -1,0 +1,152 @@
+id,HOU200404050
+version,2
+info,visteam,SFN
+info,hometeam,HOU
+info,site,HOU03
+info,date,2004/04/05
+info,number,0
+info,starttime,6:07PM
+info,daynight,night
+info,usedh,false
+info,umphome,"Joe West"
+info,ump1b,"Terry Craft"
+info,ump2b,"Mike DiMuro"
+info,ump3b,"Jim Wolf"
+info,howscored,park
+info,pitches,pitches
+info,temp,71
+info,winddir,ltor
+info,windspeed,16
+info,fieldcond,unknown
+info,precip,unknown
+info,sky,cloudy
+info,timeofgame,164
+info,attendance,43351
+info,wp,rodrf002
+info,lp,doteo001
+info,save,hergm001
+start,durhr001,"Ray Durham",0,1,4
+start,snowj001,"J.T. Snow",0,2,3
+start,tuckm001,"Michael Tucker",0,3,9
+start,bondb001,"Barry Bonds",0,4,7
+start,alfoe001,"Edgardo Alfonzo",0,5,5
+start,piera001,"A.J. Pierzynski",0,6,2
+start,grism001,"Marquis Grissom",0,7,8
+start,peren001,"Neifi Perez",0,8,6
+start,ruetk001,"Kirk Rueter",0,9,1
+start,biggc001,"Craig Biggio",1,1,8
+start,evera001,"Adam Everett",1,2,6
+start,bagwj001,"Jeff Bagwell",1,3,3
+start,kentj001,"Jeff Kent",1,4,4
+start,hidar001,"Richard Hidalgo",1,5,9
+start,berkl001,"Lance Berkman",1,6,7
+start,ensbm001,"Morgan Ensberg",1,7,5
+start,ausmb001,"Brad Ausmus",1,8,2
+start,oswar001,"Roy Oswalt",1,9,1
+play,1,0,durhr001,10,BX,63/G
+play,1,0,snowj001,12,CFBX,43/G
+play,1,0,tuckm001,11,BCX,7/F
+play,1,1,biggc001,21,BBCX,S7/L
+play,1,1,evera001,00,X,13/SH/BG.1-2
+play,1,1,bagwj001,32,BFCBBB,W
+play,1,1,kentj001,21,BCBX,9/F
+play,1,1,hidar001,32,CBBBCX,S6/G.2-3;1-2
+play,1,1,berkl001,32,BFBFBX,43/G
+play,2,0,bondb001,11,CBX,D7/G
+play,2,0,alfoe001,10,BX,9/F.2-3
+play,2,0,piera001,12,FBSX,5/P5F
+play,2,0,grism001,11,CBX,6/P
+play,2,1,ensbm001,00,X,D7/L
+play,2,1,ausmb001,31,FBBBX,S8/L.2-H
+play,2,1,oswar001,12,LB1LX,14/SH/BG.1-2
+play,2,1,biggc001,31,BBBCB,W
+play,2,1,evera001,00,X,9/F
+play,2,1,bagwj001,32,BBFBFFFB,W.2-3;1-2
+play,2,1,kentj001,01,FX,2/G
+play,3,0,peren001,02,CFX,13/G
+play,3,0,ruetk001,21,FBBX,63/G
+play,3,0,durhr001,02,CSS,K
+play,3,1,hidar001,01,CX,63/G
+play,3,1,berkl001,22,BFFBX,63/G
+play,3,1,ensbm001,10,BX,63/G
+play,4,0,snowj001,22,BBFFC,K
+play,4,0,tuckm001,11,CBX,63/G
+play,4,0,bondb001,00,X,D7/F
+play,4,0,alfoe001,21,BFBX,S5/G-.2-3
+play,4,0,piera001,02,LSX,S8/L.3-H;1-2
+play,4,0,grism001,01,CX,8/F
+play,4,1,ausmb001,10,BX,63/G
+play,4,1,oswar001,10,BX,8/F
+play,4,1,biggc001,11,BFX,7/F
+play,5,0,peren001,00,X,43/G
+play,5,0,ruetk001,12,BCLX,43/G
+play,5,0,durhr001,21,CBBX,D8/L
+play,5,0,snowj001,00,X,3/G
+play,5,1,evera001,31,BBBCX,7/F
+play,5,1,bagwj001,21,FBBX,9/F
+play,5,1,kentj001,21,CBBX,8/F
+play,6,0,tuckm001,01,CX,S9/L
+play,6,0,bondb001,31,BBBFB,W.1-2
+play,6,0,alfoe001,10,BX,54(1)3/GDP.2-3
+play,6,0,piera001,00,X,2/P2F
+play,6,1,hidar001,20,BBX,HR/9/F
+play,6,1,berkl001,11,FBX,8/F
+play,6,1,ensbm001,00,X,13/G
+play,6,1,ausmb001,21,BBCX,8/F
+play,7,0,grism001,00,X,6/P
+play,7,0,peren001,32,BCBFBC,K
+play,7,0,ruetk001,00,,NP
+sub,felip001,"Pedro Feliz",0,9,11
+play,7,0,felip001,32,.CCFBBBX,13/G
+play,7,1,oswar001,00,,NP
+sub,estrl001,"Leo Estrella",0,9,1
+play,7,1,oswar001,02,.CCX,4/P
+play,7,1,biggc001,02,FFX,S7/G
+play,7,1,evera001,12,B11F1FX,S9/L.1-2
+play,7,1,bagwj001,10,BX,S5/G.2-3;1-2
+play,7,1,kentj001,01,CX,8/SF.3-H;2-3
+play,7,1,hidar001,00,X,S9/L.3-H;1-2
+play,7,1,berkl001,00,,NP
+sub,walkk001,"Kevin Walker",0,9,1
+play,7,1,berkl001,22,.BFS*BFX,9/F
+play,8,0,durhr001,22,MBBFX,S8/L
+play,8,0,snowj001,02,FFC,K
+play,8,0,tuckm001,32,BBFFBX,S9/L.1-2
+play,8,0,bondb001,00,X,HR/9/L.2-H;1-H
+play,8,0,alfoe001,00,,NP
+sub,lidgb001,"Brad Lidge",1,9,1
+play,8,0,alfoe001,12,.CBFS,K
+play,8,0,piera001,02,FSX,S9/L
+play,8,0,grism001,32,BSCBB>B,W.1-2
+play,8,0,peren001,12,CBSFFS,K
+play,8,1,ensbm001,00,,NP
+sub,rodrf002,"Felix Rodriguez",0,9,1
+play,8,1,ensbm001,11,.BCX,9/F
+play,8,1,ausmb001,32,BBBCCX,6/P
+play,8,1,lidgb001,00,,NP
+sub,vizcj001,"Jose Vizcaino",1,9,11
+play,8,1,vizcj001,12,.FBCS,K
+play,9,0,rodrf002,00,,NP
+sub,doteo001,"Octavio Dotel",1,9,1
+play,9,0,rodrf002,00,,NP
+sub,torct001,"Tony Torcato",0,9,11
+play,9,0,torct001,01,..FH,HP
+play,9,0,durhr001,01,LX,34/SH/BG.1-2
+play,9,0,snowj001,00,B,WP.2-3
+play,9,0,snowj001,00,,NP
+sub,ransc001,"Cody Ransom",0,9,12
+play,9,0,snowj001,11,.B.FX,9/SF.3-H
+play,9,0,tuckm001,22,BBCFS,K
+play,9,1,biggc001,00,,NP
+sub,hergm001,"Matt Herges",0,9,1
+play,9,1,biggc001,01,.SX,2/G
+play,9,1,evera001,22,BBCFX,23/G
+play,9,1,bagwj001,02,CSS,K
+data,er,ruetk001,2
+data,er,estrl001,2
+data,er,walkk001,0
+data,er,rodrf002,0
+data,er,hergm001,0
+data,er,oswar001,4
+data,er,lidgb001,0
+data,er,doteo001,1
