@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import sys, re, os, os.path
+import sys, re, os, os.path, functools
 
 lineRe = re.compile(r'^\((\d+), (\d+), (\d+), \((\d+), (\d+), (\d+)\), (-?\d+)\): \((\d+), (\d+)\)')
 fileNameRe = re.compile(r'^stats\.(\d+)$')
@@ -54,22 +54,28 @@ def main(directory):
             linesToWrite.append(existingKey + ",%s,%s" % (existingLineMap[existingKey][1], existingLineMap[existingKey][0]))
             newExistingLineMap[existingKey] = existingLineMap[existingKey]
         existingLineMap = newExistingLineMap
-        linesToWrite.sort(cmpWithCommaFirst)
+        linesToWrite.sort(key=functools.cmp_to_key(cmpWithCommaFirst))
         with open(os.path.join(directory, 'statscumulative.' + str(year)), 'w') as outFile:
             for line in linesToWrite:
                 outFile.write(line + '\n')
 
 def cmpWithCommaFirst(x, y):
-    if (cmp(x[:3], y[:3]) != 0):
-        return cmp(x[:3], y[:3])
+    if x[:3] < y[:3]:
+        return -1
+    if x[:3] > y[:3]:
+        return 1
     xIsComma = (x[5] == ',')
     yIsComma = (y[5] == ',')
-    if (cmp(x,y) == -1 and yIsComma and not xIsComma):
+    if (x < y and yIsComma and not xIsComma):
         return 1
-    elif (cmp(x,y) == 1 and xIsComma and not yIsComma):
+    elif (x > y and xIsComma and not yIsComma):
         return -1
     else:
-        return cmp(x,y)
+        if x < y:
+            return -1
+        if x > y:
+            return 1
+        return 0
 
 if (__name__ == '__main__'):
     main(sys.argv[1])
