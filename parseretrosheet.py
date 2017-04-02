@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 import re, sys, copy, getopt, os, os.path
 import unittest
 
@@ -483,6 +483,7 @@ def parsePlay(line, gameSituation):
                     # explicit
                     runnerDests['B'] = 1
                 else:
+                    foundBatterDest = False
                     if ("/FO" in batterEvent):
                         # Force out - this means the thing in parentheses
                         # is the runner who is out.
@@ -494,14 +495,20 @@ def parsePlay(line, gameSituation):
                         # Determine from putOutMatch.group(1) (who made out) and
                         # putOutMatch.group(2) (where out is) which base the out was at.
                         if (putOutMatch.group(2)):
-                            outAtBase.append(putOutMatch.group(2))
+                            runnerOut = putOutMatch.group(2)
+                            if runnerOut != 'B':
+                                runnerOut = int(runnerOut)
+                            else:
+                                foundBatterDest = True
+                            runnerDests[runnerOut] = 0
                         else:
                             # If we don't know what base it was at, assume first base.
                             if (positionToBase[int(putOutMatch.group(1))] == -1):
                                 outAtBase.append(1)
                             else:
                                 outAtBase.append(positionToBase[int(putOutMatch.group(1))])
-                    runnerDests['B'] = -2
+                    if (not foundBatterDest):
+                        runnerDests['B'] = -2
                     defaultBatterBase = 1
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
@@ -1464,6 +1471,16 @@ class TestParsePlay(unittest.TestCase):
         parsePlay(playString, situation)
         sitCopy['runners'] = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
+
+    def test_putout_runner_at_wrong_base(self):
+        # game DET196405140, bottom of the 4th
+        (situation, playString) = self.util_setup(0, False, '36(1)/BF.B-1')
+        situation['runners'] = [1, 0, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        self.assertEqual(sitCopy, situation)
+
 
 
 
