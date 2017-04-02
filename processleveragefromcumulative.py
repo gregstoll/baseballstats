@@ -140,7 +140,7 @@ def readData(filePath):
             line = line[:-1]
             lineMatch = lineRe.match(line)
             if lineMatch is None:
-                print('x' + line + 'x')
+                print(('x' + line + 'x'))
                 assert False
             s = Situation(lineMatch)
             data[s.getKey()] = s
@@ -150,7 +150,7 @@ def calculateRawLeverage(data, situation, verbose=False):
     leverageKeys = situation.getLeverageKeys()
     startingWinProb = situation.getWinProb()
     if verbose:
-        print("Starting: " + str(startingWinProb))
+        print(("Starting: " + str(startingWinProb)))
     leverage = 0.0
     for leverageKey in leverageKeys:
         isGood = leverageKey[0]
@@ -180,11 +180,11 @@ def main():
     print(fileName)
     data = readData(os.path.join(directory, fileName))
     totalGames = 0
-    for k in data.keys():
+    for k in list(data.keys()):
         totalGames += data[k].totalCount
     print(totalGames)
     totalLeverage = 0.0
-    for k in data.keys():
+    for k in list(data.keys()):
         totalLeverage += calculateRawLeverage(data, data[k]) * data[k].totalCount
     averageLeverage = totalLeverage / totalGames
     print(averageLeverage)
@@ -196,16 +196,16 @@ def main():
     if True:
         k = ("H", 9, 2, 3, -1)
         s = data[k]
-        print(calculateRawLeverage(data, s))
+        print((calculateRawLeverage(data, s)))
         k = ("V", 1, 0, 1, 0)
         s = data[k]
-        print(calculateRawLeverage(data, s))
+        print((calculateRawLeverage(data, s)))
         k = ("H", 9, 0, 1, -21)
         s = data[k]
-        print(calculateRawLeverage(data, s, True))
+        print((calculateRawLeverage(data, s, True)))
         k = ("H", 1, 0, 1, -10)
         s = data[k]
-        print(calculateRawLeverage(data, s, True))
+        print((calculateRawLeverage(data, s, True)))
 
 
 if (__name__ == '__main__'):

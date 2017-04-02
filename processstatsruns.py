@@ -1,10 +1,10 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys, re
 
 lineRe = re.compile(r'^\((\d), \((\d), (\d), (\d)\)\): \[(.*)\]\s*$')
 def main(fileName):
     f = open(fileName, 'r')
-    print '<situations>'
+    print('<situations>')
     for line in f.readlines():
         lineMatch = lineRe.match(line)
         if lineMatch:
@@ -27,10 +27,10 @@ def main(fileName):
                 curRuns = curRuns + 1
             stringToPrint += '</situation>'
             #stringToPrint = stringToPrint + "%s,%s,%s,%s,%s,%s" % (lineMatch.group(1), lineMatch.group(3), baseSum, lineMatch.group(7), lineMatch.group(9), lineMatch.group(8))
-            print stringToPrint
+            print(stringToPrint)
         else:
-            print "ERROR - couldn't parse line %s" %line
-    print '</situations>'
+            print("ERROR - couldn't parse line %s" %line)
+    print('</situations>')
     f.close()
 
 def cmpWithCommaFirst(x, y):

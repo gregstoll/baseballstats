@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys, re, os, os.path
 
 lineRe = re.compile(r'^\((\d+), (\d+), (\d+), \((\d+), (\d+), (\d+)\), (-?\d+)\): \((\d+), (\d+)\)')
@@ -6,7 +6,7 @@ fileNameRe = re.compile(r'^stats\.(\d+)$')
 def main(directory):
     fileNames = [x for x in os.listdir(directory) if fileNameRe.match(x)]
     fileNames = sorted(fileNames)
-    print fileNames
+    print(fileNames)
     existingLineMap = {}
     startYear = int(fileNameRe.match(fileNames[0]).group(1))
     endYear = int(fileNameRe.match(fileNames[-1]).group(1))
@@ -47,9 +47,9 @@ def main(directory):
                     stringToPrint = keyString + ",%s,%s" % (total, wins)
                     linesToWrite.append(stringToPrint)
                 else:
-                    print "ERROR - couldn't parse line %s" %line
+                    print(("ERROR - couldn't parse line %s" %line))
             f.close()
-        print len(existingLineMap)
+        print((len(existingLineMap)))
         for existingKey in existingLineMap:
             linesToWrite.append(existingKey + ",%s,%s" % (existingLineMap[existingKey][1], existingLineMap[existingKey][0]))
             newExistingLineMap[existingKey] = existingLineMap[existingKey]
