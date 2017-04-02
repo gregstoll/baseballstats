@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import re, sys, copy, getopt, os, os.path
 import unittest
 
@@ -97,7 +97,7 @@ def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, 
         else:
             endingRunDiff = inningsToKeys[inning][-1]['curScoreDiff']
         if (endingRunDiff - startingRunDiff < 0):
-            print "uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff)
+            print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
             assert False
         # Add the statistics now.
         for situation in inningsToKeys[inning]:
@@ -134,7 +134,7 @@ def parseFile(f, reports):
                 for report in reports:
                     report[0](gameSituationKeys, curGameSituation, report[2], curId)
                 if (not quiet):
-                    print "NEW GAME"
+                    print("NEW GAME")
                 initializeGame(curGameSituation)
                 curId = line[3:].strip()
                 gameSituationKeys = []
@@ -145,9 +145,9 @@ def parseFile(f, reports):
                     try:
                         parsePlay(line, curGameSituation)
                     except AssertionError:
-                        print "Error in game " + curId
+                        print("Error in game " + curId)
                         if (curId in knownBadGames):
-                            print "known bad game"
+                            print("known bad game")
                         if (curId not in knownBadGames and (not quiet or stopOnFirstError)):
                             raise
                         else:
@@ -199,8 +199,8 @@ def parsePlay(line, gameSituation):
         runnerDests[3] = -1
         beginningRunners.append(3)
     if (not quiet):
-        print "Game situation is: %s" % gameSitString(gameSituation)
-        print line[0:-1]
+        print("Game situation is: %s" % gameSitString(gameSituation))
+        print(line[0:-1])
     assert playMatch
     assert gameSituation['inning'] == int(playMatch.group(1))
     assert gameSituation['isHome'] == int(playMatch.group(2))
@@ -308,7 +308,7 @@ def parsePlay(line, gameSituation):
                     elif (tempEvent.startswith('E')):
                         pass
                     else:
-                        print "ERROR - unrecognized K+ event: %s" % tempEvent
+                        print("ERROR - unrecognized K+ event: %s" % tempEvent)
                         assert False
                 doneParsingEvent = True
         if (not doneParsingEvent):
@@ -372,7 +372,7 @@ def parsePlay(line, gameSituation):
                     elif (tempEvent.startswith('E')):
                         runnerDests['B'] = 1
                     else:
-                        print "ERROR - unrecognized W+ or IW+ event: %s" % tempEvent
+                        print("ERROR - unrecognized W+ or IW+ event: %s" % tempEvent)
                         assert False
                 doneParsingEvent = True
         if (not doneParsingEvent):
@@ -421,7 +421,7 @@ def parsePlay(line, gameSituation):
             doublePlayMatch = re.match(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?', batterEvent)
             if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
                 if (not quiet):
-                    print "double/triple play"
+                    print("double/triple play")
                 # The batter is out if the last character is a number, not ')'
                 # (unless there's a "(B)" in the string
                 doublePlayString = batterEvent.split('/')[0]
@@ -453,7 +453,7 @@ def parsePlay(line, gameSituation):
                 # This is a double play.  The specifics of who's out will
                 # come later.
                 if (not quiet):
-                    print "weird double/triple play"
+                    print("weird double/triple play")
                 runnerDests['B'] = 0
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
@@ -461,10 +461,10 @@ def parsePlay(line, gameSituation):
             simpleOutMatch = re.match("^\d\D", batterEvent)
             if (simpleOutMatch and "/FO" not in batterEvent or (len(batterEvent) == 1 and (int(batterEvent) >= 1 and int(batterEvent) <= 9))):
                 if (not quiet):
-                    print "simple out"
+                    print("simple out")
                 if (re.match(r'^\dE', batterEvent)):
                     if (not quiet):
-                        print "error"
+                        print("error")
                     runnerDests['B'] = 1
                 else:
                     runnerDests['B'] = 0
@@ -477,7 +477,7 @@ def parsePlay(line, gameSituation):
             putOutMatch = re.match(r'^\d*(\d).*?(?:\((.)\))?', batterEvent)
             if (putOutMatch):
                 if (not quiet):
-                    print "Got a putout"
+                    print("Got a putout")
                 if (re.search(r'\d?E\d', batterEvent)):
                     # Error on the play - batter goes to first unless
                     # explicit
@@ -487,7 +487,7 @@ def parsePlay(line, gameSituation):
                         # Force out - this means the thing in parentheses
                         # is the runner who is out.
                         if (not quiet):
-                            print "force out"
+                            print("force out")
                         assert putOutMatch.group(2)
                         runnerDests[int(putOutMatch.group(2))] = 0
                     else:
@@ -524,7 +524,7 @@ def parsePlay(line, gameSituation):
                 if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
                     # There was an error, so not an out.
                     if (not quiet):
-                        print "no caught stealing"
+                        print("no caught stealing")
                     if (batterEvent[2] == 'H'):
                         runnerDests[3] = 4
                     else:
@@ -617,8 +617,8 @@ def parsePlay(line, gameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            print "ERROR - couldn't parse event %s" % batterEvent
-            print "line is: %s" % line[0:-1]
+            print("ERROR - couldn't parse event %s" % batterEvent)
+            print("line is: %s" % line[0:-1])
             return
     # Now parse runner stuff.
     if (len(playArray) > 1):
@@ -681,7 +681,7 @@ def parsePlay(line, gameSituation):
             possibleRunners = [runner for runner in unresolvedRunners if runner < outBase]
             curRunner = max(possibleRunners)
             if (not quiet):
-                print "picked runner %d" % curRunner
+                print("picked runner %d" % curRunner)
             if (curRunner == 0):
                 runnerDests['B'] = 0
                 unresolvedRunners.remove(0)
@@ -692,10 +692,10 @@ def parsePlay(line, gameSituation):
     if (runnerDests['B'] == -2):
         if (defaultBatterBase != -1):
             if (not quiet):
-                print "using defaultBatterBase of %d" % defaultBatterBase
+                print("using defaultBatterBase of %d" % defaultBatterBase)
             runnerDests['B'] = defaultBatterBase
         else:
-            print "ERROR - unresolved batter!"
+            print("ERROR - unresolved batter!")
             assert False
     # 'B' going to -1 means nothing happens, so don't consider that.
     if ('B' in unresolvedRunners):
@@ -711,20 +711,20 @@ def parsePlay(line, gameSituation):
                 for runner in unresolvedRunners:
                     runnerDests[runner] = runner
             else:
-                print "ERROR - unresolved runners %s!" % unresolvedRunners
-                print "runnerDests: %s" % (runnerDests)
+                print("ERROR - unresolved runners %s!" % unresolvedRunners)
+                print("runnerDests: %s" % (runnerDests))
                 assert False
     # Check that no new entries to runnerDests
     newRunners = [runner for runner in runnerDests if runner not in beginningRunners]
     if (not quiet):
-        print "runnerDests: %s" % (runnerDests)
+        print("runnerDests: %s" % (runnerDests))
     if ('B' not in newRunners):
-        print "ERROR - don't know what happened to B!"
+        print("ERROR - don't know what happened to B!")
         assert False
     else:
         newRunners.remove('B')
     if (len(newRunners) > 0):
-        print "ERROR - picked up extra runners %s!" % newRunners
+        print("ERROR - picked up extra runners %s!" % newRunners)
         assert False
     newRunners = [0, 0, 0]
     # Deal with runnerDests
@@ -740,7 +740,7 @@ def parsePlay(line, gameSituation):
             pass
         else:
             if (newRunners[runnerDests[runner] - 1] == 1):
-                print "ERROR - already a runner at base %d!" % runnerDests[runner]
+                print("ERROR - already a runner at base %d!" % runnerDests[runner])
                 assert False
             newRunners[runnerDests[runner] - 1] = 1
     if (gameSituation['outs'] >= 3):
@@ -780,16 +780,16 @@ def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
     if not homeWon:
         return
     if (9, True, 2, (0, 0, 0), -6) in gameSituationKeys:
-        print "GOT IT with gameId:"
-        print gameId
+        print("GOT IT with gameId:")
+        print(gameId)
         sys.exit(0)
 
 def usage():
-    print "-t: just run tests"
-    print "-v: verbose"
-    print "-s: skip output, just parse everything and stop on first error"
-    print "-h: help"
-    print "-y: generate data sorted by year"
+    print("-t: just run tests")
+    print("-v: verbose")
+    print("-s: skip output, just parse everything and stop on first error")
+    print("-h: help")
+    print("-y: generate data sorted by year")
 
 # This selects what stats we're compiling.
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
@@ -800,7 +800,7 @@ def main(args):
     try:
         opts, files = getopt.getopt(args, 'vhsy')
     except getopt.GetoptError as err:
-        print str(err)
+        print(str(err))
         sys.exit(2)
     for o, a in opts:
         if o == '-h':
@@ -823,18 +823,18 @@ def main(args):
                 yearsToFiles[year] = []
             yearsToFiles[year].append(fileName)
         for year in sorted(yearsToFiles):
-            print year
+            print(year)
             for report in reportsToRun:
                 report[2].clear()
             for fileName in yearsToFiles[year]:
-                print fileName
+                print(fileName)
                 eventFile = open(fileName, 'r')
                 parseFile(eventFile, reportsToRun)
                 eventFile.close()
             if not skipOutput:
                 for report in reportsToRun:
                     outputFile = open('statsyears/' + report[1] + '.' + str(year), 'w')
-                    statKeys = report[2].keys()
+                    statKeys = list(report[2].keys())
                     statKeys.sort()
                     for key in statKeys:
                         outputFile.write("%s: %s\n" % (key, report[2][key]))
@@ -842,15 +842,15 @@ def main(args):
     else:
         for fileName in files:
             #eventFileName = '2004COL.EVN'
-            print fileName
+            print(fileName)
             eventFile = open(fileName, 'r')
             parseFile(eventFile, reportsToRun)
             eventFile.close()
-        print "numGames is %d" % numGames
+        print("numGames is %d" % numGames)
         if not skipOutput:
             for report in reportsToRun:
                 outputFile = open(report[1], 'w')
-                statKeys = report[2].keys()
+                statKeys = list(report[2].keys())
                 statKeys.sort()
                 for key in statKeys:
                     outputFile.write("%s: %s\n" % (key, report[2][key]))
