@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import re, sys, copy, getopt, os, os.path
 import unittest
 

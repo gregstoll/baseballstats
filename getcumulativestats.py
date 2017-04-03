@@ -1,5 +1,5 @@
-#!/usr/bin/python
-from __future__ import print_function
+#!/usr/bin/python3
+
 import re, os, cgi
 
 pathPrefix = 'statsyears/statscumulative.'
