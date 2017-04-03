@@ -1,10 +1,13 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
-<html>
+<!DOCTYPE HTML>
+<html lang="en">
   <head>
-    <META http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+    <meta charset="utf-8">
     <title>Win Expectancy Grapher</title>
+    <!--#include virtual="/bootstraphead.html"-->
   </head>
   <body>
+  <!--#include virtual="/navbar.html"-->
+    <div class="container">
     <p><a href="javascript:startOver();">Start over</a></p>
     <p><a href="#inputtext">Input text directly from a previous run</a> (you can also try out example files)</p>
     <div id="todolist">
@@ -20,7 +23,7 @@
     <p><a href="javascript:addEntries(50, false);">Add more entries</a></p>
     </form>
     </div>
-    <p><a name="inputtext"></a>Or, input text here (some <a href="interestinggames/">sample games</a> are available):</p>
+    <p><a id="inputtext">Or, input text here</a> (some <a href="interestinggames/">sample games</a> are available):</p>
     <form action="graphgame.cgi" method="post">
         <p><label for="formbottomtitle">Graph title:</label> <input type="text" name="title" id="formbottomtitle" onchange="return setTitle(true, this.value);" value="Home win probability"></p>
         <p><label for="formbottomdoRunsScored">Show when runs scored:</label> <input type="checkbox" name="doRunsScored" id="formbottomdoRunsScored" value="doRunsScored" checked onchange="return setDoRunsScored(true, this.checked);"></p>
@@ -35,15 +38,10 @@
   <li><a href="/scripts/gregcommon.js.txt">gregcommon.js</a> - common Javascript functions.</li>
   <li><a href="graphgame.js">graphgame.js</a> - the Javascript file that creates and updates the inputs on this page for convenience.</li>
   </ul>
-  <p><a href="/">Greg's home page</a></p>
   <p><a href="index.html">Baseball statistic calculators</a></p>
-  <p>
-    <a href="https://validator.w3.org/check?uri=referer"><img
-        src="https://www.w3.org/Icons/valid-html401"
-        alt="Valid HTML 4.01 Strict" height="31" width="88"></a>
-  </p>
   <script type="text/javascript" src="/scripts/gregcommon.js"></script>
   <script type="text/javascript" src="graphgame.js"></script>
+    </div>
   <!--#include virtual="/endOfBody.html"-->
   </body>
 </html>

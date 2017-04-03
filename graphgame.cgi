@@ -13,7 +13,7 @@ from tempfile import mkstemp
 
 form = cgi.FieldStorage()
 print('Content-type: text/html\n\n')
-print('<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">')
+print('<!DOCTYPE HTML>')
 print('<html><head><title>Win probability graph</title></head><body>')
 print('<p>These image files are cleaned out every few hours, so please download a copy of the image if you want to keep it. Or see <a href=\"#text\">below</a> to save a text representation that can be easily re-entered.</p>')
 #for key in form:
@@ -186,7 +186,7 @@ urlName = urllib.parse.urljoin(os.environ['SCRIPT_URI'], 'images/' + os.path.bas
 print('<img src="%s" alt="Win probability graph">' % urlName)
 if (doRunsScored):
     print('<p>Note that the number of boxes around a point indicate the number of runs scored on that play.</p>')
-print('<p><a name=\"text\">Here is a text representation of the game that you can use to input again:</p>')
+print('<p id=\"text\">Here is a text representation of the game that you can use to input again:</p>')
 print('<pre>')
 # print out textual representation
 for i in range(0, lastSituation + 1):
@@ -202,7 +202,6 @@ for i in range(0, lastSituation + 1):
         print(directSituationLines[i])
 print('</pre>')
 # TODO - output .csv representation of probs or something?
-print('<p><a href="https://validator.w3.org/check?uri=referer"><img src="https://www.w3.org/Icons/valid-html401" alt="Valid HTML 4.01 Transitional" height="31" width="88"></a></p>')
 print('<script src="//www.google-analytics.com/urchin.js" type="text/javascript"></script>')
 print('<script type="text/javascript">')
 print('_uacct = "UA-362292-1";')
