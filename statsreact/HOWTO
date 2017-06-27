@@ -1,0 +1,5 @@
+npm install - install dependencies
+npm start - dev server
+npm run build - build things into dist/
+
+public site is linked to dist.public
