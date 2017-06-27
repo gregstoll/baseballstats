@@ -1,0 +1,29 @@
+{
+  "name": "statsnew",
+  "version": "1.0.0",
+  "description": "Describe statsnew here",
+  "private": true,
+  "scripts": {
+    "build": "nwb build-react-app && chmod +x dist/stats.html",
+    "clean": "nwb clean-app",
+    "start": "nwb serve-react-app",
+    "test": "nwb test-react",
+    "test:coverage": "nwb test-react --coverage",
+    "test:watch": "nwb test-react --server"
+  },
+  "dependencies": {
+    "create-react-class": ">15.5.3",
+    "jquery": "^3.2.1",
+    "jquery-ui": "^1.12.1",
+    "react": "^15.5.4",
+    "react-dom": "^15.5.4",
+    "react-slider": ">0.8.0",
+    "react-transition-group": "^1.1.3"
+  },
+  "devDependencies": {
+    "nwb": "0.16.x"
+  },
+  "author": "",
+  "license": "MIT",
+  "repository": ""
+}

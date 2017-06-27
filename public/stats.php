@@ -1,1 +1,1 @@
-../stats.php
+stats.html
