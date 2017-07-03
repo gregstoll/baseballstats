@@ -8,27 +8,6 @@
     <meta name="viewport" content="width=device-width">
     <!--#include virtual="/bootstraphead.html"-->
     <style type="text/css">
-           P.littlespace {margin: 2px;}
-           .leverageVeryHigh {background-color: #f22; font-weight: 900;}
-           .leverageHigh {background-color: #99f; font-weight: 900;}
-           .leverageMedium {background-color: #ccc; font-weight: 900;}
-           table.scoreTable td { /*border: 1px solid black;*/ font-size: 150%;}
-           table.scoreTable td { padding: 1px 5px 1px 5px; }
-
-           table.innings { width: 300px; }
-           table.innings td { padding: 1px; width: 9%; text-align: center; }
-           table.innings td.sideHeader { width: auto; }
-           table.innings input[type="radio"] {
-               border-radius: 100% !important;
-               margin-block-end: 0;
-               margin-block-start: 3px;
-               margin-inline-end: 3px;
-               margin-inline-start: 5px;
-           }
-           table.innings th {
-               text-align: center;
-           }
-
            /* slider stuff */
         .horizontal-slider {
             width: 100%;
@@ -84,29 +63,6 @@
         #horizontal-2 .bar.bar-2 {
             background: #ddd;
         }
-
-        /* transitions */
-        .outputTransition-enter {
-          opacity: 0.01;
-        }
-        .outputTransition-enter.outputTransition-enter-active {
-          opacity: 1;
-          transition: opacity 0.5s ease-in;
-        }
-        .outputTransition-leave {
-          opacity: 1;
-        }
-        .outputTransition-leave.outputTransition-leave-active {
-          opacity: 0.01;
-          transition: opacity 0.2s ease-in;
-        }
-        /*.outputTransition-appear {
-              opacity: 0.01;
-              transition: opacity .5s ease-in;
-        }
-        .outputTransition-appear.outputTransition-appear-active {
-              opacity: 1;
-        }*/
     </style>
     <script>
       // Set this up to do extra calculations every time.
@@ -146,7 +102,7 @@
     var ReactCSSTransitionGroup = React.addons.CSSTransitionGroup;
 
     </script> -->
-<link href="vendor.b8e22f61.css" rel="stylesheet"><link href="app.9ec3109b.css" rel="stylesheet"></head>
+<link href="vendor.b8e22f61.css" rel="stylesheet"><link href="app.3895dba2.css" rel="stylesheet"></head>
 <body>
   <!--#include virtual="/navbar.html"-->
   <div class="container">
@@ -172,5 +128,5 @@ _uacct = "UA-362292-1";
 urchinTracker();
 </script>
 </div>
-<script>!function(e){function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}var r=window.webpackJsonp;window.webpackJsonp=function(t,c,u){for(var i,a,f,p=0,l=[];p<t.length;p++)a=t[p],o[a]&&l.push(o[a][0]),o[a]=0;for(i in c)Object.prototype.hasOwnProperty.call(c,i)&&(e[i]=c[i]);for(r&&r(t,c,u);l.length;)l.shift()();if(u)for(p=0;p<u.length;p++)f=n(n.s=u[p]);return f};var t={},o={2:0};n.e=function(e){function r(){i.onerror=i.onload=null,clearTimeout(a);var n=o[e];0!==n&&(n&&n[1](new Error("Loading chunk "+e+" failed.")),o[e]=void 0)}var t=o[e];if(0===t)return new Promise(function(e){e()});if(t)return t[2];var c=new Promise(function(n,r){t=o[e]=[n,r]});t[2]=c;var u=document.getElementsByTagName("head")[0],i=document.createElement("script");i.type="text/javascript",i.charset="utf-8",i.async=!0,i.timeout=12e4,n.nc&&i.setAttribute("nonce",n.nc),i.src=n.p+""+({0:"vendor",1:"app"}[e]||e)+"."+{0:"f1bf259a",1:"6cd6ce6d"}[e]+".js";var a=setTimeout(r,12e4);return i.onerror=i.onload=r,u.appendChild(i),c},n.m=e,n.c=t,n.i=function(e){return e},n.d=function(e,r,t){n.o(e,r)||Object.defineProperty(e,r,{configurable:!1,enumerable:!0,get:t})},n.n=function(e){var r=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(r,"a",r),r},n.o=function(e,n){return Object.prototype.hasOwnProperty.call(e,n)},n.p="",n.oe=function(e){throw console.error(e),e}}([]);</script>
-<script type="text/javascript" src="vendor.f1bf259a.js"></script><script type="text/javascript" src="app.6cd6ce6d.js"></script></body></html>
+<script>!function(e){function n(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return e[r].call(o.exports,o,o.exports,n),o.l=!0,o.exports}var r=window.webpackJsonp;window.webpackJsonp=function(t,c,u){for(var a,i,f,p=0,l=[];p<t.length;p++)i=t[p],o[i]&&l.push(o[i][0]),o[i]=0;for(a in c)Object.prototype.hasOwnProperty.call(c,a)&&(e[a]=c[a]);for(r&&r(t,c,u);l.length;)l.shift()();if(u)for(p=0;p<u.length;p++)f=n(n.s=u[p]);return f};var t={},o={2:0};n.e=function(e){function r(){a.onerror=a.onload=null,clearTimeout(i);var n=o[e];0!==n&&(n&&n[1](new Error("Loading chunk "+e+" failed.")),o[e]=void 0)}var t=o[e];if(0===t)return new Promise(function(e){e()});if(t)return t[2];var c=new Promise(function(n,r){t=o[e]=[n,r]});t[2]=c;var u=document.getElementsByTagName("head")[0],a=document.createElement("script");a.type="text/javascript",a.charset="utf-8",a.async=!0,a.timeout=12e4,n.nc&&a.setAttribute("nonce",n.nc),a.src=n.p+""+({0:"vendor",1:"app"}[e]||e)+"."+{0:"c65a9f76",1:"694a40d5"}[e]+".js";var i=setTimeout(r,12e4);return a.onerror=a.onload=r,u.appendChild(a),c},n.m=e,n.c=t,n.i=function(e){return e},n.d=function(e,r,t){n.o(e,r)||Object.defineProperty(e,r,{configurable:!1,enumerable:!0,get:t})},n.n=function(e){var r=e&&e.__esModule?function(){return e.default}:function(){return e};return n.d(r,"a",r),r},n.o=function(e,n){return Object.prototype.hasOwnProperty.call(e,n)},n.p="",n.oe=function(e){throw console.error(e),e}}([]);</script>
+<script type="text/javascript" src="vendor.c65a9f76.js"></script><script type="text/javascript" src="app.694a40d5.js"></script></body></html>

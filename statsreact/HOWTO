@@ -2,4 +2,5 @@ npm install - install dependencies
 npm start - dev server
 npm run build - build things into dist/
 
-public site is linked to dist.public
+statsreact.dev is linked to dist
+public site is linked to dist.public, but need to fix up links in public since app.*.js, etc. will have changed hashes

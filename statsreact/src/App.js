@@ -5,6 +5,7 @@ import ReactDOM from 'react-dom'
 import ReactSlider from 'react-slider'
 import { CSSTransitionGroup } from 'react-transition-group'
 import $ from 'jquery';
+import wgxpath from 'wicked-good-xpath';
 
 import 'jquery-ui/themes/base/core.css';
 import 'jquery-ui/themes/base/theme.css';
@@ -13,6 +14,50 @@ import 'jquery-ui/ui/core';
 import 'jquery-ui/ui/effect';
 import 'jquery-ui/ui/effects/effect-highlight.js';
 
+// Needed to initialize document.evaluate() from wicked-good-xpath
+wgxpath.install();
+
+class RunsPerInningResult {
+    constructor(totalSituations, countByRuns) {
+        this.totalSituations = totalSituations;
+        this.countByRuns = countByRuns;
+    }
+    isEqual(other) {
+        if (other === undefined) {
+            return false;
+        }
+        if (this.totalSituations !== other.totalSituations) {
+            return false;
+        }
+        if (this.countByRuns.length !== other.countByRuns.length) {
+            return false;
+        }
+        for (let i = 0; i < this.countByRuns.length; ++i) {
+            if (this.countByRuns[i] !== other.countByRuns[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    getProbabilityForExactNumberOfRuns(numberOfRuns) {
+        return this.countByRuns[numberOfRuns] / this.totalSituations;
+    }
+    getProbabilityForAtLeastNumberOfRuns(numberOfRuns) {
+        let numSituationsBelowNumberOfRuns = 0;
+        for (let i = 0; i < numberOfRuns; ++i) {
+            numSituationsBelowNumberOfRuns += this.countByRuns[i];
+        }
+        return 1.0 - (numSituationsBelowNumberOfRuns / this.totalSituations);
+    }
+    getExpectedRuns() {
+        let expected = 0.0;
+        // skip the first iteration
+        for (let i = 1; i < this.countByRuns.length; ++i) {
+            expected += i * (this.countByRuns[i] / this.totalSituations);
+        }
+        return expected;
+    }
+}
 
 class InningHeader extends Component {
     render() {
@@ -225,6 +270,42 @@ class YearsSlider extends Component {
         </div>
     }
 }
+
+class RunsPerInningResultComponent extends Component {
+    componentDidUpdate(prevProps, prevState) {
+        var differences = false;
+        if (prevProps === undefined || prevProps.result === undefined) {
+            differences = !(this.props === undefined || this.props.result === undefined);
+        }
+        else {
+            differences = !this.props.result.isEqual(prevProps.result);
+        }
+        if (differences) {
+            var node = ReactDOM.findDOMNode(this);
+            $(node).effect("highlight");
+        }
+    }
+    makeDisplayPercent(probability) {
+        return ((Math.round(probability * 10000) / 100).toFixed(2) + "%");
+    }
+    makeDisplayRuns(runs) {
+        return runs.toFixed(2);
+    }
+    render() {
+        if (this.props.result === undefined) {
+            return <div/>;
+        }
+        return <div>
+            <p className="littlespace">Expected runs: {this.makeDisplayRuns(this.props.result.getExpectedRuns())}</p>
+            <table className="runsPerInning"><tbody>
+            <tr><th>0 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(0))}</td></tr>
+            <tr><th>1 run:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(1))}</td><th>1+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(1))}</td></tr>
+            <tr><th>2 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(2))}</td><th>2+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(2))}</td></tr>
+            <tr><th>3 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(3))}</td><th>3+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(3))}</td></tr>
+            <tr><th>4 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(4))}</td><th>4+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(4))}</td></tr>
+            </tbody></table></div>;
+    }
+}
 class StatsResults extends Component {
     componentDidMount() {
         var node = ReactDOM.findDOMNode(this);
@@ -245,9 +326,10 @@ class StatsResults extends Component {
         }
     }
     render() {
-        var mainDivStyle = {width: '300px', float: 'left'};
+        var mainDivStyle = {width: '300px'};
         if (!this.props.isPrimary) {
             mainDivStyle.marginTop = '20px';
+            mainDivStyle.cssFloat = 'left';
         }
         if (this.props.isInitial) {
             return <div style={mainDivStyle}/>
@@ -327,7 +409,7 @@ class BaseballSituation extends Component {
     }
     constructor(props) {
         super(props);
-        var state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], pendingRequests: false};
+        var state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], pendingRequests: false, pendingCount: 0};
         this.addInitialState(state, 'output', []);
         var i;
         for (i = 0; i < extraYears.length; ++i)
@@ -418,11 +500,45 @@ class BaseballSituation extends Component {
             // use the callback for to atomically update pendingCount
             this.setState(function(previousState, currentProps) {
                 if (hash === previousState['pendingHash']) {
-                    newState['pendingCount'] = newState['pendingCount'] - 1;
+                    newState['pendingCount'] = previousState['pendingCount'] - 1;
                 }
                 return newState;
             });
         }.bind(this)});
+        if (!this.state['runsPerInningData'])
+        {
+            //TODO url
+            $.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
+                this.setState({runsPerInningData: xhr.responseXML});
+                this.updateRunsPerInning();
+            }.bind(this)});
+        }
+        else
+        {
+            this.updateRunsPerInning();
+        }
+    }
+    updateRunsPerInning() {
+        let outs = this.state.outs;
+        let runners = this.state.runners;
+        let situationElement = this.state.runsPerInningData.evaluate("//situation[@outs=" + outs + "][@runners=" + runners + "][1]", this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
+        let situationChildren = situationElement.childNodes;
+        let total = 0;
+        let countByRuns = [];
+        for(let i = 0; i < situationChildren.length; ++i) {
+            let situationChild = situationChildren[i];
+            if (situationChild.localName == "total") {
+                total = parseInt(situationChild.innerHTML, 10);
+            }
+            else {
+                let runs = parseInt(situationChild.getAttribute('runs'), 10);
+                while (countByRuns.length <= runs) {
+                    countByRuns.push(0);
+                }
+                countByRuns[runs] = parseInt(situationChild.innerHTML, 10);
+            }
+        }
+        this.setState({runsPerInning: new RunsPerInningResult(total, countByRuns)});
     }
     setInning(newInning) {
         this.setState({inning: newInning}, this.updateCalculations.bind(this));
@@ -454,7 +570,7 @@ class BaseballSituation extends Component {
             var localStartYear = extraYears[i][0];
             var localEndYear = extraYears[i][1];
             var transformedYears = transformYears(localStartYear, localEndYear);
-            statsResultsList.ph(is.eateStatsResults(f6lse, 'output' + i, transformedYears));
+            statsResultsList.push(this.createStatsResults(false, 'output' + i, transformedYears));
         }
         return <div>
             <InningTable numInnings={NUM_INNINGS} inning={this.state.inning} setInning={this.setInning.bind(this)} />
@@ -467,10 +583,13 @@ class BaseballSituation extends Component {
             <div style={{float: 'left', marginLeft: '25px'}}>
                 <RunnersOnBaseDiamond runners={this.state.runners} setRunners={this.setRunners.bind(this)} />
             </div>
-            <div style={{clear: 'both'}}>
+            <div style={{clear: 'both', float: 'left'}}>
                 <IndeterminateProgressBar active={this.state.pendingCount > 0} />
+                {primaryStatsResultsList}
             </div>
-            {primaryStatsResultsList}
+            <div style={{float: 'left'}}>
+                <RunsPerInningResultComponent result={this.state.runsPerInning} />
+            </div>
             <div style={{clear: 'both'}}>
                 {statsResultsList}
             </div>

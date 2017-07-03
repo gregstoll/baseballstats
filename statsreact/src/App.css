@@ -7,42 +7,52 @@
   justify-content: stretch;
 }
 
-.App-flex {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+P.littlespace {margin: 2px;}
+.leverageVeryHigh {background-color: #f22; font-weight: 900;}
+.leverageHigh {background-color: #99f; font-weight: 900;}
+.leverageMedium {background-color: #ccc; font-weight: 900;}
+table.scoreTable td { /*border: 1px solid black;*/ font-size: 150%;}
+table.scoreTable td { padding: 1px 5px 1px 5px; }
+
+table.innings { width: 300px; }
+table.innings td { padding: 1px; width: 9%; text-align: center; }
+table.innings td.sideHeader { width: auto; }
+table.innings input[type="radio"] {
+   border-radius: 100% !important;
+   margin-block-end: 0;
+   margin-block-start: 3px;
+   margin-inline-end: 3px;
+   margin-inline-start: 5px;
+}
+table.innings th {
+   text-align: center;
 }
 
-.App-heading {
-  background-color: #222;
-  color: #f8f8f8;
-  font-size: 6vh;
-  box-shadow: 0px 4px 4vh 4px rgba(34,34,34,0.9);
-  z-index: 2;
+table.runsPerInning td,th {
+   text-align: right;
+   padding: 0px 3px 0px 3px;
 }
 
-.App-react {
-  color: #00d8ff;
-  text-decoration: overline underline;
+/* transitions */
+.outputTransition-enter {
+  opacity: 0.01;
 }
+.outputTransition-enter.outputTransition-enter-active {
+  opacity: 1;
+  transition: opacity 0.5s ease-in;
+}
+.outputTransition-leave {
+  opacity: 1;
+}
+.outputTransition-leave.outputTransition-leave-active {
+  opacity: 0.01;
+  transition: opacity 0.2s ease-in;
+}
+/*.outputTransition-appear {
+      opacity: 0.01;
+      transition: opacity .5s ease-in;
+}
+.outputTransition-appear.outputTransition-appear-active {
+      opacity: 1;
+}*/
 
-.App-logo {
-  max-height: 30vh;
-  max-width: 30vh;
-}
-
-.App-instructions {
-  background-color: #f8f8f8;
-  color: #222;
-  font-size: 3vh;
-  line-height: 1.5;
-  padding: 0 1em;
-}
-
-.App-instructions code {
-  background-color: #222;
-  color: #00d8ff;
-  padding: .2em .3em;
-  border-radius: .2em;
-}
