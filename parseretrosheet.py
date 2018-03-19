@@ -835,7 +835,7 @@ def main(args):
                 report[2].clear()
             for fileName in yearsToFiles[year]:
                 print(fileName)
-                eventFile = open(fileName, 'r')
+                eventFile = open(fileName, 'r', encoding='latin-1')
                 parseFile(eventFile, reportsToRun)
                 eventFile.close()
             if not skipOutput:
@@ -850,7 +850,7 @@ def main(args):
         for fileName in files:
             #eventFileName = '2004COL.EVN'
             print(fileName)
-            eventFile = open(fileName, 'r')
+            eventFile = open(fileName, 'r', encoding='latin-1')
             parseFile(eventFile, reportsToRun)
             eventFile.close()
         print("numGames is %d" % numGames)

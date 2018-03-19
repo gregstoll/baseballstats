@@ -486,7 +486,8 @@ class BaseballSituation extends Component {
         }
         var stateString = '"' + whichTeam + '",' + inning + ',' + outs + ',' + runners + ',' + scorediff;
         // TODO url
-        $.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
+        //$.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
+        $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
 
             var theseResults = this.state['results' + name];
             theseResults.total = parseInt(xhr.responseJSON.total);
@@ -508,7 +509,8 @@ class BaseballSituation extends Component {
         if (!this.state['runsPerInningData'])
         {
             //TODO url
-            $.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
+            //$.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
+            $.ajax({url: 'runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
                 this.setState({runsPerInningData: xhr.responseXML});
                 this.updateRunsPerInning();
             }.bind(this)});

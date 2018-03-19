@@ -3,4 +3,6 @@
 - call ./processcumulativestats.py statsyears
 - call ./processleveragefromcumulative.py
 - call ./processstatsruns.py runsperinningstats > runsperinning.xml
-- in stats.html, look for MAX_YEAR and set it to the new max year
+- in statsreact/src/stats.html, look for MAX_YEAR and set it to the new max year
+- in statsreact, call npm run build
+- follow instructions in statsreact/HOWTO to fix up links
