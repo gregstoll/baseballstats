@@ -178,6 +178,7 @@ def batterToFirst(runnerDests):
             runnerDests[3] = 3
  
 def parsePlay(line, gameSituation):
+    # decription of the format is at http://www.retrosheet.org/eventfile.htm
     playRe = re.compile(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$')
     playMatch = playRe.match(line)
     # if runnerDests[x] = 0, runner (or batter) is out
