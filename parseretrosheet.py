@@ -355,12 +355,11 @@ def parsePlay(line, gameSituation):
                                 runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('POCS')):
                         if (tempEvent[4] == 'H'):
-                            # ...this is weird
                             runnerDests[3] = 0
                         else:
                             base = int(tempEvent[4])
-                            assert (base == 1 or base == 2 or base == 3)
-                            runnerDests[base] = 0
+                            assert (base == 2 or base == 3)
+                            runnerDests[base - 1] = 0
                     elif (tempEvent.startswith('PO')):
                         base = int(tempEvent[2])
                         assert (base == 1 or base == 2 or base == 3)
@@ -1481,6 +1480,15 @@ class TestParsePlay(unittest.TestCase):
         sitCopy['outs'] = 1
         self.assertEqual(sitCopy, situation)
 
+    def test_walk_plus_putout_caught_stealing(self):
+        # game CHN201708160, bottom of the 4th
+        (situation, playString) = self.util_setup(0, False, 'W+POCS3(26)')
+        situation['runners'] = [0, 1, 0]
+        sitCopy = situation.copy()
+        parsePlay(playString, situation)
+        sitCopy['outs'] = 1
+        sitCopy['runners'] = [1, 0, 0]
+        self.assertEqual(sitCopy, situation)
 
 
 
