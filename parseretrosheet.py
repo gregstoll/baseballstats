@@ -184,9 +184,17 @@ def characterToBase(ch):
         return 4
     return int(ch)
 
+# decription of the format is at http://www.retrosheet.org/eventfile.htm
+playRe = re.compile(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$')
+simpleHitRe = re.compile(r"^([SDTH])(?:\d|/)")
+simpleHit2Re = re.compile(r"^([SDTH])\s*$")
+doublePlayRe = re.compile(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?')
+weirdDoublePlayRe = re.compile(r'^\d+(/.*?)*/.?[DT]P')
+simpleOutRe = re.compile("^\d\D")
+putOutRe = re.compile(r'^\d*(\d).*?(?:\((.)\))?')
+
 def parsePlay(line, gameSituation):
-    # decription of the format is at http://www.retrosheet.org/eventfile.htm
-    playRe = re.compile(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$')
+    global playRe, simpleHitRe, simpleHit2Re, doublePlayRe, weirdDoublePlayRe, simpleOutRe, putOutRe
     playMatch = playRe.match(line)
     # if runnerDests[x] = 0, runner (or batter) is out
     # if runnerDests[x] = 4, runner (or batter) scores
@@ -223,8 +231,8 @@ def parsePlay(line, gameSituation):
         batterEvent = batterEvent.strip()
     
         doneParsingEvent = False
-        simpleHitMatch = re.match(r"^([SDTH])(?:\d|/)", batterEvent)
-        simpleHitMatch2 = re.match(r"^([SDTH])\s*$", batterEvent)
+        simpleHitMatch = simpleHitRe.match(batterEvent)
+        simpleHitMatch2 = simpleHit2Re.match(batterEvent)
         if (simpleHitMatch or simpleHitMatch2):
             if (simpleHitMatch):
                 typeOfHit = simpleHitMatch.group(1)
@@ -396,7 +404,7 @@ def parsePlay(line, gameSituation):
                 doneParsingEvent = True
         if (not doneParsingEvent):
             # double or triple play
-            doublePlayMatch = re.match(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?', batterEvent)
+            doublePlayMatch = doublePlayRe.match(batterEvent)
             if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
                 if (not quiet):
                     print("double/triple play")
@@ -426,7 +434,7 @@ def parsePlay(line, gameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            weirdDoublePlayMatch = re.match(r'^\d+(/.*?)*/.?[DT]P', batterEvent)
+            weirdDoublePlayMatch = weirdDoublePlayRe.match(batterEvent)
             if (weirdDoublePlayMatch):
                 # This is a double play.  The specifics of who's out will
                 # come later.
@@ -436,7 +444,7 @@ def parsePlay(line, gameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            simpleOutMatch = re.match("^\d\D", batterEvent)
+            simpleOutMatch = simpleOutRe.match(batterEvent)
             if (simpleOutMatch and "/FO" not in batterEvent or (len(batterEvent) == 1 and (int(batterEvent) >= 1 and int(batterEvent) <= 9))):
                 if (not quiet):
                     print("simple out")
@@ -452,7 +460,7 @@ def parsePlay(line, gameSituation):
                         runnerDests[runner] = runner
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            putOutMatch = re.match(r'^\d*(\d).*?(?:\((.)\))?', batterEvent)
+            putOutMatch = putOutRe.match(batterEvent)
             if (putOutMatch):
                 if (not quiet):
                     print("Got a putout")
