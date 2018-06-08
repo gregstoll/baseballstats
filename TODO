@@ -1,3 +1,5 @@
 refactoring
+ - performance
+   - encapsulate creating an re the first time we need it
  - more strongly type things
  - events that start with 'W+' have a bunch of duplication (also 'K+'?)
