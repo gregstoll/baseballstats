@@ -1,4 +1,3 @@
 refactoring
- - lots of places we check for 'H' and treat it as 4
  - more strongly type things
- - events that start with 'W+' have a bunch of duplication
+ - events that start with 'W+' have a bunch of duplication (also 'K+'?)
