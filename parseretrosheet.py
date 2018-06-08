@@ -38,6 +38,8 @@ def getSituationFromKey(key):
     return situation
 
 def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, gameId):
+    if skipOutput:
+        return
     # Add gameKeys to stats
     # Check the last situation to see who won.
     if (finalGameSituation['isHome']):
@@ -212,9 +214,7 @@ def parsePlay(line, gameSituation):
     assert gameSituation['isHome'] == int(playMatch.group(2))
     playString = playMatch.group(3)
     # Strip !'s, #'s, and ?'s
-    playString = ''.join(playString.split('!'))
-    playString = ''.join(playString.split('#'))
-    playString = ''.join(playString.split('?'))
+    playString = playString.replace('!', '').replace('#', '').replace('?', '')
     playArray = playString.split('.')
     assert len(playArray) <= 2
     # Deal with the first part of the string.
