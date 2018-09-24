@@ -132,7 +132,9 @@ def parseFile(f, reports):
                 numGames = numGames + 1
         else:
             if (line.startswith("id,")):
-                # Add gameKeys to stats
+                # Don't include the last situation in the list of keys, because it's one after the last inning probably
+                if len(gameSituationKeys) > 0 and gameSituationKeys[-1] == getKeyFromSituation(curGameSituation):
+                    gameSituationKeys = gameSituationKeys[:-1]
                 for report in reports:
                     report[0](gameSituationKeys, curGameSituation, report[2], curId)
                 if (not quiet):
