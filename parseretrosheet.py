@@ -2,10 +2,13 @@
 import re, sys, copy, getopt, os, os.path
 import unittest
 
+#TODO - remove?
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
 # When outputting, add 1 to runners to comply with Birnbaum's data
 #stats = {}
+#TODO - use __all__
+#TODO - do something with these
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 numGames = 0
 quiet = True
