@@ -2,15 +2,9 @@
 import re, sys, copy, getopt, os, os.path
 import unittest
 
-#TODO - remove?
-# Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
-# (number of wins, number of situations)
-# When outputting, add 1 to runners to comply with Birnbaum's data
-#stats = {}
 #TODO - use __all__
 #TODO - do something with these
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
-numGames = 0
 quiet = True
 skipOutput = False
 stopOnFirstError = False
@@ -59,6 +53,8 @@ class GameSituation:
             self.runners = [0, 0, 0]
             self.curScoreDiff = -1 * self.curScoreDiff
 
+# Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
+# (number of wins, number of situations)
 def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, gameId):
     if skipOutput:
         return
@@ -144,10 +140,8 @@ def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, 
             stats[keyToUse][runsGained] += 1
 
 def parseFile(f, reports):
-    #TODO refactor
-    global numGames
-    #TODO refactor
-    inGame = 0
+    numGames = 0
+    inGame = False
     curGameSituation = {}
     gameSituationKeys = []
     curId = None
@@ -158,7 +152,7 @@ def parseFile(f, reports):
                 curGameSituation = GameSituation()
                 gameSituationKeys = []
                 gameSituationKeys.append(curGameSituation.getKey())
-                inGame = 1
+                inGame = True
                 numGames = numGames + 1
         else:
             if (line.startswith("id,")):
@@ -186,13 +180,14 @@ def parseFile(f, reports):
                             raise
                         else:
                             # We're just gonna punt and ignore the error
-                            inGame = 0
+                            inGame = False
                     else:
                         curGameSituationKey = curGameSituation.getKey()
                         if (curGameSituationKey not in gameSituationKeys):
                             gameSituationKeys.append(curGameSituationKey)
     for report in reports:
         report[0](gameSituationKeys, curGameSituation, report[2], curId)
+    return numGames
 
 def batterToFirst(runnerDests):
     runnerDests['B'] = 1
@@ -837,11 +832,12 @@ def main(args):
                         outputFile.write("%s: %s\n" % (key, report[2][key]))
                     outputFile.close()
     else:
+        numGames = 0
         for fileName in files:
             #eventFileName = '2004COL.EVN'
             print(fileName)
             eventFile = open(fileName, 'r', encoding='latin-1')
-            parseFile(eventFile, reportsToRun)
+            numGames += parseFile(eventFile, reportsToRun)
             eventFile.close()
         print("numGames is %d" % numGames)
         if not skipOutput:
