@@ -48,6 +48,17 @@ class GameSituation:
         situation.curScoreDiff = key[4]
         return situation
 
+    def nextInningIfThreeOuts(self):
+        if (self.outs >= 3):
+            if (self.isHome):
+                self.isHome = False
+                self.inning = self.inning + 1
+            else:
+                self.isHome = True
+            self.outs = 0
+            self.runners = [0, 0, 0]
+            self.curScoreDiff = -1 * self.curScoreDiff
+
 def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, gameId):
     if skipOutput:
         return
@@ -94,13 +105,13 @@ def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, ga
                 numWins = 0
             stats[situationKey] = (numWins, 1)
 
-def getNextInning(inning):
-    if (inning[1]):
-        return (inning[0]+1, False)
-    else:
-        return (inning[0], True)
-
 def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, stats, gameId):
+    def getNextInning(inning):
+        if (inning[1]):
+            return (inning[0]+1, False)
+        else:
+            return (inning[0], True)
+
     inningsToKeys = {}
     for situationKey in gameSituationKeys:
         situation = GameSituation.fromKey(situationKey)
@@ -739,19 +750,8 @@ def parsePlay(line, gameSituation):
                 print("ERROR - already a runner at base %d!" % runnerDests[runner])
                 assert False
             newRunners[runnerDests[runner] - 1] = 1
-    if (gameSituation.outs >= 3):
-        # new inning
-        # TODO refactor
-        if (gameSituation.isHome):
-            gameSituation.isHome = False
-            gameSituation.inning = gameSituation.inning + 1
-        else:
-            gameSituation.isHome = True
-        gameSituation.outs = 0
-        gameSituation.runners = [0, 0, 0]
-        gameSituation.curScoreDiff = -1 * gameSituation.curScoreDiff
-    else:
-        gameSituation.runners = newRunners
+    gameSituation.runners = newRunners
+    gameSituation.nextInningIfThreeOuts()
     # We're done - the information is "returned" in gameSituation
 
 def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
@@ -1288,7 +1288,6 @@ class TestParsePlay(unittest.TestCase):
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 2
         self.assertEqual(sitCopy, situation)
-
 
     def test_no_play(self):
         (situation, playString) = self.util_setup(0, False, 'NP')
