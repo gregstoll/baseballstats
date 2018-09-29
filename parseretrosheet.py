@@ -53,6 +53,16 @@ class GameSituation:
             self.runners = [0, 0, 0]
             self.curScoreDiff = -1 * self.curScoreDiff
 
+    # returns True, False, or None if it's still tied.
+    def isHomeWinning(self):
+        if (self.curScoreDiff == 0):
+            # This game must have been tied when it stopped.
+            return None
+        if (self.isHome):
+            return self.curScoreDiff > 0
+        else:
+            return self.curScoreDiff < 0
+
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
 def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, gameId):
@@ -60,26 +70,11 @@ def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, ga
         return
     # Add gameKeys to stats
     # Check the last situation to see who won.
-    #TODO - refactor?
-    if (finalGameSituation.isHome):
-        if (finalGameSituation.curScoreDiff > 0):
-            homeWon = True
-        elif (finalGameSituation.curScoreDiff < 0):
-            homeWon = False
-        else:
-            # This game must have been tied when it stopped.  Don't count
-            # these stats.
-            return
-    else:
-        if (finalGameSituation.curScoreDiff > 0):
-            # FODO - can this really happen?
-            homeWon = False
-        elif (finalGameSituation.curScoreDiff < 0):
-            homeWon = True
-        else:
-            # This game must have been tied when it stopped.  Don't count
-            # these stats.
-            return
+    homeWon = finalGameSituation.isHomeWinning()
+    if (homeWon is None):
+        # This game must have been tied when it stopped.  Don't count
+        # these stats.
+        return
     for situationKeyOriginal in gameSituationKeys:
         isHomeInning = situationKeyOriginal[1]
         #TODO this is probably slow?
@@ -732,9 +727,9 @@ def parsePlay(line, gameSituation):
     # Deal with runnerDests
     for runner in runnerDests:
         if (runnerDests[runner] == 0):
-            gameSituation.outs = gameSituation.outs + 1
+            gameSituation.outs += 1
         elif (runnerDests[runner] == 4):
-            gameSituation.curScoreDiff = gameSituation.curScoreDiff + 1
+            gameSituation.curScoreDiff += 1
         elif (runnerDests[runner] == -1):
             # Either we're the batter, and nothing happens, or
             # we don't know what happens, and it doesn't matter because there
@@ -750,25 +745,11 @@ def parsePlay(line, gameSituation):
     # We're done - the information is "returned" in gameSituation
 
 def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
-    if (finalGameSituation.isHome):
-        if (finalGameSituation.curScoreDiff > 0):
-            homeWon = True
-        elif (finalGameSituation.curScoreDiff < 0):
-            homeWon = False
-        else:
-            # This game must have been tied when it stopped.  Don't count
-            # these stats.
-            return
-    else:
-        if (finalGameSituation.curScoreDiff > 0):
-            # FODO - can this really happen?
-            homeWon = False
-        elif (finalGameSituation.curScoreDiff < 0):
-            homeWon = True
-        else:
-            # This game must have been tied when it stopped.  Don't count
-            # these stats.
-            return
+    homeWon = finalGameSituation.isHomeWinning()
+    if (homeWon is None):
+        # This game must have been tied when it stopped.  Don't count
+        # these stats.
+        return
     if not homeWon:
         return
     if (9, True, 2, (0, 0, 0), -6) in gameSituationKeys:
