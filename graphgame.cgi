@@ -113,6 +113,7 @@ if (inningStarts[-1][1] == lastSituation):
 (tempPngFile, tempPngFileName) = mkstemp(suffix=".png")
 os.close(tempPngFile)
 
+axes = plt.axes()
 plt.ylim(0,1)
 plt.xlim(0, max(xValues))
 plt.ylabel("Win Probability")
@@ -127,10 +128,10 @@ for entry in inningStarts:
 plt.yticks(np.linspace(0, 1, num=5, endpoint=True))
 def y_axis_formatter(x, p):
     return "%d%%" % (int(x * 100),)
-plt.axes().yaxis.set_major_formatter(ticker.FuncFormatter(y_axis_formatter))
+axes.yaxis.set_major_formatter(ticker.FuncFormatter(y_axis_formatter))
 plt.xticks(rotation=90)
 plt.xticks([x[0] for x in xTicks])
-plt.axes().set_xticklabels([x[1] for x in xTicks])
+axes.set_xticklabels([x[1] for x in xTicks])
 plt.grid(axis='both', linestyle='-', color='0.5')
 
 # Find the points where runs were scored.
