@@ -65,7 +65,7 @@ class GameSituation:
 
 # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
 # (number of wins, number of situations)
-def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, gameId):
+def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
     if skipOutput:
         return
     # Add gameKeys to stats
@@ -96,7 +96,7 @@ def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, stats, ga
                 numWins = 0
             stats[situationKey] = (numWins, 1)
 
-def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, stats, gameId):
+def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
     def getNextInning(inning):
         if (inning[1]):
             return (inning[0]+1, False)
@@ -139,6 +139,7 @@ def parseFile(f, reports):
     inGame = False
     curGameSituation = {}
     gameSituationKeys = []
+    playLines = []
     curId = None
     for line in f.readlines():
         if (not(inGame)):
@@ -147,6 +148,7 @@ def parseFile(f, reports):
                 curGameSituation = GameSituation()
                 gameSituationKeys = []
                 gameSituationKeys.append(curGameSituation.getKey())
+                playLines = []
                 inGame = True
                 numGames = numGames + 1
         else:
@@ -155,13 +157,14 @@ def parseFile(f, reports):
                 if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == curGameSituation.getKey()):
                     gameSituationKeys = gameSituationKeys[:-1]
                 for report in reports:
-                    report[0](gameSituationKeys, curGameSituation, report[2], curId)
+                    report[0](gameSituationKeys, curGameSituation, playLines, report[2], curId)
                 if (not quiet):
                     print("NEW GAME")
                 curGameSituation = GameSituation()
                 curId = line[3:].strip()
                 gameSituationKeys = []
                 gameSituationKeys.append(curGameSituation.getKey())
+                playLines = []
                 numGames = numGames + 1
             else:
                 if (line.startswith("play")):
@@ -180,8 +183,9 @@ def parseFile(f, reports):
                         curGameSituationKey = curGameSituation.getKey()
                         if (curGameSituationKey not in gameSituationKeys):
                             gameSituationKeys.append(curGameSituationKey)
+                            playLines.append(line.strip())
     for report in reports:
-        report[0](gameSituationKeys, curGameSituation, report[2], curId)
+        report[0](gameSituationKeys, curGameSituation, playLines, report[2], curId)
     return numGames
 
 def batterToFirst(runnerDests):
@@ -744,7 +748,9 @@ def parsePlay(line, gameSituation):
     gameSituation.nextInningIfThreeOuts()
     # We're done - the information is "returned" in gameSituation
 
-def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
+# Finds games where the home team won after being down by 6 runs in the bottom of the ninth
+# with two outs and nobody on base
+def findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
     homeWon = finalGameSituation.isHomeWinning()
     if (homeWon is None):
         # This game must have been tied when it stopped.  Don't count
@@ -757,6 +763,38 @@ def findImprobableGame(gameSituationKeys, finalGameSituation, stats, gameId):
         print(gameId)
         sys.exit(0)
 
+# Finds games where the home team won with a walkoff walk on 4 pitches
+def findGameWithWalkoffWalk(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
+    homeWon = finalGameSituation.isHomeWinning()
+    if (homeWon is None):
+        # This game must have been tied when it stopped.  Don't count
+        # these stats.
+        return
+    if not homeWon:
+        return
+    lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
+    playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+    if lastGameSituation.isHome and lastGameSituation.outs == 2 and lastGameSituation.runners == [1, 1, 1]:
+        lastPlayLine = playLines[-1]
+        playMatch = playPitchesRe.match(lastPlayLine)
+        pitches = playMatch.group(1)
+        playString = playMatch.group(2)
+        playString = playString.replace('!', '').replace('#', '').replace('?', '')
+        playArray = playString.split('.')
+        batterEvents = playArray[0].split(';')
+        for batterEvent in batterEvents:
+            if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
+                # walk
+                # This is surprisingly complicated because there's a lot of extraneous stuff in here.
+                numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
+                # Check this to make sure we have reasonable pitches
+                numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
+                print("Found game with gameId:")
+                print(gameId)
+                print("Last line was " + lastPlayLine)
+                if numStrikes == 0 and numBalls == 4:
+                    print("on four pitches!")
+
 def usage():
     print("-t: just run tests")
     print("-v: verbose")
@@ -766,7 +804,8 @@ def usage():
 
 # This selects what stats we're compiling.
 reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
-#reportsToRun = [(findImprobableGame, 'improbable', {})]
+#reportsToRun = [(findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth, 'improbable', {})]
+#reportsToRun = [(findGameWithWalkoffWalk, 'improbable', {})]
 def main(args):
     global quiet, skipOutput, stopOnFirstError
     sortByYear = False
