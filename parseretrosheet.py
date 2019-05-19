@@ -1,14 +1,20 @@
 #!/usr/bin/python3
 import re, sys, copy, getopt, os, os.path
 import unittest
+from enum import IntEnum
 
+class Verbosity(IntEnum):
+    quiet = 0
+    normal = 1
+    verbose = 2
 #TODO - use __all__
 #TODO - do something with these
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
-quiet = True
+verbosity = Verbosity.normal
 skipOutput = False
 stopOnFirstError = False
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300']
+
 
 class GameSituation:
     def __init__(self):
@@ -158,7 +164,7 @@ def parseFile(f, reports):
                     gameSituationKeys = gameSituationKeys[:-1]
                 for report in reports:
                     report[0](gameSituationKeys, curGameSituation, playLines, report[2], curId)
-                if (not quiet):
+                if (verbosity == Verbosity.verbose):
                     print("NEW GAME")
                 curGameSituation = GameSituation()
                 curId = line[3:].strip()
@@ -174,7 +180,7 @@ def parseFile(f, reports):
                         print("Error in game " + curId)
                         if (curId in knownBadGames):
                             print("known bad game")
-                        if (curId not in knownBadGames and (not quiet or stopOnFirstError)):
+                        if (curId not in knownBadGames and (verbosity == Verbosity.verbose or stopOnFirstError)):
                             raise
                         else:
                             # We're just gonna punt and ignore the error
@@ -240,7 +246,7 @@ def parsePlay(line, gameSituation):
     if (gameSituation.runners[2]):
         runnerDests[3] = -1
         beginningRunners.append(3)
-    if (not quiet):
+    if (verbosity == Verbosity.verbose):
         print("Game situation is: %s" % gameSituation)
         print(line[0:-1])
     assert playMatch
@@ -432,7 +438,7 @@ def parsePlay(line, gameSituation):
             # double or triple play
             doublePlayMatch = doublePlayRe.match(batterEvent)
             if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
-                if (not quiet):
+                if (verbosity == Verbosity.verbose):
                     print("double/triple play")
                 # The batter is out if the last character is a number, not ')'
                 # (unless there's a "(B)" in the string
@@ -464,7 +470,7 @@ def parsePlay(line, gameSituation):
             if (weirdDoublePlayMatch):
                 # This is a double play.  The specifics of who's out will
                 # come later.
-                if (not quiet):
+                if (verbosity == Verbosity.verbose):
                     print("weird double/triple play")
                 runnerDests['B'] = 0
                 runnersDefaultStayStill = True
@@ -472,10 +478,10 @@ def parsePlay(line, gameSituation):
         if (not doneParsingEvent):
             simpleOutMatch = simpleOutRe.match(batterEvent)
             if (simpleOutMatch and "/FO" not in batterEvent or (len(batterEvent) == 1 and (int(batterEvent) >= 1 and int(batterEvent) <= 9))):
-                if (not quiet):
+                if (verbosity == Verbosity.verbose):
                     print("simple out")
                 if (re.match(r'^\dE', batterEvent)):
-                    if (not quiet):
+                    if (verbosity == Verbosity.verbose):
                         print("error")
                     runnerDests['B'] = 1
                 else:
@@ -488,7 +494,7 @@ def parsePlay(line, gameSituation):
         if (not doneParsingEvent):
             putOutMatch = putOutRe.match(batterEvent)
             if (putOutMatch):
-                if (not quiet):
+                if (verbosity == Verbosity.verbose):
                     print("Got a putout")
                 if (re.search(r'\d?E\d', batterEvent)):
                     # Error on the play - batter goes to first unless
@@ -499,7 +505,7 @@ def parsePlay(line, gameSituation):
                     if ("/FO" in batterEvent):
                         # Force out - this means the thing in parentheses
                         # is the runner who is out.
-                        if (not quiet):
+                        if (verbosity == Verbosity.verbose):
                             print("force out")
                         assert putOutMatch.group(2)
                         runnerDests[int(putOutMatch.group(2))] = 0
@@ -542,7 +548,7 @@ def parsePlay(line, gameSituation):
                 # Caught stealing
                 if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
                     # There was an error, so not an out.
-                    if (not quiet):
+                    if (verbosity == Verbosity.verbose):
                         print("no caught stealing")
                     dest = characterToBase(batterEvent[2])
                     assert (dest == 2 or dest == 3 or dest == 4)
@@ -681,7 +687,7 @@ def parsePlay(line, gameSituation):
             # Find the closest unresolved runner behind that base.
             possibleRunners = [runner for runner in unresolvedRunners if runner < outBase]
             curRunner = max(possibleRunners)
-            if (not quiet):
+            if (verbosity == Verbosity.verbose):
                 print("picked runner %d" % curRunner)
             if (curRunner == 0):
                 runnerDests['B'] = 0
@@ -692,7 +698,7 @@ def parsePlay(line, gameSituation):
     unresolvedRunners = [runner for runner in runnerDests if runnerDests[runner] == -1]
     if (runnerDests['B'] == -2):
         if (defaultBatterBase != -1):
-            if (not quiet):
+            if (verbosity == Verbosity.verbose):
                 print("using defaultBatterBase of %d" % defaultBatterBase)
             runnerDests['B'] = defaultBatterBase
         else:
@@ -717,7 +723,7 @@ def parsePlay(line, gameSituation):
                 assert False
     # Check that no new entries to runnerDests
     newRunners = [runner for runner in runnerDests if runner not in beginningRunners]
-    if (not quiet):
+    if (verbosity == Verbosity.verbose):
         print("runnerDests: %s" % (runnerDests))
     if ('B' not in newRunners):
         print("ERROR - don't know what happened to B!")
@@ -774,7 +780,7 @@ def findGameWithWalkoffWalk(gameSituationKeys, finalGameSituation, playLines, st
         return
     lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
     playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
-    if lastGameSituation.isHome and lastGameSituation.outs == 2 and lastGameSituation.runners == [1, 1, 1]:
+    if lastGameSituation.isHome and lastGameSituation.outs == 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
         lastPlayLine = playLines[-1]
         playMatch = playPitchesRe.match(lastPlayLine)
         pitches = playMatch.group(1)
@@ -798,6 +804,7 @@ def findGameWithWalkoffWalk(gameSituationKeys, finalGameSituation, playLines, st
 def usage():
     print("-t: just run tests")
     print("-v: verbose")
+    print("-q: quiet")
     print("-s: skip output, just parse everything and stop on first error")
     print("-h: help")
     print("-y: generate data sorted by year")
@@ -807,10 +814,10 @@ reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunEx
 #reportsToRun = [(findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth, 'improbable', {})]
 #reportsToRun = [(findGameWithWalkoffWalk, 'improbable', {})]
 def main(args):
-    global quiet, skipOutput, stopOnFirstError
+    global verbosity, skipOutput, stopOnFirstError
     sortByYear = False
     try:
-        opts, files = getopt.getopt(args, 'vhsy')
+        opts, files = getopt.getopt(args, 'vhsyq')
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -821,7 +828,9 @@ def main(args):
         elif o == '-y':
             sortByYear = True
         elif o == '-v':
-            quiet = False
+            verbosity = Verbosity.verbose
+        elif o == '-q':
+            verbosity = Verbosity.quiet
         elif o == '-s':
             skipOutput = True
             stopOnFirstError = True
@@ -835,11 +844,13 @@ def main(args):
                 yearsToFiles[year] = []
             yearsToFiles[year].append(fileName)
         for year in sorted(yearsToFiles):
-            print(year)
+            if verbosity >= Verbosity.normal:
+                print(year)
             for report in reportsToRun:
                 report[2].clear()
             for fileName in yearsToFiles[year]:
-                print(fileName)
+                if verbosity >= Verbosity.normal:
+                    print(fileName)
                 eventFile = open(fileName, 'r', encoding='latin-1')
                 parseFile(eventFile, reportsToRun)
                 eventFile.close()
@@ -855,11 +866,13 @@ def main(args):
         numGames = 0
         for fileName in files:
             #eventFileName = '2004COL.EVN'
-            print(fileName)
+            if verbosity >= Verbosity.normal:
+                print(fileName)
             eventFile = open(fileName, 'r', encoding='latin-1')
             numGames += parseFile(eventFile, reportsToRun)
             eventFile.close()
-        print("numGames is %d" % numGames)
+        if verbosity >= Verbosity.normal:
+            print("numGames is %d" % numGames)
         if not skipOutput:
             for report in reportsToRun:
                 outputFile = open(report[1], 'w')
