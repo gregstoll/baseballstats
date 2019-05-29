@@ -69,77 +69,6 @@ class GameSituation:
         else:
             return self.curScoreDiff < 0
 
-# Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
-# (number of wins, number of situations)
-def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
-    if skipOutput:
-        return
-    # Add gameKeys to stats
-    # Check the last situation to see who won.
-    homeWon = finalGameSituation.isHomeWinning()
-    if (homeWon is None):
-        # This game must have been tied when it stopped.  Don't count
-        # these stats.
-        return
-    for situationKeyOriginal in gameSituationKeys:
-        isHomeInning = situationKeyOriginal[1]
-        #TODO this is probably slow?
-        situationKeyList = list(situationKeyOriginal)
-        situationKeyList[1] = 1 if isHomeInning else 0
-        situationKey = tuple(situationKeyList)
-        isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
-        #TODO refactor a little
-        if (situationKey in stats):
-            (numWins, numSituations) = stats[situationKey]
-            numSituations = numSituations + 1
-            if (isWin):
-                numWins = numWins + 1
-            stats[situationKey] = (numWins, numSituations)
-        else:
-            if (isWin):
-                numWins = 1
-            else:
-                numWins = 0
-            stats[situationKey] = (numWins, 1)
-
-def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
-    def getNextInning(inning):
-        if (inning[1]):
-            return (inning[0]+1, False)
-        else:
-            return (inning[0], True)
-
-    inningsToKeys = {}
-    for situationKey in gameSituationKeys:
-        situation = GameSituation.fromKey(situationKey)
-        key = (situation.inning, situation.isHome)
-        if (key in inningsToKeys):
-            inningsToKeys[key].append(situation)
-        else:
-            inningsToKeys[key] = [situation]
-    for inning in inningsToKeys:
-        startingRunDiff = inningsToKeys[inning][0].curScoreDiff
-        if (getNextInning(inning) in inningsToKeys):
-            endingRunDiff = -1 * inningsToKeys[getNextInning(inning)][0].curScoreDiff
-        else:
-            endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
-        if (endingRunDiff - startingRunDiff < 0):
-            print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
-            assert False
-        # Add the statistics now.
-        for situation in inningsToKeys[inning]:
-            # Make sure we don't duplicate keys.
-            keysUsed = []
-            # Strip off the inning info (for now?) and the curScoreDiff
-            keyToUse = situation.getKey()[2:4]
-            runsGained = endingRunDiff - situation.curScoreDiff
-            if (keyToUse in stats):
-                while (len(stats[keyToUse]) < (runsGained + 1)):
-                    stats[keyToUse].append(0)
-            else:
-                stats[keyToUse] = [0] * (runsGained + 1)
-            stats[keyToUse][runsGained] += 1
-
 def parseFile(f, reports):
     numGames = 0
     inGame = False
@@ -754,6 +683,77 @@ def parsePlay(line, gameSituation):
     gameSituation.nextInningIfThreeOuts()
     # We're done - the information is "returned" in gameSituation
 
+# Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
+# (number of wins, number of situations)
+def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
+    if skipOutput:
+        return
+    # Add gameKeys to stats
+    # Check the last situation to see who won.
+    homeWon = finalGameSituation.isHomeWinning()
+    if (homeWon is None):
+        # This game must have been tied when it stopped.  Don't count
+        # these stats.
+        return
+    for situationKeyOriginal in gameSituationKeys:
+        isHomeInning = situationKeyOriginal[1]
+        #TODO this is probably slow?
+        situationKeyList = list(situationKeyOriginal)
+        situationKeyList[1] = 1 if isHomeInning else 0
+        situationKey = tuple(situationKeyList)
+        isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
+        #TODO refactor a little
+        if (situationKey in stats):
+            (numWins, numSituations) = stats[situationKey]
+            numSituations = numSituations + 1
+            if (isWin):
+                numWins = numWins + 1
+            stats[situationKey] = (numWins, numSituations)
+        else:
+            if (isWin):
+                numWins = 1
+            else:
+                numWins = 0
+            stats[situationKey] = (numWins, 1)
+
+def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
+    def getNextInning(inning):
+        if (inning[1]):
+            return (inning[0]+1, False)
+        else:
+            return (inning[0], True)
+
+    inningsToKeys = {}
+    for situationKey in gameSituationKeys:
+        situation = GameSituation.fromKey(situationKey)
+        key = (situation.inning, situation.isHome)
+        if (key in inningsToKeys):
+            inningsToKeys[key].append(situation)
+        else:
+            inningsToKeys[key] = [situation]
+    for inning in inningsToKeys:
+        startingRunDiff = inningsToKeys[inning][0].curScoreDiff
+        if (getNextInning(inning) in inningsToKeys):
+            endingRunDiff = -1 * inningsToKeys[getNextInning(inning)][0].curScoreDiff
+        else:
+            endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+        if (endingRunDiff - startingRunDiff < 0):
+            print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
+            assert False
+        # Add the statistics now.
+        for situation in inningsToKeys[inning]:
+            # Make sure we don't duplicate keys.
+            keysUsed = []
+            # Strip off the inning info (for now?) and the curScoreDiff
+            keyToUse = situation.getKey()[2:4]
+            runsGained = endingRunDiff - situation.curScoreDiff
+            if (keyToUse in stats):
+                while (len(stats[keyToUse]) < (runsGained + 1)):
+                    stats[keyToUse].append(0)
+            else:
+                stats[keyToUse] = [0] * (runsGained + 1)
+            stats[keyToUse][runsGained] += 1
+
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 def findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
@@ -768,6 +768,7 @@ def findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth(gameSituationKeys, finalGa
         print("GOT IT with gameId:")
         print(gameId)
         sys.exit(0)
+
 
 # Finds games where the home team won with a walkoff walk on 4 pitches
 def findGameWithWalkoffWalk(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
