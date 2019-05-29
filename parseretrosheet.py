@@ -861,8 +861,7 @@ class WalkOffWalkReport(Report):
                     numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
                     # Check this to make sure we have reasonable pitches
                     numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
-                    print("Found game with gameId:")
-                    print(gameId)
+                    print(f"Found game with gameId: {gameId}")
                     print("Last line was " + lastPlayLine)
                     if numStrikes == 0 and numBalls == 4:
                         print("on four pitches!")
