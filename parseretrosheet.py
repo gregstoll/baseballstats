@@ -80,7 +80,7 @@ def parseFile(f, reports):
     for line in f.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
-                curId = line[3].strip()
+                curId = line[3:].strip()
                 curGameSituation = GameSituation()
                 gameSituationKeys = []
                 gameSituationKeys.append(curGameSituation.getKey())
@@ -121,6 +121,9 @@ def parseFile(f, reports):
                             gameSituationKeys.append(curGameSituationKey)
                             playLines.append(line.strip())
     for report in reports:
+        # Don't include the last situation in the list of keys, because it's one after the last inning probably
+        if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == curGameSituation.getKey()):
+            gameSituationKeys = gameSituationKeys[:-1]
         report.processedGame(gameSituationKeys, curGameSituation, playLines, curId)
     return numGames
 
@@ -831,24 +834,40 @@ class WalkOffWalkReport(Report):
         self.numGamesWithPitches = 0
         self.walkOffWalks = 0
         self.walkOffWalksOnFourPitches = 0
+        self.yearCount = {}
 
     def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+        reallyVerbose = False # gameId == 'CHA201404020'
+        year = int(gameId[3:7])
+        if year not in self.yearCount:
+            self.yearCount[year] = 0
         lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
+        if reallyVerbose:
+            print(f"lastGameSituation: {lastGameSituation}")
+            print(f"finalGameSituation: {finalGameSituation}")
+        if reallyVerbose:
+            for gameSituationKey in gameSituationKeys:
+                print(GameSituation.fromKey(gameSituationKey))
         homeWon = finalGameSituation.isHomeWinning()
+        if reallyVerbose:
+            print(f"homeWon: {homeWon}")
         if (homeWon is None):
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
         self.numGames += 1
-        lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
         lastPlayLine = playLines[-1]
+        if reallyVerbose:
+            print(f"lastPlayLine: {lastPlayLine}")
         playMatch = self.playPitchesRe.match(lastPlayLine)
         pitches = playMatch.group(1)
+        if reallyVerbose:
+            print(f"pitches: {pitches}")
         if len([c for c in pitches if c != '?']) > 0:
             self.numGamesWithPitches += 1
         if not homeWon:
             return
-        if lastGameSituation.isHome and lastGameSituation.outs == 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
+        if lastGameSituation.isHome and lastGameSituation.outs <= 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
             playString = playMatch.group(2)
             playString = playString.replace('!', '').replace('#', '').replace('?', '')
             playArray = playString.split('.')
@@ -857,7 +876,9 @@ class WalkOffWalkReport(Report):
                 if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
                     # walk
                     self.walkOffWalks += 1
+                    self.yearCount[year] += 1
                     # This is surprisingly complicated because there's a lot of extraneous stuff in here.
+                    # TODO - could look at count instead, make sure it's 3-0
                     numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
                     # Check this to make sure we have reasonable pitches
                     numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
@@ -872,6 +893,8 @@ class WalkOffWalkReport(Report):
         print(f"numGamesWithPitches: {self.numGamesWithPitches}")
         print(f"walkOffWalks: {self.walkOffWalks}")
         print(f"walkOffWalksOnFourPitches: {self.walkOffWalksOnFourPitches}")
+        for year in sorted(self.yearCount.keys()):
+            print(f"  {year}: {self.yearCount[year]}")
 
 def usage():
     print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] <file paths>")
