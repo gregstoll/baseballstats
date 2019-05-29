@@ -808,54 +808,74 @@ class StatsRunExpectancyPerInningReport(StatsReport):
 
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
-def findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
-    homeWon = finalGameSituation.isHomeWinning()
-    if (homeWon is None):
-        # This game must have been tied when it stopped.  Don't count
-        # these stats.
-        return
-    if not homeWon:
-        return
-    if (9, True, 2, (0, 0, 0), -6) in gameSituationKeys:
-        print("GOT IT with gameId:")
-        print(gameId)
-        sys.exit(0)
-
+class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+        homeWon = finalGameSituation.isHomeWinning()
+        if (homeWon is None):
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+        if not homeWon:
+            return
+        if (9, True, 2, (0, 0, 0), -6) in gameSituationKeys:
+            print("GOT IT with gameId:")
+            print(gameId)
+            sys.exit(0)
 
 # Finds games where the home team won with a walkoff walk on 4 pitches
-def findGameWithWalkoffWalk(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
-    homeWon = finalGameSituation.isHomeWinning()
-    if (homeWon is None):
-        # This game must have been tied when it stopped.  Don't count
-        # these stats.
-        return
-    if not homeWon:
-        return
-    lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
-    playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
-    if lastGameSituation.isHome and lastGameSituation.outs == 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
+class WalkOffWalkReport(Report):
+    def __init__(self):
+        super().__init__()
+        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+        self.numGames = 0
+        self.numGamesWithPitches = 0
+        self.walkOffWalks = 0
+        self.walkOffWalksOnFourPitches = 0
+
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+        lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
+        homeWon = finalGameSituation.isHomeWinning()
+        if (homeWon is None):
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+        self.numGames += 1
+        lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
         lastPlayLine = playLines[-1]
-        playMatch = playPitchesRe.match(lastPlayLine)
+        playMatch = self.playPitchesRe.match(lastPlayLine)
         pitches = playMatch.group(1)
-        playString = playMatch.group(2)
-        playString = playString.replace('!', '').replace('#', '').replace('?', '')
-        playArray = playString.split('.')
-        batterEvents = playArray[0].split(';')
-        for batterEvent in batterEvents:
-            if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
-                # walk
-                # This is surprisingly complicated because there's a lot of extraneous stuff in here.
-                numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
-                # Check this to make sure we have reasonable pitches
-                numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
-                print("Found game with gameId:")
-                print(gameId)
-                print("Last line was " + lastPlayLine)
-                if numStrikes == 0 and numBalls == 4:
-                    print("on four pitches!")
+        if len([c for c in pitches if c != '?']) > 0:
+            self.numGamesWithPitches += 1
+        if not homeWon:
+            return
+        if lastGameSituation.isHome and lastGameSituation.outs == 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
+            playString = playMatch.group(2)
+            playString = playString.replace('!', '').replace('#', '').replace('?', '')
+            playArray = playString.split('.')
+            batterEvents = playArray[0].split(';')
+            for batterEvent in batterEvents:
+                if ((batterEvent.startswith('W') and not batterEvent.startswith('WP')) or batterEvent.startswith('IW') or batterEvent.startswith('I')):
+                    # walk
+                    self.walkOffWalks += 1
+                    # This is surprisingly complicated because there's a lot of extraneous stuff in here.
+                    numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
+                    # Check this to make sure we have reasonable pitches
+                    numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
+                    print("Found game with gameId:")
+                    print(gameId)
+                    print("Last line was " + lastPlayLine)
+                    if numStrikes == 0 and numBalls == 4:
+                        print("on four pitches!")
+                        self.walkOffWalksOnFourPitches += 1
+
+    def doneWithAll(self):
+        print(f"numGames: {self.numGames}")
+        print(f"numGamesWithPitches: {self.numGamesWithPitches}")
+        print(f"walkOffWalks: {self.walkOffWalks}")
+        print(f"walkOffWalksOnFourPitches: {self.walkOffWalksOnFourPitches}")
 
 def usage():
-    print("Usage: parseRetrosheet.py <file paths> [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>]")
+    print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] <file paths>")
     print("-t: just run tests")
     print("-v: verbose")
     print("-q: quiet")
@@ -871,8 +891,8 @@ def usage():
 # This selects what stats we're compiling.
 Reports = {}
 Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
-Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [(findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth, 'improbable', {})]
-Reports['WalkOffWalk']= [(findGameWithWalkoffWalk, 'improbable', {})]
+Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
+Reports['WalkOffWalk']= [WalkOffWalkReport()]
 reportsToRun = Reports['Stats']
 def main(args):
     global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear
