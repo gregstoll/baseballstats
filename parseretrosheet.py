@@ -13,6 +13,7 @@ positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 verbosity = Verbosity.normal
 skipOutput = False
 stopOnFirstError = False
+sortByYear = False
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300']
 
 
@@ -92,7 +93,7 @@ def parseFile(f, reports):
                 if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == curGameSituation.getKey()):
                     gameSituationKeys = gameSituationKeys[:-1]
                 for report in reports:
-                    report[0](gameSituationKeys, curGameSituation, playLines, report[2], curId)
+                    report.processedGame(gameSituationKeys, curGameSituation, playLines, curId)
                 if (verbosity == Verbosity.verbose):
                     print("NEW GAME")
                 curGameSituation = GameSituation()
@@ -120,7 +121,7 @@ def parseFile(f, reports):
                             gameSituationKeys.append(curGameSituationKey)
                             playLines.append(line.strip())
     for report in reports:
-        report[0](gameSituationKeys, curGameSituation, playLines, report[2], curId)
+        report.processedGame(gameSituationKeys, curGameSituation, playLines, curId)
     return numGames
 
 def batterToFirst(runnerDests):
@@ -683,76 +684,127 @@ def parsePlay(line, gameSituation):
     gameSituation.nextInningIfThreeOuts()
     # We're done - the information is "returned" in gameSituation
 
-# Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
-# (number of wins, number of situations)
-def addGameToStatsWinExpectancy(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
-    if skipOutput:
-        return
-    # Add gameKeys to stats
-    # Check the last situation to see who won.
-    homeWon = finalGameSituation.isHomeWinning()
-    if (homeWon is None):
-        # This game must have been tied when it stopped.  Don't count
-        # these stats.
-        return
-    for situationKeyOriginal in gameSituationKeys:
-        isHomeInning = situationKeyOriginal[1]
-        #TODO this is probably slow?
-        situationKeyList = list(situationKeyOriginal)
-        situationKeyList[1] = 1 if isHomeInning else 0
-        situationKey = tuple(situationKeyList)
-        isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
-        #TODO refactor a little
-        if (situationKey in stats):
-            (numWins, numSituations) = stats[situationKey]
-            numSituations = numSituations + 1
-            if (isWin):
-                numWins = numWins + 1
-            stats[situationKey] = (numWins, numSituations)
-        else:
-            if (isWin):
-                numWins = 1
-            else:
-                numWins = 0
-            stats[situationKey] = (numWins, 1)
+class Report:
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+        raise f"{type(self).__name__} must override processedGame!"
 
-def addGameToStatsRunExpectancyPerInning(gameSituationKeys, finalGameSituation, playLines, stats, gameId):
-    def getNextInning(inning):
+    def clearStats(self):
+        pass
+
+    def doneWithYear(self, year):
+        assert sortByYear, "doneWithYear called but sortByYear is false!"
+
+    def doneWithAll(self):
+        assert not sortByYear, "doneWithAll called but sortByYear is true!"
+
+class StatsReport(Report):
+    def __init__(self):
+        super().__init__()
+        self.stats = {}
+
+    def clearStats(self):
+        self.stats = {}
+
+    def reportFileName(self):
+        raise f"{type(self).__name__} must override reportFileName!"
+
+    def doneWithYear(self, year):
+        super().doneWithYear(year)
+        outputFile = open('statsyears/' + self.reportFileName() + '.' + str(year), 'w')
+        statKeys = list(self.stats.keys())
+        statKeys.sort()
+        for key in statKeys:
+            outputFile.write("%s: %s\n" % (key, self.stats[key]))
+        outputFile.close()
+
+    def doneWithAll(self):
+        super().doneWithAll()
+        outputFile = open(self.reportFileName(), 'w')
+        statKeys = list(self.stats.keys())
+        statKeys.sort()
+        for key in statKeys:
+            outputFile.write("%s: %s\n" % (key, self.stats[key]))
+        outputFile.close()
+
+class StatsWinExpectancyReport(StatsReport):
+    def reportFileName(self):
+        return "stats"
+
+    # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
+    # (number of wins, number of situations)
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+        if skipOutput:
+            return
+        # Add gameKeys to stats
+        # Check the last situation to see who won.
+        homeWon = finalGameSituation.isHomeWinning()
+        if (homeWon is None):
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+        for situationKeyOriginal in gameSituationKeys:
+            isHomeInning = situationKeyOriginal[1]
+            #TODO this is probably slow?
+            situationKeyList = list(situationKeyOriginal)
+            situationKeyList[1] = 1 if isHomeInning else 0
+            situationKey = tuple(situationKeyList)
+            isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
+            #TODO refactor a little
+            if (situationKey in self.stats):
+                (numWins, numSituations) = self.stats[situationKey]
+                numSituations = numSituations + 1
+                if (isWin):
+                    numWins = numWins + 1
+                self.stats[situationKey] = (numWins, numSituations)
+            else:
+                if (isWin):
+                    numWins = 1
+                else:
+                    numWins = 0
+                self.stats[situationKey] = (numWins, 1)
+
+class StatsRunExpectancyPerInningReport(StatsReport):
+    def reportFileName(self):
+        return "runsperinningstats"
+
+    def getNextInning(self, inning):
         if (inning[1]):
             return (inning[0]+1, False)
         else:
             return (inning[0], True)
 
-    inningsToKeys = {}
-    for situationKey in gameSituationKeys:
-        situation = GameSituation.fromKey(situationKey)
-        key = (situation.inning, situation.isHome)
-        if (key in inningsToKeys):
-            inningsToKeys[key].append(situation)
-        else:
-            inningsToKeys[key] = [situation]
-    for inning in inningsToKeys:
-        startingRunDiff = inningsToKeys[inning][0].curScoreDiff
-        if (getNextInning(inning) in inningsToKeys):
-            endingRunDiff = -1 * inningsToKeys[getNextInning(inning)][0].curScoreDiff
-        else:
-            endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
-        if (endingRunDiff - startingRunDiff < 0):
-            print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
-            assert False
-        # Add the statistics now.
-        for situation in inningsToKeys[inning]:
-            # Make sure we don't duplicate keys.
-            keysUsed = []
-            # Strip off the inning info (for now?) and the curScoreDiff
-            keyToUse = situation.getKey()[2:4]
-            runsGained = endingRunDiff - situation.curScoreDiff
-            if (keyToUse in stats):
-                while (len(stats[keyToUse]) < (runsGained + 1)):
-                    stats[keyToUse].append(0)
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+        inningsToKeys = {}
+        for situationKey in gameSituationKeys:
+            situation = GameSituation.fromKey(situationKey)
+            key = (situation.inning, situation.isHome)
+            if (key in inningsToKeys):
+                inningsToKeys[key].append(situation)
             else:
-                stats[keyToUse] = [0] * (runsGained + 1)
-            stats[keyToUse][runsGained] += 1
+                inningsToKeys[key] = [situation]
+        for inning in inningsToKeys:
+            startingRunDiff = inningsToKeys[inning][0].curScoreDiff
+            if (self.getNextInning(inning) in inningsToKeys):
+                endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0].curScoreDiff
+            else:
+                endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+            if (endingRunDiff - startingRunDiff < 0):
+                print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
+                assert False
+            # Add the statistics now.
+            for situation in inningsToKeys[inning]:
+                # Make sure we don't duplicate keys.
+                keysUsed = []
+                # Strip off the inning info (for now?) and the curScoreDiff
+                keyToUse = situation.getKey()[2:4]
+                runsGained = endingRunDiff - situation.curScoreDiff
+                if (keyToUse in self.stats):
+                    while (len(self.stats[keyToUse]) < (runsGained + 1)):
+                        self.stats[keyToUse].append(0)
+                else:
+                    self.stats[keyToUse] = [0] * (runsGained + 1)
+                self.stats[keyToUse][runsGained] += 1
+
 
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
@@ -818,13 +870,12 @@ def usage():
 
 # This selects what stats we're compiling.
 Reports = {}
-Reports['Stats'] = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
+Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [(findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth, 'improbable', {})]
 Reports['WalkOffWalk']= [(findGameWithWalkoffWalk, 'improbable', {})]
 reportsToRun = Reports['Stats']
 def main(args):
-    global verbosity, skipOutput, stopOnFirstError, reportsToRun
-    sortByYear = False
+    global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear
     try:
         opts, files = getopt.getopt(args, 'vhsyqr:')
     except getopt.GetoptError as err:
@@ -863,7 +914,7 @@ def main(args):
             if verbosity >= Verbosity.normal:
                 print(year)
             for report in reportsToRun:
-                report[2].clear()
+                report.clearStats()
             for fileName in yearsToFiles[year]:
                 if verbosity >= Verbosity.normal:
                     print(fileName)
@@ -872,12 +923,7 @@ def main(args):
                 eventFile.close()
             if not skipOutput:
                 for report in reportsToRun:
-                    outputFile = open('statsyears/' + report[1] + '.' + str(year), 'w')
-                    statKeys = list(report[2].keys())
-                    statKeys.sort()
-                    for key in statKeys:
-                        outputFile.write("%s: %s\n" % (key, report[2][key]))
-                    outputFile.close()
+                    report.doneWithYear(str(year))
     else:
         numGames = 0
         for fileName in files:
@@ -891,12 +937,7 @@ def main(args):
             print("numGames is %d" % numGames)
         if not skipOutput:
             for report in reportsToRun:
-                outputFile = open(report[1], 'w')
-                statKeys = list(report[2].keys())
-                statKeys.sort()
-                for key in statKeys:
-                    outputFile.write("%s: %s\n" % (key, report[2][key]))
-                outputFile.close()
+                report.doneWithAll()
 
 class TestBatterToFirst(unittest.TestCase):
     def util_test_expected(self, beginRunnerDests, endRunnerDests):
