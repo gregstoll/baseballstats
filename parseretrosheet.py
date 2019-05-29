@@ -803,22 +803,30 @@ def findGameWithWalkoffWalk(gameSituationKeys, finalGameSituation, playLines, st
                     print("on four pitches!")
 
 def usage():
+    print("Usage: parseRetrosheet.py <file paths> [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>]")
     print("-t: just run tests")
     print("-v: verbose")
     print("-q: quiet")
     print("-s: skip output, just parse everything and stop on first error")
     print("-h: help")
     print("-y: generate data sorted by year")
+    print("-r: specify which reports to run (default: Stats)")
+    print()
+    print("Possible reports:")
+    for name in sorted(Reports.keys()):
+        print("- " + name)
 
 # This selects what stats we're compiling.
-reportsToRun = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
-#reportsToRun = [(findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth, 'improbable', {})]
-#reportsToRun = [(findGameWithWalkoffWalk, 'improbable', {})]
+Reports = {}
+Reports['Stats'] = [(addGameToStatsWinExpectancy, 'stats', {}), (addGameToStatsRunExpectancyPerInning, 'runsperinningstats', {})]
+Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [(findGameWhereHomeTeamWonDownSixWithTwoOutsInNinth, 'improbable', {})]
+Reports['WalkOffWalk']= [(findGameWithWalkoffWalk, 'improbable', {})]
+reportsToRun = Reports['Stats']
 def main(args):
-    global verbosity, skipOutput, stopOnFirstError
+    global verbosity, skipOutput, stopOnFirstError, reportsToRun
     sortByYear = False
     try:
-        opts, files = getopt.getopt(args, 'vhsyq')
+        opts, files = getopt.getopt(args, 'vhsyqr:')
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -835,6 +843,13 @@ def main(args):
         elif o == '-s':
             skipOutput = True
             stopOnFirstError = True
+        elif o == '-r':
+            if a in Reports:
+                reportsToRun = Reports[a]
+            else:
+                print("Unrecognized report name!")
+                usage()
+                sys.exit(1)
         else:
             assert False, "unhandled option: " + str(o)
     if sortByYear:
