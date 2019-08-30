@@ -971,7 +971,7 @@ def main(args):
         realFiles = []
         for fileName in files:
             if os.path.isdir(fileName):
-                for childFileName in os.listdir(fileName):
+                for childFileName in sorted(os.listdir(fileName)):
                     realFiles.append(os.path.join(fileName, childFileName))
             else:
                 realFiles.append(fileName)
