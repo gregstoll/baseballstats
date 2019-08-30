@@ -968,7 +968,14 @@ def main(args):
                     report.doneWithYear(str(year))
     else:
         numGames = 0
+        realFiles = []
         for fileName in files:
+            if os.path.isdir(fileName):
+                for childFileName in os.listdir(fileName):
+                    realFiles.append(os.path.join(fileName, childFileName))
+            else:
+                realFiles.append(fileName)
+        for fileName in realFiles:
             #eventFileName = '2004COL.EVN'
             if verbosity >= Verbosity.normal:
                 print(fileName)
