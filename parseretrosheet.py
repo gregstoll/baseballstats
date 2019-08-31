@@ -586,14 +586,14 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnerDests[runner] = base
             elif (runnerItem[1] == 'X'):
                 # See if there was an error.
-                if (re.match('^...(?:\([^)]*?\))*\(\d*E.*\)', runnerItem)):
+                if (re.match(r'^...(?:\([^)]*?\))*\(\d*E.*\)', runnerItem)):
                     #if (runner == 'B'):
                         # It seems to be the case that if it is the batter
                         # doing stuff, in this case the runner is safe
                         #runnerDests[runner] = base
                     # So this is probably an error.  See if the intervening
                     # parentheses indicate an out
-                    if (re.match('^....*?\(\d*(/TH)?\).*?\(\d*E.*\)', runnerItem) or re.match('^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
+                    if (re.match(r'^....*?\(\d*(/TH)?\).*?\(\d*E.*\)', runnerItem) or re.match(r'^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
                         # Yup, this is really an out.
                         runnerDests[runner] = 0
                     else:
@@ -798,7 +798,6 @@ class StatsRunExpectancyPerInningReport(StatsReport):
             # Add the statistics now.
             for situation in inningsToKeys[inning]:
                 # Make sure we don't duplicate keys.
-                keysUsed = []
                 # Strip off the inning info (for now?) and the curScoreDiff
                 keyToUse = situation.getKey()[2:4]
                 runsGained = endingRunDiff - situation.curScoreDiff
