@@ -3,6 +3,7 @@ import re, sys, copy, getopt, os, os.path
 import unittest
 import typing
 from enum import IntEnum
+from collection import NamedTuple
 
 class Verbosity(IntEnum):
     quiet = 0
@@ -72,6 +73,7 @@ class GameSituation:
         else:
             return self.curScoreDiff < 0
 
+#TODO - make this a NamedTuple
 class GameSituationKeyAndNextPlayLine:
     def __init__(self, situationKey: GameSituationKey, playLine: str):
         self.situationKey = situationKey
@@ -702,6 +704,17 @@ def parsePlay(line: str, gameSituation: GameSituation):
     gameSituation.runners = newRunners
     gameSituation.nextInningIfThreeOuts()
     # We're done - the information is "returned" in gameSituation
+
+class BallStrikeCount(NamedTuple):
+    balls: int
+    strikes: int
+    def __str__(self):
+        return f"{self.balls} balls, {self.strikes} strikes"
+
+
+#TODO
+def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[typing.Tuple[int, int]]:
+    pass
 
 class Report:
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
