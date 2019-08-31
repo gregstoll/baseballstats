@@ -776,10 +776,7 @@ class StatsWinExpectancyReport(StatsReport):
                     numWins = numWins + 1
                 self.stats[situationKey] = (numWins, numSituations)
             else:
-                if (isWin):
-                    numWins = 1
-                else:
-                    numWins = 0
+                numWins = 1 if isWin else 0 
                 self.stats[situationKey] = (numWins, 1)
 
 class StatsRunExpectancyPerInningReport(StatsReport):
