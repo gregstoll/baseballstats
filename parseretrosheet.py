@@ -689,16 +689,16 @@ def parsePlay(line: str, gameSituation: GameSituation):
     # We're done - the information is "returned" in gameSituation
 
 class Report:
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
         raise f"{type(self).__name__} must override processedGame!"
 
-    def clearStats(self):
+    def clearStats(self) -> None:
         pass
 
-    def doneWithYear(self, year):
+    def doneWithYear(self, year: str) -> None:
         assert sortByYear, "doneWithYear called but sortByYear is false!"
 
-    def doneWithAll(self):
+    def doneWithAll(self) -> None:
         assert not sortByYear, "doneWithAll called but sortByYear is true!"
 
 class StatsReport(Report):
@@ -706,13 +706,13 @@ class StatsReport(Report):
         super().__init__()
         self.stats = {}
 
-    def clearStats(self):
+    def clearStats(self) -> None:
         self.stats = {}
 
-    def reportFileName(self):
+    def reportFileName(self) -> str:
         raise f"{type(self).__name__} must override reportFileName!"
 
-    def doneWithYear(self, year):
+    def doneWithYear(self, year: str) -> None:
         super().doneWithYear(year)
         outputFile = open('statsyears/' + self.reportFileName() + '.' + str(year), 'w')
         statKeys = list(self.stats.keys())
@@ -721,7 +721,7 @@ class StatsReport(Report):
             outputFile.write("%s: %s\n" % (key, self.stats[key]))
         outputFile.close()
 
-    def doneWithAll(self):
+    def doneWithAll(self) -> None:
         super().doneWithAll()
         outputFile = open(self.reportFileName(), 'w')
         statKeys = list(self.stats.keys())
@@ -731,12 +731,12 @@ class StatsReport(Report):
         outputFile.close()
 
 class StatsWinExpectancyReport(StatsReport):
-    def reportFileName(self):
+    def reportFileName(self) -> None:
         return "stats"
 
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
     # (number of wins, number of situations)
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
         if skipOutput:
             return
         # Add gameKeys to stats
@@ -768,16 +768,16 @@ class StatsWinExpectancyReport(StatsReport):
                 self.stats[situationKey] = (numWins, 1)
 
 class StatsRunExpectancyPerInningReport(StatsReport):
-    def reportFileName(self):
+    def reportFileName(self) -> str:
         return "runsperinningstats"
 
-    def getNextInning(self, inning):
+    def getNextInning(self, inning) -> typing.Tuple[int, str]:
         if (inning[1]):
             return (inning[0]+1, False)
         else:
             return (inning[0], True)
 
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
         inningsToKeys = {}
         for situationKey in gameSituationKeys:
             situation = GameSituation.fromKey(situationKey)
@@ -812,7 +812,7 @@ class StatsRunExpectancyPerInningReport(StatsReport):
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
         homeWon = finalGameSituation.isHomeWinning()
         if (homeWon is None):
             # This game must have been tied when it stopped.  Don't count
@@ -836,7 +836,7 @@ class WalkOffWalkReport(Report):
         self.walkOffWalksOnFourPitches = 0
         self.yearCount = {}
 
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId):
+    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
         reallyVerbose = False # gameId == 'CHA201404020'
         year = int(gameId[3:7])
         if year not in self.yearCount:
@@ -888,7 +888,7 @@ class WalkOffWalkReport(Report):
                         print("on four pitches!")
                         self.walkOffWalksOnFourPitches += 1
 
-    def doneWithAll(self):
+    def doneWithAll(self) -> None:
         print(f"numGames: {self.numGames}")
         print(f"numGamesWithPitches: {self.numGamesWithPitches}")
         print(f"walkOffWalks: {self.walkOffWalks}")
