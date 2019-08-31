@@ -17,7 +17,8 @@ stopOnFirstError = False
 sortByYear = False
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300']
 
-
+# TODO - make this a real class I guess
+GameSituationKey = typing.Tuple[int, bool, int, typing.Tuple[int, int, int], int]
 class GameSituation:
     def __init__(self):
         self.inning = 1
@@ -34,14 +35,14 @@ class GameSituation:
     def __str__(self):
         return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (self.inning, self.isHome, self.outs, self.curScoreDiff, self.runners)
 
-    def getKey(self):
+    def getKey(self) -> GameSituationKey:
         return (self.inning, self.isHome, self.outs, (self.runners[0], self.runners[1], self.runners[2]), self.curScoreDiff)
 
     def __eq__(self, other):
         return self.getKey() == other.getKey()
 
     @staticmethod
-    def fromKey(key):
+    def fromKey(key: GameSituationKey) -> 'GameSituation':
         situation = GameSituation()
         situation.inning = key[0]
         situation.isHome = key[1]
@@ -71,13 +72,22 @@ class GameSituation:
         else:
             return self.curScoreDiff < 0
 
-def parseFile(f, reports):
+class GameSituationKeyAndNextPlayLine:
+    def __init__(self, situationKey: GameSituationKey, playLine: str):
+        self.situationKey = situationKey
+        self.playLine = playLine
+
+    def __str__(self):
+        return "situationKey: %s playLine: %s" % (self.situationKey, self.playLine)
+
+
+def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> int:
     numGames = 0
     inGame = False
     curGameSituation : GameSituation = GameSituation()
-    gameSituationKeys = []
-    playLines : typing.Iterable[str] = []
-    curId = None
+    gameSituationKeys : typing.List[GameSituationKey] = []
+    playLines : typing.List[str] = []
+    curId : str = ""
     for line in f.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
@@ -90,11 +100,8 @@ def parseFile(f, reports):
                 numGames = numGames + 1
         else:
             if (line.startswith("id,")):
-                # Don't include the last situation in the list of keys, because it's one after the last inning probably
-                if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == curGameSituation.getKey()):
-                    gameSituationKeys = gameSituationKeys[:-1]
-                for report in reports:
-                    report.processedGame(gameSituationKeys, curGameSituation, playLines, curId)
+                assert curId != ""
+                callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
                 if (verbosity == Verbosity.verbose):
                     print("NEW GAME")
                 curGameSituation = GameSituation()
@@ -121,14 +128,22 @@ def parseFile(f, reports):
                         if (curGameSituationKey not in gameSituationKeys):
                             gameSituationKeys.append(curGameSituationKey)
                             playLines.append(line.strip())
-    for report in reports:
-        # Don't include the last situation in the list of keys, because it's one after the last inning probably
-        if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == curGameSituation.getKey()):
-            gameSituationKeys = gameSituationKeys[:-1]
-        report.processedGame(gameSituationKeys, curGameSituation, playLines, curId)
+    if numGames == 0:
+        return 0
+    assert curId != ""
+    callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
     return numGames
 
-def batterToFirst(runnerDests) -> int:
+def callReportsProcessedGame(gameSituationKeys: typing.List[GameSituationKey], finalGameSituation: GameSituation, reports: typing.Iterable['Report'], curId: str, playLines: typing.List[str]) -> None:
+    # Don't include the last situation in the list of keys, because it's one after the last inning probably
+    if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == finalGameSituation.getKey()):
+        gameSituationKeys = gameSituationKeys[:-1]
+    assert len(gameSituationKeys) == len(playLines)
+    situationKeysAndNextPlayLines : typing.List[GameSituationKeyAndNextPlayLine] = [GameSituationKeyAndNextPlayLine(key, line) for (key, line) in zip(gameSituationKeys, playLines)]
+    for report in reports:
+        report.processedGame(curId, finalGameSituation, situationKeysAndNextPlayLines)
+
+def batterToFirst(runnerDests) -> None:
     runnerDests['B'] = 1
     if 1 in runnerDests:
         runnerDests[1] = 2
@@ -582,7 +597,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 if (runner != 'B' and base != 0):
                     # This looks weird, but sometimes a runner can go to the
                     # same base (a little redundant, but OK)
-                    assert (runner <= base)
+                    assert (typing.cast(int, runner) <= base)
                 runnerDests[runner] = base
             elif (runnerItem[1] == 'X'):
                 # See if there was an error.
@@ -601,7 +616,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                         if (runner != 'B' and base != 0):
                             # This looks weird, but sometimes a runner can go to the
                             # same base (a little redundant, but OK)
-                            assert (runner <= base)
+                            assert (typing.cast(int, runner) <= base)
                         runnerDests[runner] = base
                 else:
                     runnerDests[runner] = 0
@@ -689,8 +704,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
     # We're done - the information is "returned" in gameSituation
 
 class Report:
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
-        raise f"{type(self).__name__} must override processedGame!"
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        raise Exception(f"{type(self).__name__} must override processedGame!")
 
     def clearStats(self) -> None:
         pass
@@ -710,7 +725,7 @@ class StatsReport(Report):
         self.stats = {}
 
     def reportFileName(self) -> str:
-        raise f"{type(self).__name__} must override reportFileName!"
+        raise Exception(f"{type(self).__name__} must override reportFileName!")
 
     def doneWithYear(self, year: str) -> None:
         super().doneWithYear(year)
@@ -731,12 +746,12 @@ class StatsReport(Report):
         outputFile.close()
 
 class StatsWinExpectancyReport(StatsReport):
-    def reportFileName(self) -> None:
+    def reportFileName(self) -> str:
         return "stats"
 
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
     # (number of wins, number of situations)
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         if skipOutput:
             return
         # Add gameKeys to stats
@@ -746,7 +761,7 @@ class StatsWinExpectancyReport(StatsReport):
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
-        for situationKeyOriginal in gameSituationKeys:
+        for situationKeyOriginal in [x.situationKey for x in situationKeysAndPlayLines]:
             isHomeInning = situationKeyOriginal[1]
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
@@ -771,15 +786,15 @@ class StatsRunExpectancyPerInningReport(StatsReport):
     def reportFileName(self) -> str:
         return "runsperinningstats"
 
-    def getNextInning(self, inning) -> typing.Tuple[int, str]:
+    def getNextInning(self, inning) -> typing.Tuple[int, bool]:
         if (inning[1]):
             return (inning[0]+1, False)
         else:
             return (inning[0], True)
 
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
-        inningsToKeys = {}
-        for situationKey in gameSituationKeys:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
+        for situationKey in [x.situationKey for x in situationKeysAndPlayLines]:
             situation = GameSituation.fromKey(situationKey)
             key = (situation.inning, situation.isHome)
             if (key in inningsToKeys):
@@ -812,7 +827,7 @@ class StatsRunExpectancyPerInningReport(StatsReport):
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         homeWon = finalGameSituation.isHomeWinning()
         if (homeWon is None):
             # This game must have been tied when it stopped.  Don't count
@@ -820,7 +835,7 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
             return
         if not homeWon:
             return
-        if (9, True, 2, (0, 0, 0), -6) in gameSituationKeys:
+        if (9, True, 2, (0, 0, 0), -6) in [x.situationKey for x in situationKeysAndPlayLines]:
             print("GOT IT with gameId:")
             print(gameId)
             sys.exit(0)
@@ -836,11 +851,12 @@ class WalkOffWalkReport(Report):
         self.walkOffWalksOnFourPitches = 0
         self.yearCount = {}
 
-    def processedGame(self, gameSituationKeys, finalGameSituation, playLines, gameId) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         reallyVerbose = False # gameId == 'CHA201404020'
         year = int(gameId[3:7])
         if year not in self.yearCount:
             self.yearCount[year] = 0
+        gameSituationKeys = [x.situationKey for x in situationKeysAndPlayLines]
         lastGameSituation = GameSituation.fromKey(gameSituationKeys[-1])
         if reallyVerbose:
             print(f"lastGameSituation: {lastGameSituation}")
@@ -856,7 +872,7 @@ class WalkOffWalkReport(Report):
             # these stats.
             return
         self.numGames += 1
-        lastPlayLine = playLines[-1]
+        lastPlayLine = situationKeysAndPlayLines[-1].playLine
         if reallyVerbose:
             print(f"lastPlayLine: {lastPlayLine}")
         playMatch = self.playPitchesRe.match(lastPlayLine)
@@ -911,7 +927,7 @@ def usage():
         print("- " + name)
 
 # This selects what stats we're compiling.
-Reports = {}
+Reports: typing.Dict[str, typing.Iterable[Report]] = {}
 Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
@@ -1049,7 +1065,7 @@ class TestParsePlay(unittest.TestCase):
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy.outs = 0
-        sitCopy.isHome = 1
+        sitCopy.isHome = True
         self.assertEqual(sitCopy, situation)
 
     def test_simpleout_nextinning_bottom(self):
@@ -1057,7 +1073,7 @@ class TestParsePlay(unittest.TestCase):
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy.outs = 0
-        sitCopy.isHome = 0
+        sitCopy.isHome = False
         sitCopy.inning = 2
         self.assertEqual(sitCopy, situation)
 
@@ -1067,7 +1083,7 @@ class TestParsePlay(unittest.TestCase):
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy.outs = 0
-        sitCopy.isHome = 1
+        sitCopy.isHome = True
         sitCopy.runners = [0, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1077,7 +1093,7 @@ class TestParsePlay(unittest.TestCase):
         sitCopy = situation.copy()
         parsePlay(playString, situation)
         sitCopy.outs = 0
-        sitCopy.isHome = 0
+        sitCopy.isHome = False
         sitCopy.inning = 2
         sitCopy.runners = [0, 0, 0]
         self.assertEqual(sitCopy, situation)

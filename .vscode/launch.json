@@ -27,7 +27,22 @@
             "program": "${file}",
             "args": ["data/1957BAL.EVA"],
             "console": "integratedTerminal"
-        }
-
+        },
+        {
+            "name": "Run single with homeTeamWonDownSix",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-r", "HomeTeamWonDownSixWithTwoOutsInNinth", "data/1957BAL.EVA"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run single with WalkOffWalk",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-r", "WalkOffWalk", "data/1957BAL.EVA"],
+            "console": "integratedTerminal"
+        },
     ]
 }
