@@ -21,6 +21,15 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "Run all with balls/strikes",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-r", "StatsWithBallsStrikes", "data"],
+            "console": "integratedTerminal"
+        },
+
+        {
             "name": "Run single",
             "type": "python",
             "request": "launch",

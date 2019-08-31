@@ -779,6 +779,43 @@ class StatsWinExpectancyReport(StatsReport):
                 numWins = 1 if isWin else 0 
                 self.stats[situationKey] = (numWins, 1)
 
+class StatsWinExpectancyWithBallsStrikesReport(StatsReport):
+    def reportFileName(self) -> str:
+        return "statswithballsstrikes"
+
+    # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff, (balls, strikes)) to a tuple of
+    # (number of wins, number of situations)
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        if skipOutput:
+            return
+        # Add gameKeys to stats
+        # Check the last situation to see who won.
+        homeWon = finalGameSituation.isHomeWinning()
+        if (homeWon is None):
+            # This game must have been tied when it stopped.  Don't count
+            # these stats.
+            return
+        for situationKeyOriginal in [x.situationKey for x in situationKeysAndPlayLines]:
+            isHomeInning = situationKeyOriginal[1]
+            #TODO this is probably slow?
+            situationKeyList = list(situationKeyOriginal)
+            situationKeyList[1] = 1 if isHomeInning else 0
+            #TODO parse balls/strikes
+            situationKeyList.append(typing.cast(int, (0, 0)))
+            situationKey = tuple(situationKeyList)
+            isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
+            #TODO refactor a little
+            if (situationKey in self.stats):
+                (numWins, numSituations) = self.stats[situationKey]
+                numSituations = numSituations + 1
+                if (isWin):
+                    numWins = numWins + 1
+                self.stats[situationKey] = (numWins, numSituations)
+            else:
+                numWins = 1 if isWin else 0 
+                self.stats[situationKey] = (numWins, 1)
+
+
 class StatsRunExpectancyPerInningReport(StatsReport):
     def reportFileName(self) -> str:
         return "runsperinningstats"
@@ -926,6 +963,8 @@ def usage():
 # This selects what stats we're compiling.
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
 Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
+#TODO - balls/strikes for runs per inning
+Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), StatsRunExpectancyPerInningReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
 reportsToRun = Reports['Stats']
