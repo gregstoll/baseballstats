@@ -13,11 +13,19 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Run default",
+            "name": "Run all",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "args": ["data"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run single",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["data/1957BAL.EVA"],
             "console": "integratedTerminal"
         }
 
