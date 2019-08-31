@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import re, sys, copy, getopt, os, os.path
 import unittest
+import typing
 from enum import IntEnum
 
 class Verbosity(IntEnum):
@@ -73,9 +74,9 @@ class GameSituation:
 def parseFile(f, reports):
     numGames = 0
     inGame = False
-    curGameSituation = {}
+    curGameSituation : GameSituation = GameSituation()
     gameSituationKeys = []
-    playLines = []
+    playLines : typing.Iterable[str] = []
     curId = None
     for line in f.readlines():
         if (not(inGame)):
@@ -127,7 +128,7 @@ def parseFile(f, reports):
         report.processedGame(gameSituationKeys, curGameSituation, playLines, curId)
     return numGames
 
-def batterToFirst(runnerDests):
+def batterToFirst(runnerDests) -> int:
     runnerDests['B'] = 1
     if 1 in runnerDests:
         runnerDests[1] = 2
@@ -144,7 +145,7 @@ def batterToFirst(runnerDests):
         if 3 in runnerDests:
             runnerDests[3] = 3
  
-def characterToBase(ch):
+def characterToBase(ch) -> int:
     if ch == 'H':
         return 4
     return int(ch)
@@ -155,10 +156,10 @@ simpleHitRe = re.compile(r"^([SDTH])(?:\d|/)")
 simpleHit2Re = re.compile(r"^([SDTH])\s*$")
 doublePlayRe = re.compile(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?')
 weirdDoublePlayRe = re.compile(r'^\d+(/.*?)*/.?[DT]P')
-simpleOutRe = re.compile("^\d\D")
+simpleOutRe = re.compile(r'^\d\D')
 putOutRe = re.compile(r'^\d*(\d).*?(?:\((.)\))?')
 
-def parsePlay(line, gameSituation):
+def parsePlay(line: str, gameSituation: GameSituation):
     global playRe, simpleHitRe, simpleHit2Re, doublePlayRe, weirdDoublePlayRe, simpleOutRe, putOutRe
     playMatch = playRe.match(line)
     # if runnerDests[x] = 0, runner (or batter) is out
@@ -237,7 +238,7 @@ def parsePlay(line, gameSituation):
                         assert (dest == 2 or dest == 3 or dest == 4)
                         runnerDests[dest - 1] = dest
                     elif (tempEvent.startswith('CS')):
-                        if (re.match('^CS.\([^)]*?E.*?\)', tempEvent)):
+                        if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
                             # Error, so no out.
                             dest = characterToBase(tempEvent[2])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -247,7 +248,7 @@ def parsePlay(line, gameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('POCS')):
-                        if (re.match('^POCS.\([^)]*?E.*?\)', tempEvent)):
+                        if (re.match(r'^POCS.\([^)]*?E.*?\)', tempEvent)):
                             # Error, so no out.
                             dest = characterToBase(tempEvent[4])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -257,7 +258,7 @@ def parsePlay(line, gameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('PO')):
-                        if (re.match('^PO.\([^)]*?E.*?\)', tempEvent)):
+                        if (re.match(r'^PO.\([^)]*?E.*?\)', tempEvent)):
                             # Error, so no out.
                             pass
                         else:
@@ -548,7 +549,7 @@ def parsePlay(line, gameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('PO')):
                 # Pick-off
-                if (re.match('^PO.\([^)]*?E.*?\)', batterEvent)):
+                if (re.match(r'^PO.\([^)]*?E.*?\)', batterEvent)):
                     # Error, so no out.
                     pass
                 else:
