@@ -743,7 +743,7 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
         elif pitch in BALL_STRIKE_FOUL_BALLS:
             if lastCount.strikes != 2:
                 counts.append(lastCount.addStrike())
-        elif pitch == 'U' or pitch == 'Z' or pitch == 'G' or pitch == '\\' or pitch == "'":
+        elif pitch == 'U' or pitch == 'Z' or pitch == 'G' or pitch == '\\' or pitch == "`":
             # sigh, just throw this one out I guess
             # "BZ" is used in 1988CHA.EVA, pretty sure it's supposed to be an X, but skip it
             # TODO - add exceptions
