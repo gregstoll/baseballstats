@@ -869,9 +869,10 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
             pitches = playMatch.group(1)
             counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
-            #TODO - use counts
             situationKeyList.append(typing.cast(int, (0, 0)))
             for count in counts:
+                # TODO - filter out 3 strike or 4 ball counts
+                # TODO - serialize count in a better way
                 situationKeyList[-1] = count
                 situationKey = tuple(situationKeyList)
                 self._addSituationKey(situationKey, isWin)
