@@ -747,6 +747,7 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
             # sigh, just throw this one out I guess
             # "BZ" is used in 1988CHA.EVA, pretty sure it's supposed to be an X, but skip it
             # TODO - add exceptions
+            # TODO - contact retrosheet
             return [BallStrikeCount(0, 0)]
         else:
             assert False, "Unexpected pitch character " + str(pitch) + " in " + str(pitches)
