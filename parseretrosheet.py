@@ -721,7 +721,7 @@ def assertOnlySingleCharacterStringsInSet(s : typing.Set[str]) -> None:
 
 # This is surprisingly complicated because there's a lot of extraneous stuff in here.
 # Ignore irrelevant stuff as well as the final result of a pitch (if it goes in play)
-BALL_STRIKE_IGNORE_CHARS : typing.Set[str] = set([x for x in '!#?+*.123>HNXY'])
+BALL_STRIKE_IGNORE_CHARS : typing.Set[str] = set([x for x in '!#?+*.123>HNXY '])
 assertOnlySingleCharacterStringsInSet(BALL_STRIKE_IGNORE_CHARS)
 BALL_STRIKE_BALLS : typing.Set[str] = set([x for x in 'BIPV'])
 assertOnlySingleCharacterStringsInSet(BALL_STRIKE_BALLS)
@@ -743,11 +743,13 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
         elif pitch in BALL_STRIKE_FOUL_BALLS:
             if lastCount.strikes != 2:
                 counts.append(lastCount.addStrike())
-        elif pitch == 'U':
+        elif pitch == 'U' or pitch == 'Z':
             # sigh, just throw this one out I guess
+            # "BZ" is used in 1988CHA.EVA, pretty sure it's supposed to be an X, but skip it
+            # TODO - add exceptions
             return [BallStrikeCount(0, 0)]
         else:
-            assert False, f"Unexpected pitch character {pitch}"
+            assert False, "Unexpected pitch character " + str(pitch) + " in " + str(pitches)
 
     return counts
 
@@ -797,6 +799,18 @@ class StatsWinExpectancyReport(StatsReport):
     def reportFileName(self) -> str:
         return "stats"
 
+    def _addSituationKey(self, situationKey: typing.Tuple[typing.Any], isWin: bool):
+        if (situationKey in self.stats):
+            (numWins, numSituations) = self.stats[situationKey]
+            numSituations = numSituations + 1
+            if (isWin):
+                numWins = numWins + 1
+            self.stats[situationKey] = (numWins, numSituations)
+        else:
+            numWins = 1 if isWin else 0 
+            self.stats[situationKey] = (numWins, 1)
+
+
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
     # (number of wins, number of situations)
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
@@ -811,23 +825,18 @@ class StatsWinExpectancyReport(StatsReport):
             return
         for situationKeyOriginal in [x.situationKey for x in situationKeysAndPlayLines]:
             isHomeInning = situationKeyOriginal[1]
+            isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
             situationKeyList[1] = 1 if isHomeInning else 0
             situationKey = tuple(situationKeyList)
-            isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
-            #TODO refactor a little
-            if (situationKey in self.stats):
-                (numWins, numSituations) = self.stats[situationKey]
-                numSituations = numSituations + 1
-                if (isWin):
-                    numWins = numWins + 1
-                self.stats[situationKey] = (numWins, numSituations)
-            else:
-                numWins = 1 if isWin else 0 
-                self.stats[situationKey] = (numWins, 1)
+            self._addSituationKey(situationKey, isWin)
 
-class StatsWinExpectancyWithBallsStrikesReport(StatsReport):
+class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
+    def __init__(self):
+        super().__init__()
+        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+
     def reportFileName(self) -> str:
         return "statswithballsstrikes"
 
@@ -843,26 +852,22 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsReport):
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
-        for situationKeyOriginal in [x.situationKey for x in situationKeysAndPlayLines]:
+        for situationKeyAndPlayLine in situationKeysAndPlayLines:
+            situationKeyOriginal = situationKeyAndPlayLine.situationKey
             isHomeInning = situationKeyOriginal[1]
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
             situationKeyList[1] = 1 if isHomeInning else 0
-            #TODO parse balls/strikes
-            situationKeyList.append(typing.cast(int, (0, 0)))
-            situationKey = tuple(situationKeyList)
+            playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
+            pitches = playMatch.group(1)
+            counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
-            #TODO refactor a little
-            if (situationKey in self.stats):
-                (numWins, numSituations) = self.stats[situationKey]
-                numSituations = numSituations + 1
-                if (isWin):
-                    numWins = numWins + 1
-                self.stats[situationKey] = (numWins, numSituations)
-            else:
-                numWins = 1 if isWin else 0 
-                self.stats[situationKey] = (numWins, 1)
-
+            #TODO - use counts
+            situationKeyList.append(typing.cast(int, (0, 0)))
+            for count in counts:
+                situationKeyList[-1] = count
+                situationKey = tuple(situationKeyList)
+                self._addSituationKey(situationKey, isWin)
 
 class StatsRunExpectancyPerInningReport(StatsReport):
     def reportFileName(self) -> str:
@@ -968,6 +973,7 @@ class WalkOffWalkReport(Report):
         if lastGameSituation.isHome and lastGameSituation.outs <= 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
             playString = playMatch.group(2)
             playString = playString.replace('!', '').replace('#', '').replace('?', '')
+            # TODO - refactor this stuff and share with StatsWinExpectancyWithBallsStrikesReport
             playArray = playString.split('.')
             batterEvents = playArray[0].split(';')
             for batterEvent in batterEvents:
