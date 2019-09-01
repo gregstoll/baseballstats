@@ -743,12 +743,13 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
         elif pitch in BALL_STRIKE_FOUL_BALLS:
             if lastCount.strikes != 2:
                 counts.append(lastCount.addStrike())
-        elif pitch == 'U' or pitch == 'Z' or pitch == 'G' or pitch == '\\':
+        elif pitch == 'U' or pitch == 'Z' or pitch == 'G' or pitch == '\\' or pitch == "'":
             # sigh, just throw this one out I guess
             # "BZ" is used in 1988CHA.EVA, pretty sure it's supposed to be an X, but skip it
             # TODO - add exceptions
             # "FFFGFX" is used in 1989BAL.EVA, must be some kind of foul ball? (ended on 0-2 count)
             # "\BBSBSX" is used in 1989BOS.EVA, probably should just ignore it (ended on 3-2 count)
+            # "11FB``PFBF1X`" is used in 1989CHA.EVA, ...??
             # TODO - contact retrosheet
             return [BallStrikeCount(0, 0)]
         else:
