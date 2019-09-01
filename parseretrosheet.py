@@ -3,7 +3,6 @@ import re, sys, copy, getopt, os, os.path
 import unittest
 import typing
 from enum import IntEnum
-from collection import NamedTuple
 
 class Verbosity(IntEnum):
     quiet = 0
@@ -705,16 +704,52 @@ def parsePlay(line: str, gameSituation: GameSituation):
     gameSituation.nextInningIfThreeOuts()
     # We're done - the information is "returned" in gameSituation
 
-class BallStrikeCount(NamedTuple):
+class BallStrikeCount(typing.NamedTuple):
     balls: int
     strikes: int
     def __str__(self):
         return f"{self.balls} balls, {self.strikes} strikes"
+    def addBall(self) -> 'BallStrikeCount':
+        return BallStrikeCount(self.balls + 1, self.strikes)
+    def addStrike(self) -> 'BallStrikeCount':
+        return BallStrikeCount(self.balls, self.strikes + 1)
 
 
-#TODO
-def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[typing.Tuple[int, int]]:
-    pass
+def assertOnlySingleCharacterStringsInSet(s : typing.Set[str]) -> None:
+    for x in s:
+        assert(len(x) == 1)
+
+# This is surprisingly complicated because there's a lot of extraneous stuff in here.
+# Ignore irrelevant stuff as well as the final result of a pitch (if it goes in play)
+BALL_STRIKE_IGNORE_CHARS : typing.Set[str] = set([x for x in '!#?+*.123>HNXY'])
+assertOnlySingleCharacterStringsInSet(BALL_STRIKE_IGNORE_CHARS)
+BALL_STRIKE_BALLS : typing.Set[str] = set([x for x in 'BIPV'])
+assertOnlySingleCharacterStringsInSet(BALL_STRIKE_BALLS)
+BALL_STRIKE_STRIKES : typing.Set[str] = set([x for x in 'CKLMOQST'])
+assertOnlySingleCharacterStringsInSet(BALL_STRIKE_STRIKES)
+BALL_STRIKE_FOUL_BALLS : typing.Set[str] = set([x for x in 'FR'])
+assertOnlySingleCharacterStringsInSet(BALL_STRIKE_FOUL_BALLS)
+def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]:
+    counts = [BallStrikeCount(0, 0)]
+    for pitch in pitches:
+        if pitch in BALL_STRIKE_IGNORE_CHARS:
+            continue
+        lastCount = counts[-1]
+        # For performance, check in rough order of frequency
+        if pitch in BALL_STRIKE_STRIKES:
+            counts.append(lastCount.addStrike())
+        elif pitch in BALL_STRIKE_BALLS:
+            counts.append(lastCount.addBall())
+        elif pitch in BALL_STRIKE_FOUL_BALLS:
+            if lastCount.strikes != 2:
+                counts.append(lastCount.addStrike())
+        elif pitch == 'U':
+            # sigh, just throw this one out I guess
+            return [BallStrikeCount(0, 0)]
+        else:
+            assert False, f"Unexpected pitch character {pitch}"
+
+    return counts
 
 class Report:
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
@@ -941,6 +976,7 @@ class WalkOffWalkReport(Report):
                     self.walkOffWalks += 1
                     self.yearCount[year] += 1
                     # This is surprisingly complicated because there's a lot of extraneous stuff in here.
+                    # TODO - use getBallStrikeCountsFromPitches instead
                     # TODO - could look at count instead, make sure it's 3-0
                     numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
                     # Check this to make sure we have reasonable pitches
@@ -1679,7 +1715,43 @@ class TestParsePlay(unittest.TestCase):
         sitCopy.outs = 1
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
+    
+    def util_test_ballstrike(self, pitches: str, ballStrikes: typing.Iterable[typing.Tuple[int, int]]):
+        expected = [BallStrikeCount(x, y) for (x, y) in ballStrikes]
+        self.assertEqual(expected, getBallStrikeCountsFromPitches(pitches))
 
+    def test_ballstrike_empty_string(self):
+        self.util_test_ballstrike("", [(0, 0)])
+
+    def test_ballstrike_allballs(self):
+        self.util_test_ballstrike("IPVB", [(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)])
+
+    def test_ballstrike_allstrikes_withignorecharacters(self):
+        self.util_test_ballstrike("+*.123>CNS>.*2K", [(0, 0), (0, 1), (0, 2), (0, 3)])
+
+    def test_ballstrike_ballsandstrikes(self):
+        self.util_test_ballstrike("LBMBBO", [(0, 0), (0, 1), (1, 1), (1, 2), (2, 2), (3, 2), (3, 3)])
+
+    def test_ballstrike_hitfirstpitch(self):
+        self.util_test_ballstrike("X", [(0, 0)])
+
+    def test_ballstrike_hitlaterpitch(self):
+        self.util_test_ballstrike("QTX", [(0, 0), (0, 1), (0, 2)])
+
+    def test_ballstrike_unknownpitch_returnnothing(self):
+        self.util_test_ballstrike("SBSUBBB", [(0, 0)])
+        
+    def test_ballstrike_foulzerostrikes(self):
+        self.util_test_ballstrike("BFY", [(0, 0), (1, 0), (1, 1)])
+
+    def test_ballstrike_foulonestrikes(self):
+        self.util_test_ballstrike("BSRX", [(0, 0), (1, 0), (1, 1), (1, 2)])
+
+    def test_ballstrike_multiplefoulstwostrikes(self):
+        self.util_test_ballstrike("SBSFBFFX", [(0, 0), (0, 1), (1, 1), (1, 2), (2, 2)])
+
+    def test_ballstrike_lotsoffouls(self):
+        self.util_test_ballstrike("BFFBFFBX", [(0, 0), (1, 0), (1, 1), (1, 2), (2, 2), (3, 2)])
 
 
 if (__name__ == '__main__'):
