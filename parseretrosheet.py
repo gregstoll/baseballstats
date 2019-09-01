@@ -709,6 +709,9 @@ class BallStrikeCount(typing.NamedTuple):
     strikes: int
     def __str__(self):
         return f"{self.balls} balls, {self.strikes} strikes"
+    # This is what gets serialized to the file, so make it look like a tuple
+    def __repr__(self):
+        return f"({self.balls}, {self.strikes})"
     def addBall(self) -> 'BallStrikeCount':
         return BallStrikeCount(self.balls + 1, self.strikes)
     def addStrike(self) -> 'BallStrikeCount':
@@ -753,7 +756,9 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
             # "11FB``PFBF1X`" is used in 1989CHA.EVA, ...??
             # "BBB8FB" is used in 1989DET.EVA, ...??
             # "CBABX" is used in 1989MIL.EVA
-            # TODO - contact retrosheet
+            # TODO - contact retrosheet?
+            if pitch != 'U':
+                print(f"Unknown pitch {pitch} in {pitches}, skipping")
             return [BallStrikeCount(0, 0)]
         else:
             assert False, "Unexpected pitch character " + str(pitch) + " in " + str(pitches)
@@ -870,9 +875,7 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
             counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
             situationKeyList.append(typing.cast(int, (0, 0)))
-            for count in counts:
-                # TODO - filter out 3 strike or 4 ball counts
-                # TODO - serialize count in a better way
+            for count in [x for x in counts if (x.balls < 4 and x.strikes < 3)]:
                 situationKeyList[-1] = count
                 situationKey = tuple(situationKeyList)
                 self._addSituationKey(situationKey, isWin)
