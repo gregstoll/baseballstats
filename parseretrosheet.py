@@ -921,6 +921,54 @@ class StatsRunExpectancyPerInningReport(StatsReport):
                     self.stats[keyToUse] = [0] * (runsGained + 1)
                 self.stats[keyToUse][runsGained] += 1
 
+class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInningReport):
+    def __init__(self):
+        super().__init__()
+        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+
+    def reportFileName(self) -> str:
+        return "runsperinningballsstrikesstats"
+
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
+        for situationKeyAndPlayLine in situationKeysAndPlayLines:
+            situationKey = situationKeyAndPlayLine.situationKey
+            playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
+            pitches = playMatch.group(1)
+            counts = getBallStrikeCountsFromPitches(pitches)
+            situation = GameSituation.fromKey(situationKey)
+            key = (situation.inning, situation.isHome)
+            if (key in inningsToKeys):
+                inningsToKeys[key].append(situation)
+            else:
+                inningsToKeys[key] = [situation]
+        for inning in inningsToKeys:
+            startingRunDiff = inningsToKeys[inning][0].curScoreDiff
+            if (self.getNextInning(inning) in inningsToKeys):
+                endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0].curScoreDiff
+            else:
+                endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+            if (endingRunDiff - startingRunDiff < 0):
+                print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
+                assert False
+            # Add the statistics now.
+            for situation in inningsToKeys[inning]:
+                # Make sure we don't duplicate keys.
+                # Strip off the inning info (for now?) and the curScoreDiff
+                runsGained = endingRunDiff - situation.curScoreDiff
+                keyToUsePrefix = situation.getKey()[2:4]
+                for count in [x for x in counts if (x.balls < 4 and x.strikes < 3)]:
+                    keyToUseList = list(keyToUsePrefix)
+                    keyToUseList.append(count)
+                    keyToUse = tuple(keyToUseList)
+                    if (keyToUse in self.stats):
+                        while (len(self.stats[keyToUse]) < (runsGained + 1)):
+                            self.stats[keyToUse].append(0)
+                    else:
+                        self.stats[keyToUse] = [0] * (runsGained + 1)
+                    self.stats[keyToUse][runsGained] += 1
+
+
 
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
@@ -1029,8 +1077,7 @@ def usage():
 # This selects what stats we're compiling.
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
 Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
-#TODO - balls/strikes for runs per inning
-Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), StatsRunExpectancyPerInningReport()]
+Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), StatsRunExpectancyPerInningWithBallsStrikesReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
 reportsToRun = Reports['Stats']
