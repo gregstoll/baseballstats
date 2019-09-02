@@ -1,5 +1,5 @@
-- call ./parseretrosheet.py data/*
-- call ./parseretrosheet.py -y data/*
+- call ./parseretrosheet.py data
+- call ./parseretrosheet.py -y data
 - call ./processcumulativestats.py statsyears
 - call ./processleveragefromcumulative.py
 - call ./processstats.py stats > probs.txt
