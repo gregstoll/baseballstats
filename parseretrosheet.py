@@ -1065,7 +1065,14 @@ def main(args):
             assert False, "unhandled option: " + str(o)
     if sortByYear:
         yearsToFiles = {}
+        realFiles = []
         for fileName in files:
+            if os.path.isdir(fileName):
+                for childFileName in sorted(os.listdir(fileName)):
+                    realFiles.append(os.path.join(fileName, childFileName))
+            else:
+                realFiles.append(fileName)
+        for fileName in realFiles:
             year = int(os.path.basename(fileName)[:4])
             if year not in yearsToFiles:
                 yearsToFiles[year] = []
