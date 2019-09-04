@@ -734,7 +734,7 @@ BALL_STRIKE_FOUL_BALLS : typing.Set[str] = set([x for x in 'FR'])
 assertOnlySingleCharacterStringsInSet(BALL_STRIKE_FOUL_BALLS)
 def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]:
     counts = [BallStrikeCount(0, 0)]
-    for pitch in pitches:
+    for pitch in pitches.upper():
         if pitch in BALL_STRIKE_IGNORE_CHARS:
             continue
         lastCount = counts[-1]
@@ -930,7 +930,7 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
         return "runsperinningballsstrikesstats"
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
-        inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
+        inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
             playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
@@ -939,27 +939,27 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
             situation = GameSituation.fromKey(situationKey)
             key = (situation.inning, situation.isHome)
             if (key in inningsToKeys):
-                inningsToKeys[key].append(situation)
+                inningsToKeys[key].append((situation, counts))
             else:
-                inningsToKeys[key] = [situation]
+                inningsToKeys[key] = [(situation, counts)]
         for inning in inningsToKeys:
-            startingRunDiff = inningsToKeys[inning][0].curScoreDiff
+            startingRunDiff = inningsToKeys[inning][0][0].curScoreDiff
             if (self.getNextInning(inning) in inningsToKeys):
-                endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0].curScoreDiff
+                endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0][0].curScoreDiff
             else:
-                endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+                endingRunDiff = inningsToKeys[inning][-1][0].curScoreDiff
             if (endingRunDiff - startingRunDiff < 0):
                 print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
                 assert False
             # Add the statistics now.
-            for situation in inningsToKeys[inning]:
+            for (situation, counts) in inningsToKeys[inning]:
                 # Make sure we don't duplicate keys.
                 # Strip off the inning info (for now?) and the curScoreDiff
                 runsGained = endingRunDiff - situation.curScoreDiff
                 keyToUsePrefix = situation.getKey()[2:4]
                 for count in [x for x in counts if (x.balls < 4 and x.strikes < 3)]:
                     keyToUseList = list(keyToUsePrefix)
-                    keyToUseList.append(count)
+                    keyToUseList.append(typing.cast(int, count))
                     keyToUse = tuple(keyToUseList)
                     if (keyToUse in self.stats):
                         while (len(self.stats[keyToUse]) < (runsGained + 1)):
