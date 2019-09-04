@@ -8,7 +8,8 @@
   - won't need this when done with balls/strikes?
 - call ./processballsstrikesstats.py statswithballsstrikes > probswithballsstrikes.txt
 - call ./processstatsruns.py runsperinningstats > runsperinning.xml
-  - TODO
+  - won't need this when done with balls/strikes?
+- call ./processballsstrikesstatsruns.py runsperinningballsstrikesstats > runsperinningballsstrikes.xml
 - in statsreact/src/stats.html, look for MAX_YEAR and set it to the new max year
 - in statsreact, call npm run build
 - follow instructions in statsreact/HOWTO to fix up links
