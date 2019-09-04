@@ -1,4 +1,5 @@
 - call ./parseretrosheet.py data
+  - won't need this when done with balls/strikes?
 - call ./parseretrosheet.py -y data
 - call ./processcumulativestats.py statsyears
 - call ./processcumulativeballsstrikesstats.py statsyears
