@@ -2,7 +2,7 @@
 
 import re, os, cgi
 
-pathPrefix = 'statsyears/statscumulative.'
+pathPrefix = 'statsyears/statswithballsstrikescumulative.'
 leverageFileName = 'statsyears/leverage'
 
 def getProbabilityOfStringForYear(stringToLookFor, year):
