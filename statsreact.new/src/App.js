@@ -33,10 +33,10 @@ function transformNonZeroYear(y)
 }
 function transformYears(startYear, endYear)
 {
-    if (startYear == 0) {
+    if (startYear === 0) {
         startYear = MIN_YEAR;
     }
-    if (endYear == 0) {
+    if (endYear === 0) {
         endYear = MAX_YEAR;
     }
     startYear = transformNonZeroYear(startYear);
@@ -96,7 +96,7 @@ class InningChoice extends Component {
         this.props.setInning(this.props.inning);
     }
     render() {
-        return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor == this.props.chosenInning.homeOrVisitor && this.props.inning.num == this.props.chosenInning.num} onClick={this.handleClick.bind(this)} /></td>;
+        return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor === this.props.chosenInning.homeOrVisitor && this.props.inning.num === this.props.chosenInning.num} onClick={this.handleClick.bind(this)} /></td>;
     }
 }
 class InningTable extends Component {
@@ -144,7 +144,7 @@ class InningTable extends Component {
 }
 class OutsControl extends Component {
     handleClick(e) {
-        this.props.setOuts((this.props.outs == 2) ? 0 : this.props.outs + 1);
+        this.props.setOuts((this.props.outs === 2) ? 0 : this.props.outs + 1);
     }
     getOutsColor(on) {
         return on ? '#ff0000' : '#ffffff';
@@ -265,7 +265,7 @@ class RunnersOnBaseDiamond extends Component {
 }
 class YearsSlider extends Component {
     onChange(value) {
-        if (this.setYearsEvent != undefined) {
+        if (this.setYearsEvent !== undefined) {
             window.clearTimeout(this.setYearsEvent);
         }
         // update view here
@@ -342,7 +342,7 @@ class StatsResults extends Component {
         var differences = false;
         var properties = Object.keys(this.props);
         for (var i in properties) {
-            if (properties[i] != 'years' && this.props[properties[i]] != prevProps[properties[i]]) {
+            if (properties[i] !== 'years' && this.props[properties[i]] !== prevProps[properties[i]]) {
                 differences = true;
                 break;
             }
@@ -485,7 +485,7 @@ class BaseballSituation extends Component {
         var s = this.state;
         // update query hash
         var hash = s.inning.homeOrVisitor + "." + s.score + "." + s.inning.num + "." + s.outs + "." + s.runners;
-        if (s.years[0] != MIN_YEAR || s.years[1] != MAX_YEAR) {
+        if (s.years[0] !== MIN_YEAR || s.years[1] !== MAX_YEAR) {
             hash += "." + s.years[0] + "." + s.years[1];
         }
         window.location.hash = hash;
@@ -556,7 +556,7 @@ class BaseballSituation extends Component {
         let countByRuns = [];
         for(let i = 0; i < situationChildren.length; ++i) {
             let situationChild = situationChildren[i];
-            if (situationChild.localName == "total") {
+            if (situationChild.localName === "total") {
                 total = parseInt(situationChild.innerHTML, 10);
             }
             else {
