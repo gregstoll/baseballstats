@@ -535,7 +535,7 @@ class BaseballSituation extends Component {
             $.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
             //$.ajax({url: 'runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
                 this.setState({runsPerInningData: xhr.responseXML});
-                this.updateRunsPerInning();
+                this.updateRunsPerInning(xhr.responseXML);
             }.bind(this)});
         }
         else
@@ -543,10 +543,12 @@ class BaseballSituation extends Component {
             this.updateRunsPerInning();
         }
     }
-    updateRunsPerInning() {
+    updateRunsPerInning(responseXML) {
         let outs = this.state.outs;
         let runners = this.state.runners;
-        let situationElement = this.state.runsPerInningData.evaluate("//situation[@outs=" + outs + "][@runners=" + runners + "][1]", this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
+        //TODO - this seems hacky?
+        let runsPerInningData = this.state.runsPerInningData !== undefined ? this.state.runsPerInningData : responseXML;
+        let situationElement = runsPerInningData.evaluate("//situation[@outs=" + outs + "][@runners=" + runners + "][1]", this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
         let situationChildren = situationElement.childNodes;
         let total = 0;
         let countByRuns = [];
