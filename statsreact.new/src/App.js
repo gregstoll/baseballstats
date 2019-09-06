@@ -163,6 +163,44 @@ class OutsControl extends Component {
         </p>;
     }
 }
+//TODO - finish
+class BallsStrikesControl extends Component {
+    handleBallsClick(e) {
+        this.props.setBalls((this.props.balls === 3) ? 0 : (this.props.balls + 1));
+    }
+    handleStrikesClick(e) {
+        this.props.setStrikes((this.props.strikes === 2) ? 0 : (this.props.strikes + 1));
+    }
+    getBallsColor(on) {
+        return on ? '#ff0000' : '#ffffff';
+    }
+    getStrikesColor(on) {
+        return on ? '#ff0000' : '#ffffff';
+    }
+    render() {
+        const WIDTH = 75;
+        const HEIGHT = 40;
+        const WIDTH_MARGIN = 5;
+        const HEIGHT_MARGIN = 5;
+
+        const circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
+        return <div>
+            <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Balls:</span>
+                <svg width={WIDTH + 40} height={HEIGHT} onClick={this.handleBallsClick.bind(this)}>
+                    <circle cx={WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
+                    <circle cx={(3*WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
+                    <circle cx={(5*WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
+                </svg>
+            </p>
+            <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Strikes:</span>
+                <svg width={WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)}>
+                <circle cx={WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
+                <circle cx={(3*WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
+            </svg>
+            </p>
+        </div>;
+    }
+}
 class RunnersOnBaseList extends Component {
     handleChange(e) {
         this.props.setRunners(e.target.value);
@@ -435,7 +473,7 @@ class BaseballSituation extends Component {
     }
     constructor(props) {
         super(props);
-        const state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], pendingRequests: false, pendingCount: 0};
+        const state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], balls: 0, strikes: 0, pendingRequests: false, pendingCount: 0};
         this.addInitialState(state, 'output', []);
         for (let i = 0; i < extraYears.length; ++i)
         {
@@ -448,16 +486,22 @@ class BaseballSituation extends Component {
         if (window.location.hash) {
             let hash = window.location.hash.substring(1);
             let parts = hash.split(".");
-            if (parts.length === 7 || parts.length === 5) {
+            if (parts.length === 9 || parts.length === 7 || parts.length === 5) {
                 let whichTeam = parts[0];
                 let scorediff = parseInt(parts[1]);
                 let outs = parts[3];
                 let runners = parts[4];
+                let balls = 0;
+                let strikes = 0;
+                if (parts.length >= 7) {
+                    balls = parts[5];
+                    strikes = parts[6];
+                }
                 let startYear = MIN_YEAR;
                 let endYear = MAX_YEAR;
-                if (parts.length === 7) {
-                    startYear = parseInt(parts[5]);
-                    endYear = parseInt(parts[6]);
+                if (parts.length === 9) {
+                    startYear = parseInt(parts[7]);
+                    endYear = parseInt(parts[8]);
                     if (isNaN(startYear) || isNaN(endYear)) {
                         startYear = MIN_YEAR;
                         endYear = MAX_YEAR;
@@ -469,6 +513,8 @@ class BaseballSituation extends Component {
                 state.inning.num = parseInt(parts[2]);
                 state.outs = outs;
                 state.runners = runners;
+                state.balls = balls;
+                state.strikes = strikes;
                 state.years[0] = startYear;
                 state.years[1] = endYear;
             }
@@ -481,7 +527,7 @@ class BaseballSituation extends Component {
     updateCalculations() {
         let s = this.state;
         // update query hash
-        let hash = s.inning.homeOrVisitor + "." + s.score + "." + s.inning.num + "." + s.outs + "." + s.runners;
+        let hash = s.inning.homeOrVisitor + "." + s.score + "." + s.inning.num + "." + s.outs + "." + s.runners + "." + s.balls + "." + s.strikes;
         if (s.years[0] !== MIN_YEAR || s.years[1] !== MAX_YEAR) {
             hash += "." + s.years[0] + "." + s.years[1];
         }
@@ -490,7 +536,7 @@ class BaseballSituation extends Component {
         // set up progress bar state
         this.setState({'pendingHash' : hash, 'pendingCount': 1 + extraYears.length});
 
-        this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.years[0], s.years[1], 'output', hash);
+        this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.balls, s.strikes, s.years[0], s.years[1], 'output', hash);
         for (let i = 0; i < extraYears.length; ++i)
         {
             let localStartYear = extraYears[i][0];
@@ -498,18 +544,19 @@ class BaseballSituation extends Component {
             const transformedYears = transformYears(localStartYear, localEndYear);
             localStartYear = transformedYears[0];
             localEndYear = transformedYears[1];
-            this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, localStartYear, localEndYear, 'output' + i, hash);
+            this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.balls, s.strikes, localStartYear, localEndYear, 'output' + i, hash);
         }
     }
-    calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear, name, hash) {
+    calculateStats(whichTeam, scorediff, inning, outs, runners, balls, strikes, startYear, endYear, name, hash) {
         const isHome = whichTeam === "H";
         if (!isHome)
         {
             scorediff *= -1;
         }
-        let stateString = '"' + whichTeam + '",' + inning + ',' + outs + ',' + runners + ',' + scorediff;
+        let stateString = `"${whichTeam}",${inning},${outs},${runners},${scorediff},${balls},${strikes}`;
+        let ballsStrikesState = `${balls},${strikes}`
         // TODO url
-        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
+        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
         fetch(url).then(response => {
             return response.json();
         }).then(json => {
@@ -585,6 +632,12 @@ class BaseballSituation extends Component {
     setYears(newYears) {
         this.setState({years: newYears}, this.updateCalculations.bind(this));
     }
+    setBalls(newBalls) {
+        this.setState({balls: newBalls}, this.updateCalculations.bind(this));
+    }
+    setStrikes(newStrikes) {
+        this.setState({strikes: newStrikes}, this.updateCalculations.bind(this));
+    }
     createStatsResults(isPrimary, name, years) {
         return <StatsResults isPrimary={isPrimary} name={name}
          total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [] : years} key={name} />
@@ -607,6 +660,7 @@ class BaseballSituation extends Component {
                 <OutsControl outs={this.state.outs} setOuts={this.setOuts.bind(this)} />
                 <RunnersOnBaseList runners={this.state.runners} setRunners={this.setRunners.bind(this)} />
                 <ScoreTable score={this.state.score} setScore={this.setScore.bind(this)} />
+                <BallsStrikesControl balls={this.state.balls} strikes={this.state.strikes} setBalls={balls => this.setBalls(balls)} setStrikes={strikes => this.setStrikes(strikes)} />
                 <YearsSlider years={this.state.years} setYears={this.setYears.bind(this)} />
             </div>
             <div style={{float: 'left', marginLeft: '25px'}}>
