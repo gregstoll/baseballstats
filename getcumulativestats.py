@@ -42,9 +42,10 @@ def getLeverageOfString(stringToLookFor):
 def main():
     form = cgi.FieldStorage()
     stateString = form.getfirst('stateString')
+    ballsStrikesState = form.getfirst('ballsStrikesState')
     startYear = form.getfirst('startYear')
     endYear = form.getfirst('endYear')
-    (wins, total) = getProbabilityOfString(stateString, int(startYear), int(endYear))
+    (wins, total) = getProbabilityOfString(stateString + "," + ballsStrikesState, int(startYear), int(endYear))
     leverage = getLeverageOfString(stateString)
     print("Content-type: application/json\n")
     print('{"wins": %s, "total": %s, "leverage": %s}' % (wins, total, leverage), end='')
