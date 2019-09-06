@@ -509,13 +509,14 @@ class BaseballSituation extends Component {
         }
         let stateString = '"' + whichTeam + '",' + inning + ',' + outs + ',' + runners + ',' + scorediff;
         // TODO url
-        $.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
-        //$.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
-
+        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
+        fetch(url).then(response => {
+            return response.json();
+        }).then(json => {
             let theseResults = this.state['results' + name];
-            theseResults.total = parseInt(xhr.responseJSON.total);
-            theseResults.wins = parseInt(xhr.responseJSON.wins);
-            theseResults.leverageIndex = parseFloat(xhr.responseJSON.leverage);
+            theseResults.total = parseInt(json.total);
+            theseResults.wins = parseInt(json.wins);
+            theseResults.leverageIndex = parseFloat(json.leverage);
             theseResults.isHome = isHome;
             theseResults.isInitial = false;
             let newState = {}
@@ -528,15 +529,17 @@ class BaseballSituation extends Component {
                 }
                 return newState;
             });
-        }.bind(this)});
+        });
         if (!this.state['runsPerInningData'])
         {
             //TODO url
-            $.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
-            //$.ajax({url: 'runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
-                this.setState({runsPerInningData: xhr.responseXML});
-                this.updateRunsPerInning(xhr.responseXML);
-            }.bind(this)});
+            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml').then(response => {
+                return response.text();
+            }).then(xmlText => {
+                let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
+                this.setState({runsPerInningData: xml});
+                this.updateRunsPerInning(xml);
+            });
         }
         else
         {
