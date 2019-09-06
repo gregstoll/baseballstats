@@ -308,7 +308,7 @@ class RunsPerInningResultComponent extends Component {
         }
         if (differences) {
             let node = ReactDOM.findDOMNode(this);
-            $(node).effect("highlight");
+            (node).effect("highlight");
         }
     }
     makeDisplayPercent(probability) {
@@ -533,7 +533,7 @@ class BaseballSituation extends Component {
         if (!this.state['runsPerInningData'])
         {
             //TODO url
-            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml').then(response => {
+            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinningballsstrikes.xml').then(response => {
                 return response.text();
             }).then(xmlText => {
                 let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
