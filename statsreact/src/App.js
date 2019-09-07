@@ -346,6 +346,7 @@ class RunsPerInningResultComponent extends Component {
         else {
             differences = !this.props.result.isEqual(prevProps.result);
         }
+        //TODO - this doen't work anymore when built, see react-animate-on-change in floattohex
         if (differences) {
             let node = ReactDOM.findDOMNode(this);
             (node).effect("highlight");
