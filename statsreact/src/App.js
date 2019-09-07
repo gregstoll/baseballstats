@@ -491,13 +491,13 @@ class BaseballSituation extends Component {
             if (parts.length === 9 || parts.length === 7 || parts.length === 5) {
                 let whichTeam = parts[0];
                 let scorediff = parseInt(parts[1]);
-                let outs = parts[3];
-                let runners = parts[4];
+                let outs = parseInt(parts[3], 10);
+                let runners = parseInt(parts[4], 10);
                 let balls = 0;
                 let strikes = 0;
                 if (parts.length >= 7) {
-                    balls = parts[5];
-                    strikes = parts[6];
+                    balls = parseInt(parts[5], 10);
+                    strikes = parseInt(parts[6], 10);
                 }
                 let startYear = MIN_YEAR;
                 let endYear = MAX_YEAR;
@@ -596,11 +596,13 @@ class BaseballSituation extends Component {
         }
     }
     updateRunsPerInning(responseXML) {
-        let outs = this.state.outs;
-        let runners = this.state.runners;
+        const outs = this.state.outs;
+        const runners = this.state.runners;
+        const balls = this.state.balls;
+        const strikes = this.state.strikes;
         //TODO - this seems hacky?
         let runsPerInningData = this.state.runsPerInningData !== undefined ? this.state.runsPerInningData : responseXML;
-        let situationElement = runsPerInningData.evaluate("//situation[@outs=" + outs + "][@runners=" + runners + "][1]", this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
+        let situationElement = runsPerInningData.evaluate(`//situation[@outs=${outs}][@runners=${runners}][@balls=${balls}][@strikes=${strikes}][1]`, this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
         let situationChildren = situationElement.childNodes;
         let total = 0;
         let countByRuns = [];
