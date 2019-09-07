@@ -163,13 +163,14 @@ class OutsControl extends Component {
         </p>;
     }
 }
-//TODO - finish
 class BallsStrikesControl extends Component {
     handleBallsClick(e) {
-        this.props.setBalls((this.props.balls === 3) ? 0 : (this.props.balls + 1));
+        // use 1 + this.props.balls, otherwise it gets converted to a string?
+        this.props.setBalls((this.props.balls === 3) ? 0 : (1 + this.props.balls));
     }
     handleStrikesClick(e) {
-        this.props.setStrikes((this.props.strikes === 2) ? 0 : (this.props.strikes + 1));
+        // use 1 + this.props.strikes, otherwise it gets converted to a string?
+        this.props.setStrikes((this.props.strikes === 2) ? 0 : (1 + this.props.strikes));
     }
     getBallsColor(on) {
         return on ? '#ff0000' : '#ffffff';
@@ -178,24 +179,25 @@ class BallsStrikesControl extends Component {
         return on ? '#ff0000' : '#ffffff';
     }
     render() {
-        const WIDTH = 75;
+        const STRIKES_WIDTH = 75;
+        const BALLS_WIDTH = STRIKES_WIDTH + 40;
         const HEIGHT = 40;
         const WIDTH_MARGIN = 5;
         const HEIGHT_MARGIN = 5;
 
-        const circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
+        const circleRadius = Math.min(STRIKES_WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
         return <div>
             <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Balls:</span>
-                <svg width={WIDTH + 40} height={HEIGHT} onClick={this.handleBallsClick.bind(this)}>
-                    <circle cx={WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
-                    <circle cx={(3*WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
-                    <circle cx={(5*WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
+                <svg width={BALLS_WIDTH} height={HEIGHT} onClick={this.handleBallsClick.bind(this)}>
+                    <circle cx={BALLS_WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
+                    <circle cx={(3*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
+                    <circle cx={(5*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
                 </svg>
             </p>
             <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Strikes:</span>
-                <svg width={WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)}>
-                <circle cx={WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
-                <circle cx={(3*WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
+                <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)}>
+                <circle cx={STRIKES_WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
+                <circle cx={(3*STRIKES_WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
             </svg>
             </p>
         </div>;
@@ -553,10 +555,10 @@ class BaseballSituation extends Component {
         {
             scorediff *= -1;
         }
-        let stateString = `"${whichTeam}",${inning},${outs},${runners},${scorediff},${balls},${strikes}`;
+        let stateString = `"${whichTeam}",${inning},${outs},${runners},${scorediff}`;
         let ballsStrikesState = `${balls},${strikes}`
         // TODO url
-        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
+        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball.test/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
         fetch(url).then(response => {
             return response.json();
         }).then(json => {
@@ -580,7 +582,7 @@ class BaseballSituation extends Component {
         if (!this.state['runsPerInningData'])
         {
             //TODO url
-            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinningballsstrikes.xml').then(response => {
+            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball.test/runsperinningballsstrikes.xml').then(response => {
                 return response.text();
             }).then(xmlText => {
                 let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
