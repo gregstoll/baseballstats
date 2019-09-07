@@ -17,6 +17,33 @@ import 'jquery-ui/ui/effects/effect-highlight.js';
 // Needed to initialize document.evaluate() from wicked-good-xpath
 wgxpath.install();
 
+const MIN_YEAR = 1957;
+const MAX_YEAR = 2018;
+//TODO?
+const extraYears = [];
+function transformNonZeroYear(y)
+{
+    if (y < 0) {
+        return MAX_YEAR + y;
+    }
+    if (y < 1900) {
+        return MIN_YEAR + y;
+    }
+    return y;
+}
+function transformYears(startYear, endYear)
+{
+    if (startYear === 0) {
+        startYear = MIN_YEAR;
+    }
+    if (endYear === 0) {
+        endYear = MAX_YEAR;
+    }
+    startYear = transformNonZeroYear(startYear);
+    endYear = transformNonZeroYear(endYear);
+    return [startYear, endYear];
+}
+
 class RunsPerInningResult {
     constructor(totalSituations, countByRuns) {
         this.totalSituations = totalSituations;
@@ -69,7 +96,7 @@ class InningChoice extends Component {
         this.props.setInning(this.props.inning);
     }
     render() {
-        return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor == this.props.chosenInning.homeOrVisitor && this.props.inning.num == this.props.chosenInning.num} onClick={this.handleClick.bind(this)} /></td>;
+        return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor === this.props.chosenInning.homeOrVisitor && this.props.inning.num === this.props.chosenInning.num} onClick={this.handleClick.bind(this)} /></td>;
     }
 }
 class InningTable extends Component {
@@ -77,22 +104,21 @@ class InningTable extends Component {
         this.props.setInning(inning);
     }
     render() {
-        var i;
-        var headers = [];
-        for (i = 1; i <= this.props.numInnings; ++i)
+        let headers = [];
+        for (let i = 1; i <= this.props.numInnings; ++i)
         {
             headers.push(<InningHeader key={i} inningNum={i} />);
         }
-        var visitorChoices = [];
-        for (i = 1; i <= this.props.numInnings; ++i)
+        let visitorChoices = [];
+        for (let i = 1; i <= this.props.numInnings; ++i)
         {
-            var thisInning = {homeOrVisitor: 'V', num: i};
+            let thisInning = {homeOrVisitor: 'V', num: i};
             visitorChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning.bind(this)} />);
         }
-        var homeChoices = [];
-        for (i = 1; i <= this.props.numInnings; ++i)
+        let homeChoices = [];
+        for (let i = 1; i <= this.props.numInnings; ++i)
         {
-            var thisInning = {homeOrVisitor: 'H', num: i};
+            let thisInning = {homeOrVisitor: 'H', num: i};
             homeChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning.bind(this)} />);
         }
         return <table className="innings">
@@ -117,24 +143,62 @@ class InningTable extends Component {
 }
 class OutsControl extends Component {
     handleClick(e) {
-        this.props.setOuts((this.props.outs == 2) ? 0 : this.props.outs + 1);
+        this.props.setOuts((this.props.outs === 2) ? 0 : this.props.outs + 1);
     }
     getOutsColor(on) {
         return on ? '#ff0000' : '#ffffff';
     }
     render() {
-        var WIDTH = 75;
-        var HEIGHT = 40;
-        var WIDTH_MARGIN = 5;
-        var HEIGHT_MARGIN = 5;
+        const WIDTH = 75;
+        const HEIGHT = 40;
+        const WIDTH_MARGIN = 5;
+        const HEIGHT_MARGIN = 5;
 
-        var circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
+        const circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
         return <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Outs:</span>
         <svg width={WIDTH} height={HEIGHT} onClick={this.handleClick.bind(this)}>
             <circle cx={WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getOutsColor(this.props.outs >= 1)} />
             <circle cx={(3*WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getOutsColor(this.props.outs >= 2)} />
         </svg>
         </p>;
+    }
+}
+//TODO - finish
+class BallsStrikesControl extends Component {
+    handleBallsClick(e) {
+        this.props.setBalls((this.props.balls === 3) ? 0 : (this.props.balls + 1));
+    }
+    handleStrikesClick(e) {
+        this.props.setStrikes((this.props.strikes === 2) ? 0 : (this.props.strikes + 1));
+    }
+    getBallsColor(on) {
+        return on ? '#ff0000' : '#ffffff';
+    }
+    getStrikesColor(on) {
+        return on ? '#ff0000' : '#ffffff';
+    }
+    render() {
+        const WIDTH = 75;
+        const HEIGHT = 40;
+        const WIDTH_MARGIN = 5;
+        const HEIGHT_MARGIN = 5;
+
+        const circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
+        return <div>
+            <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Balls:</span>
+                <svg width={WIDTH + 40} height={HEIGHT} onClick={this.handleBallsClick.bind(this)}>
+                    <circle cx={WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
+                    <circle cx={(3*WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
+                    <circle cx={(5*WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
+                </svg>
+            </p>
+            <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Strikes:</span>
+                <svg width={WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)}>
+                <circle cx={WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
+                <circle cx={(3*WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
+            </svg>
+            </p>
+        </div>;
     }
 }
 class RunnersOnBaseList extends Component {
@@ -164,8 +228,8 @@ class ScoreTable extends Component {
         this.props.setScore(this.props.score + 1);
     }
     render() {
-        var visitorScore = '';
-        var homeScore = '';
+        let visitorScore = '';
+        let homeScore = '';
         if (this.props.score < 0) {
             visitorScore = '+' + (-1 * this.props.score);
         } else if (this.props.score > 0) {
@@ -197,25 +261,25 @@ class RunnersOnBaseDiamond extends Component {
         this.props.setRunners(((this.props.runners - 1) ^ 4) + 1);
     }
     render() {
-        var WIDTH = 200;
-        var HEIGHT = 200;
+        const WIDTH = 200;
+        const HEIGHT = 200;
 
-        var first = (this.props.runners - 1) & 1;
-        var second = (this.props.runners - 1) & 2;
-        var third = (this.props.runners - 1) & 4;
-        var baseSize = Math.max(WIDTH*0.1, 10);
+        const first = (this.props.runners - 1) & 1;
+        const second = (this.props.runners - 1) & 2;
+        const third = (this.props.runners - 1) & 4;
+        const baseSize = Math.max(WIDTH*0.1, 10);
 
-        var homeCenter = [WIDTH/2, HEIGHT*0.85];
-        var homePoints = [[homeCenter[0], homeCenter[1] + baseSize], [homeCenter[0] + baseSize, homeCenter[1]], [homeCenter[0] + baseSize], [homeCenter[1] - baseSize], [homeCenter[0] - baseSize, homeCenter[1] - baseSize], [homeCenter[0] - baseSize, homeCenter[1]]];
+        const homeCenter = [WIDTH/2, HEIGHT*0.85];
+        const homePoints = [[homeCenter[0], homeCenter[1] + baseSize], [homeCenter[0] + baseSize, homeCenter[1]], [homeCenter[0] + baseSize], [homeCenter[1] - baseSize], [homeCenter[0] - baseSize, homeCenter[1] - baseSize], [homeCenter[0] - baseSize, homeCenter[1]]];
 
-        var firstCenter = [WIDTH*0.85, HEIGHT/2];
-        var firstPoints = this.pointsFromCenter(firstCenter, baseSize);
+        const firstCenter = [WIDTH*0.85, HEIGHT/2];
+        const firstPoints = this.pointsFromCenter(firstCenter, baseSize);
 
-        var secondCenter = [WIDTH/2, HEIGHT*0.15];
-        var secondPoints = this.pointsFromCenter(secondCenter, baseSize);
+        const secondCenter = [WIDTH/2, HEIGHT*0.15];
+        const secondPoints = this.pointsFromCenter(secondCenter, baseSize);
 
-        var thirdCenter = [WIDTH*0.15, HEIGHT/2];
-        var thirdPoints = this.pointsFromCenter(thirdCenter, baseSize);
+        const thirdCenter = [WIDTH*0.15, HEIGHT/2];
+        const thirdPoints = this.pointsFromCenter(thirdCenter, baseSize);
         
         return <div>
          <svg width={WIDTH} height={HEIGHT}>
@@ -238,7 +302,7 @@ class RunnersOnBaseDiamond extends Component {
 }
 class YearsSlider extends Component {
     onChange(value) {
-        if (this.setYearsEvent != undefined) {
+        if (this.setYearsEvent !== undefined) {
             window.clearTimeout(this.setYearsEvent);
         }
         // update view here
@@ -273,7 +337,7 @@ class YearsSlider extends Component {
 
 class RunsPerInningResultComponent extends Component {
     componentDidUpdate(prevProps, prevState) {
-        var differences = false;
+        let differences = false;
         if (prevProps === undefined || prevProps.result === undefined) {
             differences = !(this.props === undefined || this.props.result === undefined);
         }
@@ -281,8 +345,8 @@ class RunsPerInningResultComponent extends Component {
             differences = !this.props.result.isEqual(prevProps.result);
         }
         if (differences) {
-            var node = ReactDOM.findDOMNode(this);
-            $(node).effect("highlight");
+            let node = ReactDOM.findDOMNode(this);
+            (node).effect("highlight");
         }
     }
     makeDisplayPercent(probability) {
@@ -308,25 +372,25 @@ class RunsPerInningResultComponent extends Component {
 }
 class StatsResults extends Component {
     componentDidMount() {
-        var node = ReactDOM.findDOMNode(this);
+        let node = ReactDOM.findDOMNode(this);
         $('.realOutput', node).effect("highlight");
     }
     componentDidUpdate(prevProps, prevState) {
-        var differences = false;
-        var properties = Object.keys(this.props);
+        let differences = false;
+        let properties = Object.keys(this.props);
         for (var i in properties) {
-            if (properties[i] != 'years' && this.props[properties[i]] != prevProps[properties[i]]) {
+            if (properties[i] !== 'years' && this.props[properties[i]] !== prevProps[properties[i]]) {
                 differences = true;
                 break;
             }
         }
         if (differences) {
-            var node = ReactDOM.findDOMNode(this);
+            let node = ReactDOM.findDOMNode(this);
             $('.realOutput', node).effect("highlight");
         }
     }
     render() {
-        var mainDivStyle = {width: '300px'};
+        let mainDivStyle = {width: '300px'};
         if (!this.props.isPrimary) {
             mainDivStyle.marginTop = '20px';
             mainDivStyle.cssFloat = 'left';
@@ -334,7 +398,7 @@ class StatsResults extends Component {
         if (this.props.isInitial) {
             return <div style={mainDivStyle}/>
         }
-        var key = this.props.name;// + Math.random();
+        let key = this.props.name;// + Math.random();
         if (this.props.total === 0) {
             key = key + 'none';
             return <div style={mainDivStyle}>
@@ -343,21 +407,21 @@ class StatsResults extends Component {
                 </CSSTransitionGroup>
                 </div>
         }
-        var r = this.props;
-        var wins = r.wins;
-        var percent = (100 * wins) / r.total;
-        var displayPercent = Math.round(percent * 100)/100;
-        var displayHome = r.isHome; 
-        var homeMoneyLine = '';
-        var visitorMoneyLine = '';
+        const r = this.props;
+        let wins = r.wins;
+        const percent = (100 * wins) / r.total;
+        let displayPercent = Math.round(percent * 100)/100;
+        let displayHome = r.isHome; 
+        let homeMoneyLine = '';
+        let visitorMoneyLine = '';
         if (displayPercent < 50)
         {
             displayPercent = Math.round((100 - displayPercent) * 100)/100;
             wins = r.total - wins;
             displayHome = !displayHome;
         }
-        var ml = Math.round((displayPercent/(100 - displayPercent)) * -100);
-        var oml = "+" + (-1 * ml);
+        let ml = Math.round((displayPercent/(100 - displayPercent)) * -100);
+        let oml = "+" + (-1 * ml);
         if (displayHome) {
             homeMoneyLine = ml;
             visitorMoneyLine = oml;
@@ -366,8 +430,8 @@ class StatsResults extends Component {
             visitorMoneyLine = ml;
         }
         // TODO - refactor leverage stuff
-        var leverageDescription = 'Low';
-        var leverageClass = 'leverageLow';
+        let leverageDescription = 'Low';
+        let leverageClass = 'leverageLow';
         if (r.leverageIndex >= 3.0) {
             leverageDescription = 'Very High';
             leverageClass = 'leverageVeryHigh';
@@ -379,10 +443,10 @@ class StatsResults extends Component {
             leverageClass = 'leverageMedium';
         }
         leverageClass = 'leverageIndex ' + leverageClass;
-        var winnerTeamText = displayHome ? "Home" : "Visitor";
+        const winnerTeamText = displayHome ? "Home" : "Visitor";
         // make this something that always changes
         // this uses CSSTransitionGroup when change from some to no output
-        var yearsStyle = r.isPrimary ? {display : 'none'} : {};
+        const yearsStyle = r.isPrimary ? {display : 'none'} : {};
         return <div style={mainDivStyle}>
             <CSSTransitionGroup transitionName="outputTransition" transitionAppear={false} transitionEnterTimeout={0} transitionLeaveTimeout={0}>
             <div className="realOutput" key={key}>
@@ -409,42 +473,48 @@ class BaseballSituation extends Component {
     }
     constructor(props) {
         super(props);
-        var state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], pendingRequests: false, pendingCount: 0};
+        const state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], balls: 0, strikes: 0, pendingRequests: false, pendingCount: 0};
         this.addInitialState(state, 'output', []);
-        var i;
-        for (i = 0; i < extraYears.length; ++i)
+        for (let i = 0; i < extraYears.length; ++i)
         {
-            var localStartYear = extraYears[i][0];
-            var localEndYear = extraYears[i][1];
-            var transformedYears = transformYears(localStartYear, localEndYear);
+            const localStartYear = extraYears[i][0];
+            const localEndYear = extraYears[i][1];
+            const transformedYears = transformYears(localStartYear, localEndYear);
             this.addInitialState(state, 'output' + i, transformedYears);
         }
         // parse query hash
         if (window.location.hash) {
-            var hash = window.location.hash.substring(1);
-            var parts = hash.split(".");
-            if (parts.length === 7 || parts.length === 5) {
-                var whichTeam = parts[0];
-                var scorediff = parseInt(parts[1]);
-                var inning = parts[2];
-                var outs = parts[3];
-                var runners = parts[4];
-                var startYear = MIN_YEAR;
-                var endYear = MAX_YEAR;
-                if (parts.length === 7) {
-                    startYear = parseInt(parts[5]);
-                    endYear = parseInt(parts[6]);
+            let hash = window.location.hash.substring(1);
+            let parts = hash.split(".");
+            if (parts.length === 9 || parts.length === 7 || parts.length === 5) {
+                let whichTeam = parts[0];
+                let scorediff = parseInt(parts[1]);
+                let outs = parts[3];
+                let runners = parts[4];
+                let balls = 0;
+                let strikes = 0;
+                if (parts.length >= 7) {
+                    balls = parts[5];
+                    strikes = parts[6];
+                }
+                let startYear = MIN_YEAR;
+                let endYear = MAX_YEAR;
+                if (parts.length === 9) {
+                    startYear = parseInt(parts[7]);
+                    endYear = parseInt(parts[8]);
                     if (isNaN(startYear) || isNaN(endYear)) {
                         startYear = MIN_YEAR;
                         endYear = MAX_YEAR;
                     }
                 }
 
-                state.inning.homeOrVisitor = parts[0];
-                state.score = parseInt(parts[1]);
+                state.inning.homeOrVisitor = whichTeam;
+                state.score = scorediff;
                 state.inning.num = parseInt(parts[2]);
-                state.outs = parseInt(parts[3]);
-                state.runners = parseInt(parts[4]);
+                state.outs = outs;
+                state.runners = runners;
+                state.balls = balls;
+                state.strikes = strikes;
                 state.years[0] = startYear;
                 state.years[1] = endYear;
             }
@@ -455,10 +525,10 @@ class BaseballSituation extends Component {
         this.updateCalculations();
     }
     updateCalculations() {
-        var s = this.state;
+        let s = this.state;
         // update query hash
-        var hash = s.inning.homeOrVisitor + "." + s.score + "." + s.inning.num + "." + s.outs + "." + s.runners;
-        if (s.years[0] != MIN_YEAR || s.years[1] != MAX_YEAR) {
+        let hash = s.inning.homeOrVisitor + "." + s.score + "." + s.inning.num + "." + s.outs + "." + s.runners + "." + s.balls + "." + s.strikes;
+        if (s.years[0] !== MIN_YEAR || s.years[1] !== MAX_YEAR) {
             hash += "." + s.years[0] + "." + s.years[1];
         }
         window.location.hash = hash;
@@ -466,36 +536,37 @@ class BaseballSituation extends Component {
         // set up progress bar state
         this.setState({'pendingHash' : hash, 'pendingCount': 1 + extraYears.length});
 
-        this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.years[0], s.years[1], 'output', hash);
-        var i;
-        for (i = 0; i < extraYears.length; ++i)
+        this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.balls, s.strikes, s.years[0], s.years[1], 'output', hash);
+        for (let i = 0; i < extraYears.length; ++i)
         {
-            var localStartYear = extraYears[i][0];
-            var localEndYear = extraYears[i][1];
-            var transformedYears = transformYears(localStartYear, localEndYear);
+            let localStartYear = extraYears[i][0];
+            let localEndYear = extraYears[i][1];
+            const transformedYears = transformYears(localStartYear, localEndYear);
             localStartYear = transformedYears[0];
             localEndYear = transformedYears[1];
-            this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, localStartYear, localEndYear, 'output' + i, hash);
+            this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.balls, s.strikes, localStartYear, localEndYear, 'output' + i, hash);
         }
     }
-    calculateStats(whichTeam, scorediff, inning, outs, runners, startYear, endYear, name, hash) {
-        var isHome = whichTeam === "H";
+    calculateStats(whichTeam, scorediff, inning, outs, runners, balls, strikes, startYear, endYear, name, hash) {
+        const isHome = whichTeam === "H";
         if (!isHome)
         {
             scorediff *= -1;
         }
-        var stateString = '"' + whichTeam + '",' + inning + ',' + outs + ',' + runners + ',' + scorediff;
+        let stateString = `"${whichTeam}",${inning},${outs},${runners},${scorediff},${balls},${strikes}`;
+        let ballsStrikesState = `${balls},${strikes}`
         // TODO url
-        //$.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
-        $.ajax({url: 'getcumulativestats.cgi', data: {stateString: stateString, startYear: startYear, endYear: endYear, rand: Math.random()}, dataType: "json", complete: function(xhr, textStatus) {
-
-            var theseResults = this.state['results' + name];
-            theseResults.total = parseInt(xhr.responseJSON.total);
-            theseResults.wins = parseInt(xhr.responseJSON.wins);
-            theseResults.leverageIndex = parseFloat(xhr.responseJSON.leverage);
+        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
+        fetch(url).then(response => {
+            return response.json();
+        }).then(json => {
+            let theseResults = this.state['results' + name];
+            theseResults.total = parseInt(json.total);
+            theseResults.wins = parseInt(json.wins);
+            theseResults.leverageIndex = parseFloat(json.leverage);
             theseResults.isHome = isHome;
             theseResults.isInitial = false;
-            var newState = {}
+            let newState = {}
             newState['results' + name] = theseResults;
             //this.setState(newState);
             // use the callback for to atomically update pendingCount
@@ -505,31 +576,35 @@ class BaseballSituation extends Component {
                 }
                 return newState;
             });
-        }.bind(this)});
+        });
         if (!this.state['runsPerInningData'])
         {
             //TODO url
-            //$.ajax({url: 'https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
-            $.ajax({url: 'runsperinning.xml', dataType: "xml", complete: function(xhr, textStatus) {
-                this.setState({runsPerInningData: xhr.responseXML});
-                this.updateRunsPerInning();
-            }.bind(this)});
+            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball/runsperinningballsstrikes.xml').then(response => {
+                return response.text();
+            }).then(xmlText => {
+                let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
+                this.setState({runsPerInningData: xml});
+                this.updateRunsPerInning(xml);
+            });
         }
         else
         {
             this.updateRunsPerInning();
         }
     }
-    updateRunsPerInning() {
+    updateRunsPerInning(responseXML) {
         let outs = this.state.outs;
         let runners = this.state.runners;
-        let situationElement = this.state.runsPerInningData.evaluate("//situation[@outs=" + outs + "][@runners=" + runners + "][1]", this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
+        //TODO - this seems hacky?
+        let runsPerInningData = this.state.runsPerInningData !== undefined ? this.state.runsPerInningData : responseXML;
+        let situationElement = runsPerInningData.evaluate("//situation[@outs=" + outs + "][@runners=" + runners + "][1]", this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
         let situationChildren = situationElement.childNodes;
         let total = 0;
         let countByRuns = [];
         for(let i = 0; i < situationChildren.length; ++i) {
             let situationChild = situationChildren[i];
-            if (situationChild.localName == "total") {
+            if (situationChild.localName === "total") {
                 total = parseInt(situationChild.innerHTML, 10);
             }
             else {
@@ -557,21 +632,26 @@ class BaseballSituation extends Component {
     setYears(newYears) {
         this.setState({years: newYears}, this.updateCalculations.bind(this));
     }
+    setBalls(newBalls) {
+        this.setState({balls: newBalls}, this.updateCalculations.bind(this));
+    }
+    setStrikes(newStrikes) {
+        this.setState({strikes: newStrikes}, this.updateCalculations.bind(this));
+    }
     createStatsResults(isPrimary, name, years) {
         return <StatsResults isPrimary={isPrimary} name={name}
          total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [] : years} key={name} />
     }
     render() {
-        var NUM_INNINGS = 11;
-        var primaryStatsResultsList = []
+        const NUM_INNINGS = 11;
+        let primaryStatsResultsList = []
         primaryStatsResultsList.push(this.createStatsResults(true, 'output', []));
-        var i;
-        var statsResultsList = [];
-        for (i = 0; i < extraYears.length; ++i)
+        let statsResultsList = [];
+        for (let i = 0; i < extraYears.length; ++i)
         {
-            var localStartYear = extraYears[i][0];
-            var localEndYear = extraYears[i][1];
-            var transformedYears = transformYears(localStartYear, localEndYear);
+            const localStartYear = extraYears[i][0];
+            const localEndYear = extraYears[i][1];
+            const transformedYears = transformYears(localStartYear, localEndYear);
             statsResultsList.push(this.createStatsResults(false, 'output' + i, transformedYears));
         }
         return <div>
@@ -580,6 +660,7 @@ class BaseballSituation extends Component {
                 <OutsControl outs={this.state.outs} setOuts={this.setOuts.bind(this)} />
                 <RunnersOnBaseList runners={this.state.runners} setRunners={this.setRunners.bind(this)} />
                 <ScoreTable score={this.state.score} setScore={this.setScore.bind(this)} />
+                <BallsStrikesControl balls={this.state.balls} strikes={this.state.strikes} setBalls={balls => this.setBalls(balls)} setStrikes={strikes => this.setStrikes(strikes)} />
                 <YearsSlider years={this.state.years} setYears={this.setYears.bind(this)} />
             </div>
             <div style={{float: 'left', marginLeft: '25px'}}>
