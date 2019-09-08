@@ -3,16 +3,8 @@ import './App.css'
 import React, {Component} from 'react'
 import ReactDOM from 'react-dom'
 import ReactSlider from 'react-slider'
-import { CSSTransitionGroup } from 'react-transition-group'
-import $ from 'jquery';
 import wgxpath from 'wicked-good-xpath';
-
-import 'jquery-ui/themes/base/core.css';
-import 'jquery-ui/themes/base/theme.css';
-import 'jquery-ui/themes/base/selectable.css';
-import 'jquery-ui/ui/core';
-import 'jquery-ui/ui/effect';
-import 'jquery-ui/ui/effects/effect-highlight.js';
+import AnimateOnChange from 'react-animate-on-change';
 
 // Needed to initialize document.evaluate() from wicked-good-xpath
 wgxpath.install();
@@ -338,6 +330,10 @@ class YearsSlider extends Component {
 }
 
 class RunsPerInningResultComponent extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {'flash': false};
+    }
     componentDidUpdate(prevProps, prevState) {
         let differences = false;
         if (prevProps === undefined || prevProps.result === undefined) {
@@ -346,10 +342,8 @@ class RunsPerInningResultComponent extends Component {
         else {
             differences = !this.props.result.isEqual(prevProps.result);
         }
-        //TODO - this doen't work anymore when built, see react-animate-on-change in floattohex
         if (differences) {
-            let node = ReactDOM.findDOMNode(this);
-            (node).effect("highlight");
+            this.setState({"flash": true});
         }
     }
     makeDisplayPercent(probability) {
@@ -362,21 +356,30 @@ class RunsPerInningResultComponent extends Component {
         if (this.props.result === undefined) {
             return <div/>;
         }
-        return <div>
-            <p className="littlespace">Expected runs: {this.makeDisplayRuns(this.props.result.getExpectedRuns())}</p>
-            <table className="runsPerInning"><tbody>
-            <tr><th>0 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(0))}</td></tr>
-            <tr><th>1 run:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(1))}</td><th>1+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(1))}</td></tr>
-            <tr><th>2 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(2))}</td><th>2+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(2))}</td></tr>
-            <tr><th>3 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(3))}</td><th>3+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(3))}</td></tr>
-            <tr><th>4 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(4))}</td><th>4+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(4))}</td></tr>
-            </tbody></table></div>;
+        return <AnimateOnChange
+                    baseClassName="pulsar"
+                    animationClassName="pulsarFlash"
+                    animate={this.state.flash}
+                    customTag="div">
+            <div>
+                <p className="littlespace">Expected runs: {this.makeDisplayRuns(this.props.result.getExpectedRuns())}</p>
+                <table className="runsPerInning"><tbody>
+                <tr><th>0 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(0))}</td></tr>
+                <tr><th>1 run:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(1))}</td><th>1+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(1))}</td></tr>
+                <tr><th>2 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(2))}</td><th>2+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(2))}</td></tr>
+                <tr><th>3 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(3))}</td><th>3+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(3))}</td></tr>
+                <tr><th>4 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(4))}</td><th>4+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(4))}</td></tr>
+                </tbody></table></div>;
+        </AnimateOnChange>
     }
 }
 class StatsResults extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {'flash': false};
+    }
     componentDidMount() {
-        let node = ReactDOM.findDOMNode(this);
-        $('.realOutput', node).effect("highlight");
+        this.setState({"flash": true});
     }
     componentDidUpdate(prevProps, prevState) {
         let differences = false;
@@ -388,8 +391,7 @@ class StatsResults extends Component {
             }
         }
         if (differences) {
-            let node = ReactDOM.findDOMNode(this);
-            $('.realOutput', node).effect("highlight");
+            this.setState({"flash": true});
         }
     }
     render() {
@@ -404,11 +406,15 @@ class StatsResults extends Component {
         let key = this.props.name;// + Math.random();
         if (this.props.total === 0) {
             key = key + 'none';
-            return <div style={mainDivStyle}>
-                <CSSTransitionGroup transitionName="outputTransition" transitionAppear={false} transitionLeave={false} >
-                <div className="realOutput" key={key}>No data found!</div>
-                </CSSTransitionGroup>
+            return <AnimateOnChange
+                    baseClassName="pulsar"
+                    animationClassName="pulsarFlash"
+                    animate={this.state.flash}
+                    customTag="div">
+                <div style={mainDivStyle}>
+                    <div className="realOutput" key={key}>No data found!</div>
                 </div>
+            </AnimateOnChange>;
         }
         const r = this.props;
         let wins = r.wins;
@@ -448,21 +454,22 @@ class StatsResults extends Component {
         leverageClass = 'leverageIndex ' + leverageClass;
         const winnerTeamText = displayHome ? "Home" : "Visitor";
         // make this something that always changes
-        // this uses CSSTransitionGroup when change from some to no output
         const yearsStyle = r.isPrimary ? {display : 'none'} : {};
-        return <div style={mainDivStyle}>
-            <CSSTransitionGroup transitionName="outputTransition" transitionAppear={false} transitionEnterTimeout={0} transitionLeaveTimeout={0}>
+        return <AnimateOnChange
+                    baseClassName="pulsar"
+                    animationClassName="pulsarFlash"
+                    animate={this.state.flash}
+                    customTag="div">
             <div className="realOutput" key={key}>
-            <p className="littlespace" style={yearsStyle}>Years: {r.years[0]} - {r.years[1]}</p>
-            <p className="littlespace">Total games: {r.total}</p>
-            <p className="littlespace">Wins for {winnerTeamText}: {wins}</p>
-            <p className="littlespace">Win percentage: <b>{winnerTeamText} {displayPercent}%</b></p>
-            <p className="littlespace">Leverage index: <b className={leverageClass}>{r.leverageIndex} ({leverageDescription})</b></p>
-            <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
-            <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
+                <p className="littlespace" style={yearsStyle}>Years: {r.years[0]} - {r.years[1]}</p>
+                <p className="littlespace">Total games: {r.total}</p>
+                <p className="littlespace">Wins for {winnerTeamText}: {wins}</p>
+                <p className="littlespace">Win percentage: <b>{winnerTeamText} {displayPercent}%</b></p>
+                <p className="littlespace">Leverage index: <b className={leverageClass}>{r.leverageIndex} ({leverageDescription})</b></p>
+                <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
+                <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
             </div>
-            </CSSTransitionGroup>
-        </div>;
+        </AnimateOnChange>;
     }
 }
 class IndeterminateProgressBar extends Component {
@@ -676,7 +683,7 @@ class BaseballSituation extends Component {
                 {primaryStatsResultsList}
             </div>
             <div style={{float: 'left'}}>
-                <RunsPerInningResultComponent result={this.state.runsPerInning} />
+                <RunsPerInningResultComponent result={this.state.runsPerInning} flash={this.state.flash}  />
             </div>
             <div style={{clear: 'both'}}>
                 {statsResultsList}

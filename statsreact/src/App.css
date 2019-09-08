@@ -53,6 +53,27 @@ table.runsPerInning td,th {
       opacity: 1;
 }*/
 
+/* http://stackoverflow.com/questions/16791851/a-flash-of-color-using-pure-css-transitions */
+
+.pulsar {
+    background-color: transparent;
+}
+
+.pulsar.pulsarFlash {
+    animation-name: flashcolor;
+    animation-duration: 500ms;
+}
+
+@keyframes flashcolor {
+    0% {
+        background-color: yellow;
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+
          /* slider stuff */
         .horizontal-slider {
             width: 100%;
