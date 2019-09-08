@@ -1,7 +1,6 @@
 import './App.css'
 
 import React, {Component} from 'react'
-import ReactDOM from 'react-dom'
 import ReactSlider from 'react-slider'
 import wgxpath from 'wicked-good-xpath';
 import AnimateOnChange from 'react-animate-on-change';
@@ -11,6 +10,7 @@ wgxpath.install();
 
 const MIN_YEAR = 1957;
 const MAX_YEAR = 2018;
+const SHOW_BALLS_STRIKES = true;
 //TODO?
 const extraYears = [];
 function transformNonZeroYear(y)
@@ -564,6 +564,10 @@ class BaseballSituation extends Component {
             scorediff *= -1;
         }
         let stateString = `"${whichTeam}",${inning},${outs},${runners},${scorediff}`;
+        if (!SHOW_BALLS_STRIKES) {
+            balls = 0;
+            strikes = 0;
+        }
         let ballsStrikesState = `${balls},${strikes}`
         // TODO url
         let url = `https://gregstoll.dyndns.org/~gregstoll/baseball.test/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
@@ -590,7 +594,8 @@ class BaseballSituation extends Component {
         if (!this.state['runsPerInningData'])
         {
             //TODO url
-            fetch('https://gregstoll.dyndns.org/~gregstoll/baseball.test/runsperinningballsstrikes.xml').then(response => {
+            let FILENAME = SHOW_BALLS_STRIKES ? "runsperinningballsstrikes.xml" : "runsperinning.xml";
+            fetch(`https://gregstoll.dyndns.org/~gregstoll/baseball.test/${FILENAME}`).then(response => {
                 return response.text();
             }).then(xmlText => {
                 let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
@@ -610,7 +615,8 @@ class BaseballSituation extends Component {
         const strikes = this.state.strikes;
         //TODO - this seems hacky?
         let runsPerInningData = this.state.runsPerInningData !== undefined ? this.state.runsPerInningData : responseXML;
-        let situationElement = runsPerInningData.evaluate(`//situation[@outs=${outs}][@runners=${runners}][@balls=${balls}][@strikes=${strikes}][1]`, this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
+        let ballsStrikesXPath = SHOW_BALLS_STRIKES ? `[@balls=${balls}][@strikes=${strikes}]` : '';
+        let situationElement = runsPerInningData.evaluate(`//situation[@outs=${outs}][@runners=${runners}]${ballsStrikesXPath}[1]`, this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
         let situationChildren = situationElement.childNodes;
         let total = 0;
         let countByRuns = [];
@@ -672,7 +678,7 @@ class BaseballSituation extends Component {
                 <OutsControl outs={this.state.outs} setOuts={this.setOuts.bind(this)} />
                 <RunnersOnBaseList runners={this.state.runners} setRunners={this.setRunners.bind(this)} />
                 <ScoreTable score={this.state.score} setScore={this.setScore.bind(this)} />
-                <BallsStrikesControl balls={this.state.balls} strikes={this.state.strikes} setBalls={balls => this.setBalls(balls)} setStrikes={strikes => this.setStrikes(strikes)} />
+                { SHOW_BALLS_STRIKES && <BallsStrikesControl balls={this.state.balls} strikes={this.state.strikes} setBalls={balls => this.setBalls(balls)} setStrikes={strikes => this.setStrikes(strikes)} /> }
                 <YearsSlider years={this.state.years} setYears={this.setYears.bind(this)} />
             </div>
             <div style={{float: 'left', marginLeft: '25px'}}>
