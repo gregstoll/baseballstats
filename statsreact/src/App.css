@@ -1,13 +1,10 @@
-.App {
-  height: 100%;
-  min-height: 400px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  justify-content: stretch;
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
-P.littlespace {margin: 2px;}
+.littlespace {margin: 2px;}
 .leverageVeryHigh {background-color: #f22; font-weight: 900;}
 .leverageHigh {background-color: #99f; font-weight: 900;}
 .leverageMedium {background-color: #ccc; font-weight: 900;}
@@ -54,5 +51,91 @@ table.runsPerInning td,th {
 }
 .outputTransition-appear.outputTransition-appear-active {
       opacity: 1;
+}*/
+
+/* http://stackoverflow.com/questions/16791851/a-flash-of-color-using-pure-css-transitions */
+
+.pulsar {
+    background-color: transparent;
+}
+
+.pulsar.pulsarFlash {
+    animation-name: flashcolor;
+    animation-duration: 500ms;
+}
+
+@keyframes flashcolor {
+    0% {
+        background-color: yellow;
+    }
+    100% {
+        background-color: transparent;
+    }
+}
+
+
+         /* slider stuff */
+        .horizontal-slider {
+            width: 100%;
+            max-width: 500px;
+            height: 15px;
+            border: 1px solid grey;
+        }
+        .vertical-slider {
+            height: 380px;
+            width: 50px;
+            border: 1px solid grey;
+        }
+        .handle {
+            font-size: 0.9em;
+            text-align: center;
+            background-color: black;
+            color: white;
+            cursor: pointer;
+        }
+        .handle.active {
+            background-color: grey;
+        }
+        .bar {
+            position: relative;
+            background: #ddd;
+        }
+        .bar.bar-1 {
+            background: #f8b74d;
+        }
+        .horizontal-slider .bar {
+            height: 15px;
+        }
+        .horizontal-slider .handle {
+            top: -1px;
+            width: 15px;
+            height: 17px;
+            line-height: 48px;
+        }
+        .vertical-slider .handle {
+            left: 1px;
+            width: 48px;
+            line-height: 50px;
+        }
+        .vertical-slider .bar {
+            left: 20px;
+            width: 10px;
+        }
+        #horizontal-0,
+        #horizontal-1, #horizontal-2, #horizontal-3,
+        #vertical {
+            margin: 20px 10px;
+        }
+        #horizontal-2 .bar.bar-2 {
+            background: #ddd;
+        }
+
+
+/*.App {
+  text-align: center;
+}
+
+.App-link {
+  color: #61dafb;
 }*/
 

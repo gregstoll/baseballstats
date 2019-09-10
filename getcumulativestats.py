@@ -2,7 +2,7 @@
 
 import re, os, cgi
 
-pathPrefix = 'statsyears/statscumulative.'
+pathPrefix = 'statsyears/statswithballsstrikescumulative.'
 leverageFileName = 'statsyears/leverage'
 
 def getProbabilityOfStringForYear(stringToLookFor, year):
@@ -11,6 +11,7 @@ def getProbabilityOfStringForYear(stringToLookFor, year):
     if not os.path.exists(fileName):
         return (0,0)
     with open(fileName, 'r') as probsFile:
+        # print(f"stringToLookFor is {stringToLookFor}")
         for line in probsFile.readlines():
             if (line.startswith(stringToLookFor)):
                 probsMatch = probsRe.match(line)
@@ -42,10 +43,12 @@ def getLeverageOfString(stringToLookFor):
 def main():
     form = cgi.FieldStorage()
     stateString = form.getfirst('stateString')
+    ballsStrikesState = form.getfirst('ballsStrikesState')
     startYear = form.getfirst('startYear')
     endYear = form.getfirst('endYear')
-    (wins, total) = getProbabilityOfString(stateString, int(startYear), int(endYear))
+    (wins, total) = getProbabilityOfString(stateString + "," + ballsStrikesState, int(startYear), int(endYear))
     leverage = getLeverageOfString(stateString)
+    print("Access-Control-Allow-Origin: *")
     print("Content-type: application/json\n")
     print('{"wins": %s, "total": %s, "leverage": %s}' % (wins, total, leverage), end='')
 

@@ -1,1 +1,0 @@
-../statsreact/dist.public/manifest.96da8845.js
