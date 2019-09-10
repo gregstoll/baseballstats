@@ -88,7 +88,7 @@ class InningChoice extends Component {
         this.props.setInning(this.props.inning);
     }
     render() {
-        return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor === this.props.chosenInning.homeOrVisitor && this.props.inning.num === this.props.chosenInning.num} onClick={this.handleClick.bind(this)} /></td>;
+        return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor === this.props.chosenInning.homeOrVisitor && this.props.inning.num === this.props.chosenInning.num} onClick={e => this.handleClick(e)} /></td>;
     }
 }
 class InningTable extends Component {
@@ -105,13 +105,13 @@ class InningTable extends Component {
         for (let i = 1; i <= this.props.numInnings; ++i)
         {
             let thisInning = {homeOrVisitor: 'V', num: i};
-            visitorChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning.bind(this)} />);
+            visitorChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={i => this.setInning(i)} />);
         }
         let homeChoices = [];
         for (let i = 1; i <= this.props.numInnings; ++i)
         {
             let thisInning = {homeOrVisitor: 'H', num: i};
-            homeChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={this.setInning.bind(this)} />);
+            homeChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={i => this.setInning(i)} />);
         }
         return <table className="innings">
             <thead>
@@ -148,7 +148,7 @@ class OutsControl extends Component {
 
         const circleRadius = Math.min(WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
         return <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Outs:</span>
-        <svg width={WIDTH} height={HEIGHT} onClick={this.handleClick.bind(this)}>
+        <svg width={WIDTH} height={HEIGHT} onClick={e => this.handleClick(e)}>
             <circle cx={WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getOutsColor(this.props.outs >= 1)} />
             <circle cx={(3*WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getOutsColor(this.props.outs >= 2)} />
         </svg>
@@ -179,7 +179,7 @@ class BallsStrikesControl extends Component {
         return <table>
             <tr className="littlespace">
                 <td style={{"textAlign": "right", "verticalAlign": "middle"}}>Balls:</td>
-                <svg width={BALLS_WIDTH} height={HEIGHT} onClick={this.handleBallsClick.bind(this)} style={{"verticalAlign": "middle"}}>
+                <svg width={BALLS_WIDTH} height={HEIGHT} onClick={e => this.handleBallsClick(e)} style={{"verticalAlign": "middle"}}>
                     <circle cx={BALLS_WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
                     <circle cx={(3*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
                     <circle cx={(5*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
@@ -187,7 +187,7 @@ class BallsStrikesControl extends Component {
             </tr>
             <tr className="littlespace">
                 <td style={{"textAlign": "right", "verticalAlign": "middle"}}>Strikes:</td>
-                <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)} style={{"verticalAlign": "middle"}}>
+                <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={e => this.handleStrikesClick(e)} style={{"verticalAlign": "middle"}}>
                 <circle cx={STRIKES_WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
                 <circle cx={(3*STRIKES_WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
             </svg>
@@ -201,7 +201,7 @@ class RunnersOnBaseList extends Component {
     }
     render() {
         return <p className="littlespace">Runners on base:&nbsp;
-        <select onChange={this.handleChange.bind(this)} value={this.props.runners}>
+        <select onChange={e => this.handleChange(e)} value={this.props.runners}>
             <option value="1">none</option>
             <option value="2">1st</option>
             <option value="3">2nd</option>
@@ -233,8 +233,8 @@ class ScoreTable extends Component {
             homeScore = "Tie";
         }
         return <table className="scoreTable"><tbody>
-            <tr><th>Visitor</th><td>{visitorScore}</td><td><button onClick={this.handleVisitorClick.bind(this)}>+</button></td></tr>
-            <tr><th>Home</th><td>{homeScore}</td><td><button onClick={this.handleHomeClick.bind(this)}>+</button></td></tr>
+            <tr><th>Visitor</th><td>{visitorScore}</td><td><button onClick={e => this.handleVisitorClick()}>+</button></td></tr>
+            <tr><th>Home</th><td>{homeScore}</td><td><button onClick={e => this.handleHomeClick()}>+</button></td></tr>
         </tbody></table>;
     }
 }
@@ -285,11 +285,11 @@ class RunnersOnBaseDiamond extends Component {
             { /* home plate */ }
             <polygon points={homePoints} strokeWidth="0" fill={this.getBaseColor(false)} />
             { /* first base */ }
-            <polygon points={firstPoints} strokeWidth="0" fill={this.getBaseColor(first)} onClick={this.toggleFirst.bind(this)} />
+            <polygon points={firstPoints} strokeWidth="0" fill={this.getBaseColor(first)} onClick={e => this.toggleFirst(e)} />
             { /* second base */ }
-            <polygon points={secondPoints} strokeWidth="0" fill={this.getBaseColor(second)} onClick={this.toggleSecond.bind(this)}/>
+            <polygon points={secondPoints} strokeWidth="0" fill={this.getBaseColor(second)} onClick={e => this.toggleSecond(e)}/>
             { /* third base */ }
-            <polygon points={thirdPoints} strokeWidth="0" fill={this.getBaseColor(third)} onClick={this.toggleThird.bind(this)}/>
+            <polygon points={thirdPoints} strokeWidth="0" fill={this.getBaseColor(third)} onClick={e => this.toggleThird(e)}/>
         </svg>
         </div>;
     }
@@ -324,7 +324,7 @@ class YearsSlider extends Component {
     render() {
         return <div>
             <p className="littlespace">Years to include: {this.state.years[0]} - {this.state.years[1]}</p>
-            <ReactSlider className="horizontal-slider" orientation="horizontal" withBars={true} defaultValue={[this.state.years[0], this.state.years[1]]} min={MIN_YEAR} max={MAX_YEAR} onChange={this.onChange.bind(this)} />
+            <ReactSlider className="horizontal-slider" orientation="horizontal" withBars={true} defaultValue={[this.state.years[0], this.state.years[1]]} min={MIN_YEAR} max={MAX_YEAR} onChange={val => this.onChange(val)} />
         </div>
     }
 }
@@ -636,25 +636,25 @@ class BaseballSituation extends Component {
         this.setState({runsPerInning: new RunsPerInningResult(total, countByRuns)});
     }
     setInning(newInning) {
-        this.setState({inning: newInning}, this.updateCalculations.bind(this));
+        this.setState({inning: newInning}, () => this.updateCalculations());
     }
     setOuts(newOuts) {
-        this.setState({outs: newOuts}, this.updateCalculations.bind(this));
+        this.setState({outs: newOuts}, () => this.updateCalculations());
     }
     setRunners(newRunners) {
-        this.setState({runners: newRunners}, this.updateCalculations.bind(this));
+        this.setState({runners: newRunners}, () => this.updateCalculations());
     }
     setScore(newScore) {
-        this.setState({score: newScore}, this.updateCalculations.bind(this));
+        this.setState({score: newScore}, () => this.updateCalculations());
     }
     setYears(newYears) {
-        this.setState({years: newYears}, this.updateCalculations.bind(this));
+        this.setState({years: newYears}, () => this.updateCalculations());
     }
     setBalls(newBalls) {
-        this.setState({balls: newBalls}, this.updateCalculations.bind(this));
+        this.setState({balls: newBalls}, () => this.updateCalculations());
     }
     setStrikes(newStrikes) {
-        this.setState({strikes: newStrikes}, this.updateCalculations.bind(this));
+        this.setState({strikes: newStrikes}, () => this.updateCalculations());
     }
     createStatsResults(isPrimary, name, years) {
         return <StatsResults isPrimary={isPrimary} name={name}
@@ -673,16 +673,16 @@ class BaseballSituation extends Component {
             statsResultsList.push(this.createStatsResults(false, 'output' + i, transformedYears));
         }
         return <div>
-            <InningTable numInnings={NUM_INNINGS} inning={this.state.inning} setInning={this.setInning.bind(this)} />
+            <InningTable numInnings={NUM_INNINGS} inning={this.state.inning} setInning={inning => this.setInning(inning)} />
             <div style={{float: 'left'}}>
-                <OutsControl outs={this.state.outs} setOuts={this.setOuts.bind(this)} />
-                <RunnersOnBaseList runners={this.state.runners} setRunners={this.setRunners.bind(this)} />
-                <ScoreTable score={this.state.score} setScore={this.setScore.bind(this)} />
+                <OutsControl outs={this.state.outs} setOuts={outs => this.setOuts(outs)} />
+                <RunnersOnBaseList runners={this.state.runners} setRunners={run => this.setRunners(run)} />
+                <ScoreTable score={this.state.score} setScore={score => this.setScore(score)} />
                 { SHOW_BALLS_STRIKES && <BallsStrikesControl balls={this.state.balls} strikes={this.state.strikes} setBalls={balls => this.setBalls(balls)} setStrikes={strikes => this.setStrikes(strikes)} /> }
-                <YearsSlider years={this.state.years} setYears={this.setYears.bind(this)} />
+                <YearsSlider years={this.state.years} setYears={years => this.setYears(years)} />
             </div>
             <div style={{float: 'left', marginLeft: '25px'}}>
-                <RunnersOnBaseDiamond runners={this.state.runners} setRunners={this.setRunners.bind(this)} />
+                <RunnersOnBaseDiamond runners={this.state.runners} setRunners={run => this.setRunners(run)} />
             </div>
             <div style={{clear: 'both', float: 'left'}}>
                 <IndeterminateProgressBar active={this.state.pendingCount > 0} />
