@@ -176,21 +176,23 @@ class BallsStrikesControl extends Component {
         const HEIGHT_MARGIN = 5;
 
         const circleRadius = Math.min(STRIKES_WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
-        return <div>
-            <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Balls:</span>
-                <svg width={BALLS_WIDTH} height={HEIGHT} onClick={this.handleBallsClick.bind(this)}>
+        return <table>
+            <tr className="littlespace">
+                <td style={{"textAlign": "right", "verticalAlign": "middle"}}>Balls:</td>
+                <svg width={BALLS_WIDTH} height={HEIGHT} onClick={this.handleBallsClick.bind(this)} style={{"verticalAlign": "middle"}}>
                     <circle cx={BALLS_WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
                     <circle cx={(3*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
                     <circle cx={(5*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
                 </svg>
-            </p>
-            <p className="littlespace" style={{"display": "flex", "alignItems": "center"}}><span>Strikes:</span>
-                <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)}>
+            </tr>
+            <tr className="littlespace">
+                <td style={{"textAlign": "right", "verticalAlign": "middle"}}>Strikes:</td>
+                <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={this.handleStrikesClick.bind(this)} style={{"verticalAlign": "middle"}}>
                 <circle cx={STRIKES_WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
                 <circle cx={(3*STRIKES_WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
             </svg>
-            </p>
-        </div>;
+            </tr>
+        </table>;
     }
 }
 class RunnersOnBaseList extends Component {

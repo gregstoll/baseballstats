@@ -4,7 +4,7 @@ body {
   padding: 0;
 }
 
-P.littlespace {margin: 2px;}
+.littlespace {margin: 2px;}
 .leverageVeryHigh {background-color: #f22; font-weight: 900;}
 .leverageHigh {background-color: #99f; font-weight: 900;}
 .leverageMedium {background-color: #ccc; font-weight: 900;}
