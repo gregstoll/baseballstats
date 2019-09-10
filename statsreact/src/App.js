@@ -157,11 +157,9 @@ class OutsControl extends Component {
 }
 class BallsStrikesControl extends Component {
     handleBallsClick(e) {
-        // use 1 + this.props.balls, otherwise it gets converted to a string?
         this.props.setBalls((this.props.balls === 3) ? 0 : (1 + this.props.balls));
     }
     handleStrikesClick(e) {
-        // use 1 + this.props.strikes, otherwise it gets converted to a string?
         this.props.setStrikes((this.props.strikes === 2) ? 0 : (1 + this.props.strikes));
     }
     getBallsColor(on) {
@@ -369,8 +367,8 @@ class RunsPerInningResultComponent extends Component {
                 <tr><th>2 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(2))}</td><th>2+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(2))}</td></tr>
                 <tr><th>3 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(3))}</td><th>3+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(3))}</td></tr>
                 <tr><th>4 runs:</th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForExactNumberOfRuns(4))}</td><th>4+ runs: </th><td>{this.makeDisplayPercent(this.props.result.getProbabilityForAtLeastNumberOfRuns(4))}</td></tr>
-                </tbody></table></div>;
-        </AnimateOnChange>
+                </tbody></table></div>
+        </AnimateOnChange>;
     }
 }
 class StatsResults extends Component {
