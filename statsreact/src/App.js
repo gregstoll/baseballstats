@@ -569,8 +569,7 @@ class BaseballSituation extends Component {
             strikes = 0;
         }
         let ballsStrikesState = `${balls},${strikes}`
-        // TODO url
-        let url = `https://gregstoll.dyndns.org/~gregstoll/baseball.test/getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
+        let url = `getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
         fetch(url).then(response => {
             return response.json();
         }).then(json => {
@@ -593,9 +592,8 @@ class BaseballSituation extends Component {
         });
         if (!this.state['runsPerInningData'])
         {
-            //TODO url
             let FILENAME = SHOW_BALLS_STRIKES ? "runsperinningballsstrikes.xml" : "runsperinning.xml";
-            fetch(`https://gregstoll.dyndns.org/~gregstoll/baseball.test/${FILENAME}`).then(response => {
+            fetch(`${FILENAME}`).then(response => {
                 return response.text();
             }).then(xmlText => {
                 let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
