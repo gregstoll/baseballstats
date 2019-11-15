@@ -1,3 +1,0 @@
-# statsnew
-
-Describe statsnew here.

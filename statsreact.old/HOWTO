@@ -1,8 +1,0 @@
-npm install - install dependencies
-npm start - dev server
-npm run build - build things into dist/
-
-statsreact.dev is linked to dist
-public site is linked to dist.public, so after building and want to publish:
- - copy stuff in dist to dist.public
- - fix up links in /public since app.*.js, etc. will have changed hashes
