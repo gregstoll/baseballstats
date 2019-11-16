@@ -48,7 +48,8 @@ def main():
     endYear = form.getfirst('endYear')
     (wins, total) = getProbabilityOfString(stateString + "," + ballsStrikesState, int(startYear), int(endYear))
     leverage = getLeverageOfString(stateString)
-    print("Access-Control-Allow-Origin: *")
+    # handled in apache config
+    # print("Access-Control-Allow-Origin: *")
     print("Content-type: application/json\n")
     print('{"wins": %s, "total": %s, "leverage": %s}' % (wins, total, leverage), end='')
 
