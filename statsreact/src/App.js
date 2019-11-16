@@ -35,6 +35,13 @@ function transformYears(startYear, endYear)
     endYear = transformNonZeroYear(endYear);
     return [startYear, endYear];
 }
+function transformURL(url) {
+    if (process.env.NODE_ENV !== "production")
+    {
+        return 'https://gregstoll.dyndns.org/~gregstoll/baseball/' + url;
+    }
+    return url;
+}
 
 class RunsPerInningResult {
     constructor(totalSituations, countByRuns) {
@@ -176,23 +183,27 @@ class BallsStrikesControl extends Component {
         const HEIGHT_MARGIN = 5;
 
         const circleRadius = Math.min(STRIKES_WIDTH - 3 * WIDTH_MARGIN, HEIGHT - 2 * HEIGHT_MARGIN) / 2;
-        return <table>
+        return <table><tbody>
             <tr className="littlespace">
                 <td style={{"textAlign": "right", "verticalAlign": "middle"}}>Balls:</td>
-                <svg width={BALLS_WIDTH} height={HEIGHT} onClick={e => this.handleBallsClick(e)} style={{"verticalAlign": "middle"}}>
-                    <circle cx={BALLS_WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
-                    <circle cx={(3*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
-                    <circle cx={(5*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
-                </svg>
+                <td>
+                    <svg width={BALLS_WIDTH} height={HEIGHT} onClick={e => this.handleBallsClick(e)} style={{"verticalAlign": "middle"}}>
+                        <circle cx={BALLS_WIDTH/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 1)} />
+                        <circle cx={(3*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 2)} />
+                        <circle cx={(5*BALLS_WIDTH)/6} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getBallsColor(this.props.balls >= 3)} />
+                    </svg>
+                </td>
             </tr>
             <tr className="littlespace">
                 <td style={{"textAlign": "right", "verticalAlign": "middle"}}>Strikes:</td>
-                <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={e => this.handleStrikesClick(e)} style={{"verticalAlign": "middle"}}>
-                <circle cx={STRIKES_WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
-                <circle cx={(3*STRIKES_WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
-            </svg>
+                <td>
+                    <svg width={STRIKES_WIDTH} height={HEIGHT} onClick={e => this.handleStrikesClick(e)} style={{"verticalAlign": "middle"}}>
+                        <circle cx={STRIKES_WIDTH/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 1)} />
+                        <circle cx={(3*STRIKES_WIDTH)/4} cy={HEIGHT/2} r={circleRadius} stroke="#a0522d" fill={this.getStrikesColor(this.props.strikes >= 2)} />
+                    </svg>
+                </td>
             </tr>
-        </table>;
+        </tbody></table>;
     }
 }
 class RunnersOnBaseList extends Component {
@@ -570,6 +581,7 @@ class BaseballSituation extends Component {
         }
         let ballsStrikesState = `${balls},${strikes}`
         let url = `getcumulativestats.cgi?stateString=${encodeURIComponent(stateString)}&ballsStrikesState=${encodeURIComponent(ballsStrikesState)}&startYear=${startYear}&endYear=${endYear}&rand=${Math.random()}`;
+        url = transformURL(url);
         fetch(url).then(response => {
             return response.json();
         }).then(json => {
@@ -592,7 +604,7 @@ class BaseballSituation extends Component {
         });
         if (!this.state['runsPerInningData'])
         {
-            let FILENAME = SHOW_BALLS_STRIKES ? "runsperinningballsstrikes.xml" : "runsperinning.xml";
+            let FILENAME = transformURL(SHOW_BALLS_STRIKES ? "runsperinningballsstrikes.xml" : "runsperinning.xml");
             fetch(`${FILENAME}`).then(response => {
                 return response.text();
             }).then(xmlText => {
