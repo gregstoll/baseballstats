@@ -13,7 +13,7 @@ const MAX_YEAR = 2018;
 const SHOW_BALLS_STRIKES = true;
 //TODO?
 const extraYears = [];
-function transformNonZeroYear(y)
+function transformNonZeroYear(y: number) : number
 {
     if (y < 0) {
         return MAX_YEAR + y;
@@ -23,7 +23,7 @@ function transformNonZeroYear(y)
     }
     return y;
 }
-function transformYears(startYear, endYear)
+function transformYears(startYear: number, endYear: number) : [number, number]
 {
     if (startYear === 0) {
         startYear = MIN_YEAR;
@@ -35,7 +35,7 @@ function transformYears(startYear, endYear)
     endYear = transformNonZeroYear(endYear);
     return [startYear, endYear];
 }
-function transformURL(url) {
+function transformURL(url: string) : string {
     if (process.env.NODE_ENV !== "production")
     {
         return 'https://gregstoll.dyndns.org/~gregstoll/baseball/' + url;
@@ -46,11 +46,11 @@ function transformURL(url) {
 class RunsPerInningResult {
     totalSituations: number;
     countByRuns: Array<number>;
-    constructor(totalSituations, countByRuns) {
+    constructor(totalSituations: number, countByRuns: Array<number>) {
         this.totalSituations = totalSituations;
         this.countByRuns = countByRuns;
     }
-    isEqual(other) {
+    isEqual(other: RunsPerInningResult) {
         if (other === undefined) {
             return false;
         }
@@ -67,17 +67,17 @@ class RunsPerInningResult {
         }
         return true;
     }
-    getProbabilityForExactNumberOfRuns(numberOfRuns) {
+    getProbabilityForExactNumberOfRuns(numberOfRuns: number) : number {
         return this.countByRuns[numberOfRuns] / this.totalSituations;
     }
-    getProbabilityForAtLeastNumberOfRuns(numberOfRuns) {
+    getProbabilityForAtLeastNumberOfRuns(numberOfRuns: number) : number {
         let numSituationsBelowNumberOfRuns = 0;
         for (let i = 0; i < numberOfRuns; ++i) {
             numSituationsBelowNumberOfRuns += this.countByRuns[i];
         }
         return 1.0 - (numSituationsBelowNumberOfRuns / this.totalSituations);
     }
-    getExpectedRuns() {
+    getExpectedRuns() : number {
         let expected = 0.0;
         // skip the first iteration
         for (let i = 1; i < this.countByRuns.length; ++i) {
@@ -118,7 +118,7 @@ interface InningTableProps {
     setInning: (inning: Inning) => void
 }
 class InningTable extends Component<InningTableProps, {}> {
-    setInning(inning) {
+    setInning(inning : Inning) {
         this.props.setInning(inning);
     }
     render() {
@@ -167,7 +167,7 @@ class OutsControl extends Component<OutsControlProps, {}> {
     handleClick(e) {
         this.props.setOuts((this.props.outs === 2) ? 0 : this.props.outs + 1);
     }
-    getOutsColor(on) {
+    getOutsColor(on: boolean) {
         return on ? '#ff0000' : '#ffffff';
     }
     render() {
@@ -198,10 +198,10 @@ class BallsStrikesControl extends Component<BallsStrikesControlProps, {}> {
     handleStrikesClick(e) {
         this.props.setStrikes((this.props.strikes === 2) ? 0 : (1 + this.props.strikes));
     }
-    getBallsColor(on) {
+    getBallsColor(on: boolean) {
         return on ? '#ff0000' : '#ffffff';
     }
-    getStrikesColor(on) {
+    getStrikesColor(on: boolean) {
         return on ? '#ff0000' : '#ffffff';
     }
     render() {
@@ -409,10 +409,10 @@ class RunsPerInningResultComponent extends Component<RunsPerInningResultComponen
             this.setState({"flash": true});
         }
     }
-    makeDisplayPercent(probability) {
+    makeDisplayPercent(probability: number) {
         return ((Math.round(probability * 10000) / 100).toFixed(2) + "%");
     }
-    makeDisplayRuns(runs) {
+    makeDisplayRuns(runs: number) {
         return runs.toFixed(2);
     }
     render() {
@@ -450,14 +450,14 @@ interface StatsResultsState {
     flash: boolean
 }
 class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
-    constructor(props) {
+    constructor(props: StatsResultsProps) {
         super(props);
         this.state = {'flash': false};
     }
     componentDidMount() {
         this.setState({"flash": true});
     }
-    componentDidUpdate(prevProps, prevState) {
+    componentDidUpdate(prevProps: StatsResultsProps, prevState: StatsResultsState) {
         let differences = false;
         let properties = Object.keys(this.props);
         for (var i in properties) {
@@ -573,7 +573,7 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
     addInitialState(state, name, years) {
         state['results' + name] = {total: 0, wins: 0, leverageIndex: 0, isHome: false, isInitial: true, years: years};
     }
-    constructor(props) {
+    constructor(props: {}) {
         super(props);
         const initialInning: Inning = {homeOrVisitor: 'V', num: 1};
         const initialYears: [number, number] = [MIN_YEAR, MAX_YEAR];
@@ -728,35 +728,35 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
         }
         this.setState({runsPerInning: new RunsPerInningResult(total, countByRuns)});
     }
-    setInning(newInning) {
+    setInning(newInning: Inning) {
         this.setState({inning: newInning}, () => this.updateCalculations());
     }
-    setOuts(newOuts) {
+    setOuts(newOuts: number) {
         this.setState({outs: newOuts}, () => this.updateCalculations());
     }
-    setRunners(newRunners) {
+    setRunners(newRunners: number) {
         this.setState({runners: newRunners}, () => this.updateCalculations());
     }
-    setScore(newScore) {
+    setScore(newScore: number) {
         this.setState({score: newScore}, () => this.updateCalculations());
     }
-    setYears(newYears) {
+    setYears(newYears: [number, number]) {
         this.setState({years: newYears}, () => this.updateCalculations());
     }
-    setBalls(newBalls) {
+    setBalls(newBalls: number) {
         this.setState({balls: newBalls}, () => this.updateCalculations());
     }
-    setStrikes(newStrikes) {
+    setStrikes(newStrikes: number) {
         this.setState({strikes: newStrikes}, () => this.updateCalculations());
     }
-    createStatsResults(isPrimary, name, years) {
+    createStatsResults(isPrimary: boolean, name: string, years: [number, number]) {
         return <StatsResults isPrimary={isPrimary} name={name}
-         total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [] : years} key={name} />
+         total={this.state["results" + name].total} wins={this.state["results" + name].wins} leverageIndex={this.state["results" + name].leverageIndex} isHome={this.state["results" + name].isHome} isInitial={this.state["results" + name].isInitial} years={isPrimary ? [undefined, undefined] : years} key={name} />
     }
     render() {
         const NUM_INNINGS = 11;
         let primaryStatsResultsList = []
-        primaryStatsResultsList.push(this.createStatsResults(true, 'output', []));
+        primaryStatsResultsList.push(this.createStatsResults(true, 'output', [undefined, undefined]));
         let statsResultsList = [];
         for (let i = 0; i < extraYears.length; ++i)
         {
