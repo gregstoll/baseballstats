@@ -44,6 +44,8 @@ function transformURL(url) {
 }
 
 class RunsPerInningResult {
+    totalSituations: number;
+    countByRuns: Array<number>;
     constructor(totalSituations, countByRuns) {
         this.totalSituations = totalSituations;
         this.countByRuns = countByRuns;
@@ -84,13 +86,25 @@ class RunsPerInningResult {
         return expected;
     }
 }
+interface Inning {
+    homeOrVisitor: 'V' | 'H',
+    num: number
+};
 
-class InningHeader extends Component {
+interface InningHeaderProps {
+    inningNum: number
+};
+class InningHeader extends Component<InningHeaderProps, {}> {
     render() {
         return <th>{this.props.inningNum}</th>;
     }
 }
-class InningChoice extends Component {
+interface InningChoiceProps {
+    inning: Inning,
+    chosenInning: Inning,
+    setInning: (inning: Inning) => void
+}
+class InningChoice extends Component<InningChoiceProps, {}> {
     handleClick(e) {
         this.props.setInning(this.props.inning);
     }
@@ -98,7 +112,12 @@ class InningChoice extends Component {
         return <td><input type="radio" name="inningRadio" value="{this.props.inning.homeOrVisitor + this.props.inning.num}" defaultChecked={this.props.inning.homeOrVisitor === this.props.chosenInning.homeOrVisitor && this.props.inning.num === this.props.chosenInning.num} onClick={e => this.handleClick(e)} /></td>;
     }
 }
-class InningTable extends Component {
+interface InningTableProps {
+    numInnings: number,
+    inning: Inning,
+    setInning: (inning: Inning) => void
+}
+class InningTable extends Component<InningTableProps, {}> {
     setInning(inning) {
         this.props.setInning(inning);
     }
@@ -111,13 +130,13 @@ class InningTable extends Component {
         let visitorChoices = [];
         for (let i = 1; i <= this.props.numInnings; ++i)
         {
-            let thisInning = {homeOrVisitor: 'V', num: i};
+            let thisInning : Inning = {homeOrVisitor: 'V', num: i};
             visitorChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={i => this.setInning(i)} />);
         }
         let homeChoices = [];
         for (let i = 1; i <= this.props.numInnings; ++i)
         {
-            let thisInning = {homeOrVisitor: 'H', num: i};
+            let thisInning : Inning = {homeOrVisitor: 'H', num: i};
             homeChoices.push(<InningChoice key={thisInning.homeOrVisitor + thisInning.num} inning={thisInning} chosenInning={this.props.inning} setInning={i => this.setInning(i)} />);
         }
         return <table className="innings">
@@ -140,7 +159,11 @@ class InningTable extends Component {
         </table>;
     }
 }
-class OutsControl extends Component {
+interface OutsControlProps {
+    outs: number,
+    setOuts: (outs: number) => void
+}
+class OutsControl extends Component<OutsControlProps, {}> {
     handleClick(e) {
         this.props.setOuts((this.props.outs === 2) ? 0 : this.props.outs + 1);
     }
@@ -162,7 +185,13 @@ class OutsControl extends Component {
         </p>;
     }
 }
-class BallsStrikesControl extends Component {
+interface BallsStrikesControlProps {
+    balls: number,
+    strikes: number,
+    setBalls: (balls: number) => void,
+    setStrikes: (strikes: number) => void
+}
+class BallsStrikesControl extends Component<BallsStrikesControlProps, {}> {
     handleBallsClick(e) {
         this.props.setBalls((this.props.balls === 3) ? 0 : (1 + this.props.balls));
     }
@@ -206,9 +235,13 @@ class BallsStrikesControl extends Component {
         </tbody></table>;
     }
 }
-class RunnersOnBaseList extends Component {
+interface RunnersOnBaseProps {
+    runners: number,
+    setRunners: (runners: number) => void
+}
+class RunnersOnBaseList extends Component<RunnersOnBaseProps, {}> {
     handleChange(e) {
-        this.props.setRunners(e.target.value);
+        this.props.setRunners(e.target.value as number);
     }
     render() {
         return <p className="littlespace">Runners on base:&nbsp;
@@ -225,7 +258,11 @@ class RunnersOnBaseList extends Component {
         </p>;
     }
 }
-class ScoreTable extends Component {
+interface ScoreTableProps {
+    score: number,
+    setScore: (score: number) => void
+}
+class ScoreTable extends Component<ScoreTableProps, {}> {
     handleVisitorClick() {
         this.props.setScore(this.props.score - 1);
     }
@@ -249,11 +286,11 @@ class ScoreTable extends Component {
         </tbody></table>;
     }
 }
-class RunnersOnBaseDiamond extends Component {
-    getBaseColor(on) {
+class RunnersOnBaseDiamond extends Component<RunnersOnBaseProps, {}> {
+    getBaseColor(on: boolean) {
         return on ? '#ff0000' : '#eeeeee';
     }
-    pointsFromCenter(center, baseSize) {
+    pointsFromCenter(center: [number, number], baseSize: number): [number, number][] {
         return [[center[0], center[1] + baseSize], [center[0] + baseSize, center[1]], [center[0], center[1] - baseSize], [center[0] - baseSize, center[1]]];
     }
     toggleFirst(e) {
@@ -269,21 +306,21 @@ class RunnersOnBaseDiamond extends Component {
         const WIDTH = 200;
         const HEIGHT = 200;
 
-        const first = (this.props.runners - 1) & 1;
-        const second = (this.props.runners - 1) & 2;
-        const third = (this.props.runners - 1) & 4;
+        const first = ((this.props.runners - 1) & 1) !== 0;
+        const second = ((this.props.runners - 1) & 2) !== 0;
+        const third = ((this.props.runners - 1) & 4) !== 0;
         const baseSize = Math.max(WIDTH*0.1, 10);
 
         const homeCenter = [WIDTH/2, HEIGHT*0.85];
         const homePoints = [[homeCenter[0], homeCenter[1] + baseSize], [homeCenter[0] + baseSize, homeCenter[1]], [homeCenter[0] + baseSize], [homeCenter[1] - baseSize], [homeCenter[0] - baseSize, homeCenter[1] - baseSize], [homeCenter[0] - baseSize, homeCenter[1]]];
 
-        const firstCenter = [WIDTH*0.85, HEIGHT/2];
+        const firstCenter: [number, number] = [WIDTH*0.85, HEIGHT/2];
         const firstPoints = this.pointsFromCenter(firstCenter, baseSize);
 
-        const secondCenter = [WIDTH/2, HEIGHT*0.15];
+        const secondCenter: [number, number] = [WIDTH/2, HEIGHT*0.15];
         const secondPoints = this.pointsFromCenter(secondCenter, baseSize);
 
-        const thirdCenter = [WIDTH*0.15, HEIGHT/2];
+        const thirdCenter: [number, number] = [WIDTH*0.15, HEIGHT/2];
         const thirdPoints = this.pointsFromCenter(thirdCenter, baseSize);
         
         return <div>
@@ -294,18 +331,28 @@ class RunnersOnBaseDiamond extends Component {
             <line x1={WIDTH/2} y1={HEIGHT*0.15} x2={WIDTH*0.15} y2={HEIGHT/2} strokeWidth="5" stroke="#a0522d" />
             <line x1={WIDTH*0.15} y1={HEIGHT/2} x2={WIDTH/2} y2={HEIGHT*0.85} strokeWidth="5" stroke="#a0522d" />
             { /* home plate */ }
-            <polygon points={homePoints} strokeWidth="0" fill={this.getBaseColor(false)} />
+            <polygon points={homePoints.toString()} strokeWidth="0" fill={this.getBaseColor(false)} />
             { /* first base */ }
-            <polygon points={firstPoints} strokeWidth="0" fill={this.getBaseColor(first)} onClick={e => this.toggleFirst(e)} />
+            <polygon points={firstPoints.toString()} strokeWidth="0" fill={this.getBaseColor(first)} onClick={e => this.toggleFirst(e)} />
             { /* second base */ }
-            <polygon points={secondPoints} strokeWidth="0" fill={this.getBaseColor(second)} onClick={e => this.toggleSecond(e)}/>
+            <polygon points={secondPoints.toString()} strokeWidth="0" fill={this.getBaseColor(second)} onClick={e => this.toggleSecond(e)}/>
             { /* third base */ }
-            <polygon points={thirdPoints} strokeWidth="0" fill={this.getBaseColor(third)} onClick={e => this.toggleThird(e)}/>
+            <polygon points={thirdPoints.toString()} strokeWidth="0" fill={this.getBaseColor(third)} onClick={e => this.toggleThird(e)}/>
         </svg>
         </div>;
     }
 }
-class YearsSlider extends Component {
+interface YearsSliderProps {
+    years: [number, number],
+    setYears: (years: [number, number]) => void
+}
+interface YearsSliderState {
+    years: [number, number],
+}
+class YearsSlider extends Component<YearsSliderProps, YearsSliderState> {
+    setYearsEvent: number = undefined;
+        // delay before triggering setYears
+    TIMEOUT: number = 500;
     onChange(value) {
         if (this.setYearsEvent !== undefined) {
             window.clearTimeout(this.setYearsEvent);
@@ -321,9 +368,8 @@ class YearsSlider extends Component {
         this.setYearsEvent = undefined;
         this.props.setYears([value[0], value[1]]);
     }
+    //TODO - remove this
     componentDidMount() {
-        // delay before triggering setYears
-        this.TIMEOUT = 500;
         this.setYearsEvent = undefined;
     }
     componentWillMount() {
@@ -340,12 +386,18 @@ class YearsSlider extends Component {
     }
 }
 
-class RunsPerInningResultComponent extends Component {
+interface RunsPerInningResultComponentProps {
+    result: RunsPerInningResult
+};
+interface RunsPerInningResultComponentState {
+    flash: boolean
+};
+class RunsPerInningResultComponent extends Component<RunsPerInningResultComponentProps, RunsPerInningResultComponentState> {
     constructor(props) {
         super(props);
         this.state = {'flash': false};
     }
-    componentDidUpdate(prevProps, prevState) {
+    componentDidUpdate(prevProps: RunsPerInningResultComponentProps, prevState: RunsPerInningResultComponentState) {
         let differences = false;
         if (prevProps === undefined || prevProps.result === undefined) {
             differences = !(this.props === undefined || this.props.result === undefined);
@@ -384,7 +436,20 @@ class RunsPerInningResultComponent extends Component {
         </AnimateOnChange>;
     }
 }
-class StatsResults extends Component {
+interface StatsResultsProps {
+    isPrimary: boolean,
+    name: string,
+    total: number,
+    wins: number,
+    leverageIndex: number,
+    isHome: boolean,
+    isInitial: boolean,
+    years: [number, number]
+}
+interface StatsResultsState {
+    flash: boolean
+}
+class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
     constructor(props) {
         super(props);
         this.state = {'flash': false};
@@ -406,10 +471,10 @@ class StatsResults extends Component {
         }
     }
     render() {
-        let mainDivStyle = {width: '300px'};
+        let mainDivStyle: React.CSSProperties = {width: '300px'};
         if (!this.props.isPrimary) {
             mainDivStyle.marginTop = '20px';
-            mainDivStyle.cssFloat = 'left';
+            mainDivStyle.float = 'left';
         }
         if (this.props.isInitial) {
             return <div style={mainDivStyle}/>
@@ -443,11 +508,11 @@ class StatsResults extends Component {
         let ml = Math.round((displayPercent/(100 - displayPercent)) * -100);
         let oml = "+" + (-1 * ml);
         if (displayHome) {
-            homeMoneyLine = ml;
-            visitorMoneyLine = oml;
+            homeMoneyLine = ml.toString();
+            visitorMoneyLine = oml.toString();
         } else {
-            homeMoneyLine = oml;
-            visitorMoneyLine = ml;
+            homeMoneyLine = oml.toString();
+            visitorMoneyLine = ml.toString();
         }
         // TODO - refactor leverage stuff
         let leverageDescription = 'Low';
@@ -483,18 +548,36 @@ class StatsResults extends Component {
         </AnimateOnChange>;
     }
 }
-class IndeterminateProgressBar extends Component {
+interface IndeterminateProgressBarProps {
+    active: boolean
+}
+class IndeterminateProgressBar extends Component<IndeterminateProgressBarProps, {}> {
     render() {
         return <progress style={{display: this.props.active ? '' : 'none'}} />;
     }
 }
-class BaseballSituation extends Component {
+interface BaseballSituationState {
+    inning: Inning,
+    outs: number,
+    runners: number,
+    score: number,
+    years: [number, number],
+    balls: number,
+    strikes: number,
+    runsPerInning?: RunsPerInningResult,
+    pendingHash?: string,
+    pendingCount?: number,
+    runsPerInningData?: Document
+}
+class BaseballSituation extends Component<{}, BaseballSituationState> {
     addInitialState(state, name, years) {
         state['results' + name] = {total: 0, wins: 0, leverageIndex: 0, isHome: false, isInitial: true, years: years};
     }
     constructor(props) {
         super(props);
-        const state = {inning: {homeOrVisitor: 'V', num: 1}, outs: 0, runners: 1, score: 0, years: [MIN_YEAR, MAX_YEAR], balls: 0, strikes: 0, pendingRequests: false, pendingCount: 0};
+        const initialInning: Inning = {homeOrVisitor: 'V', num: 1};
+        const initialYears: [number, number] = [MIN_YEAR, MAX_YEAR];
+        const state = {inning: initialInning, outs: 0, runners: 1, score: 0, years: initialYears, balls: 0, strikes: 0, pendingRequests: false, pendingCount: 0};
         this.addInitialState(state, 'output', []);
         for (let i = 0; i < extraYears.length; ++i)
         {
@@ -529,7 +612,7 @@ class BaseballSituation extends Component {
                     }
                 }
 
-                state.inning.homeOrVisitor = whichTeam;
+                state.inning.homeOrVisitor = whichTeam === "H" ? "H" : "V";
                 state.score = scorediff;
                 state.inning.num = parseInt(parts[2]);
                 state.outs = outs;
@@ -618,7 +701,7 @@ class BaseballSituation extends Component {
             this.updateRunsPerInning();
         }
     }
-    updateRunsPerInning(responseXML) {
+    updateRunsPerInning(responseXML?: Document) {
         const outs = this.state.outs;
         const runners = this.state.runners;
         const balls = this.state.balls;
@@ -631,7 +714,7 @@ class BaseballSituation extends Component {
         let total = 0;
         let countByRuns = [];
         for(let i = 0; i < situationChildren.length; ++i) {
-            let situationChild = situationChildren[i];
+            let situationChild = situationChildren[i] as Element;
             if (situationChild.localName === "total") {
                 total = parseInt(situationChild.innerHTML, 10);
             }
@@ -699,7 +782,7 @@ class BaseballSituation extends Component {
                 {primaryStatsResultsList}
             </div>
             <div style={{float: 'left'}}>
-                <RunsPerInningResultComponent result={this.state.runsPerInning} flash={this.state.flash}  />
+                <RunsPerInningResultComponent result={this.state.runsPerInning} />
             </div>
             <div style={{clear: 'both'}}>
                 {statsResultsList}
