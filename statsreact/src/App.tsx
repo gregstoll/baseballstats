@@ -592,7 +592,7 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
             let parts = hash.split(".");
             if (parts.length === 9 || parts.length === 7 || parts.length === 5) {
                 let whichTeam = parts[0];
-                let scorediff = parseInt(parts[1]);
+                let scorediff = parseInt(parts[1], 10);
                 let outs = parseInt(parts[3], 10);
                 let runners = parseInt(parts[4], 10);
                 let balls = 0;
@@ -604,8 +604,8 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
                 let startYear = MIN_YEAR;
                 let endYear = MAX_YEAR;
                 if (parts.length === 9) {
-                    startYear = parseInt(parts[7]);
-                    endYear = parseInt(parts[8]);
+                    startYear = parseInt(parts[7], 10);
+                    endYear = parseInt(parts[8], 10);
                     if (isNaN(startYear) || isNaN(endYear)) {
                         startYear = MIN_YEAR;
                         endYear = MAX_YEAR;
@@ -614,7 +614,7 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
 
                 state.inning.homeOrVisitor = whichTeam === "H" ? "H" : "V";
                 state.score = scorediff;
-                state.inning.num = parseInt(parts[2]);
+                state.inning.num = parseInt(parts[2], 10);
                 state.outs = outs;
                 state.runners = runners;
                 state.balls = balls;
@@ -669,8 +669,8 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
             return response.json();
         }).then(json => {
             let theseResults = this.state['results' + name];
-            theseResults.total = parseInt(json.total);
-            theseResults.wins = parseInt(json.wins);
+            theseResults.total = parseInt(json.total, 10);
+            theseResults.wins = parseInt(json.wins, 10);
             theseResults.leverageIndex = parseFloat(json.leverage);
             theseResults.isHome = isHome;
             theseResults.isInitial = false;
