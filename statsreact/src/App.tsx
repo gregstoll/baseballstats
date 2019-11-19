@@ -12,7 +12,7 @@ const MIN_YEAR = 1957;
 const MAX_YEAR = 2018;
 const SHOW_BALLS_STRIKES = true;
 //TODO?
-const extraYears = [];
+const extraYears : Array<[number, number]> = [];
 function transformNonZeroYear(y: number) : number
 {
     if (y < 0) {
@@ -105,7 +105,7 @@ interface InningChoiceProps {
     setInning: (inning: Inning) => void
 }
 class InningChoice extends Component<InningChoiceProps, {}> {
-    handleClick(e) {
+    handleClick(e: React.MouseEvent<HTMLInputElement>) {
         this.props.setInning(this.props.inning);
     }
     render() {
@@ -164,7 +164,7 @@ interface OutsControlProps {
     setOuts: (outs: number) => void
 }
 class OutsControl extends Component<OutsControlProps, {}> {
-    handleClick(e) {
+    handleClick(e: React.MouseEvent<SVGElement>) {
         this.props.setOuts((this.props.outs === 2) ? 0 : this.props.outs + 1);
     }
     getOutsColor(on: boolean) {
@@ -192,10 +192,10 @@ interface BallsStrikesControlProps {
     setStrikes: (strikes: number) => void
 }
 class BallsStrikesControl extends Component<BallsStrikesControlProps, {}> {
-    handleBallsClick(e) {
+    handleBallsClick(e: React.MouseEvent<SVGElement>) {
         this.props.setBalls((this.props.balls === 3) ? 0 : (1 + this.props.balls));
     }
-    handleStrikesClick(e) {
+    handleStrikesClick(e: React.MouseEvent<SVGElement>) {
         this.props.setStrikes((this.props.strikes === 2) ? 0 : (1 + this.props.strikes));
     }
     getBallsColor(on: boolean) {
@@ -240,8 +240,8 @@ interface RunnersOnBaseProps {
     setRunners: (runners: number) => void
 }
 class RunnersOnBaseList extends Component<RunnersOnBaseProps, {}> {
-    handleChange(e) {
-        this.props.setRunners(e.target.value as number);
+    handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
+        this.props.setRunners(parseInt(e.target.value, 10));
     }
     render() {
         return <p className="littlespace">Runners on base:&nbsp;
@@ -293,13 +293,13 @@ class RunnersOnBaseDiamond extends Component<RunnersOnBaseProps, {}> {
     pointsFromCenter(center: [number, number], baseSize: number): [number, number][] {
         return [[center[0], center[1] + baseSize], [center[0] + baseSize, center[1]], [center[0], center[1] - baseSize], [center[0] - baseSize, center[1]]];
     }
-    toggleFirst(e) {
+    toggleFirst(e: React.MouseEvent<SVGElement>) {
         this.props.setRunners(((this.props.runners - 1) ^ 1) + 1);
     }
-    toggleSecond(e) {
+    toggleSecond(e: React.MouseEvent<SVGElement>) {
         this.props.setRunners(((this.props.runners - 1) ^ 2) + 1);
     }
-    toggleThird(e) {
+    toggleThird(e: React.MouseEvent<SVGElement>) {
         this.props.setRunners(((this.props.runners - 1) ^ 4) + 1);
     }
     render() {
@@ -375,7 +375,7 @@ class YearsSlider extends Component<YearsSliderProps, YearsSliderState> {
     componentWillMount() {
         this.setState({years: this.props.years});
     }
-    componentWillReceiveProps(nextProps) {
+    componentWillReceiveProps(nextProps: YearsSliderProps) {
         this.setState({years: nextProps.years});
     }
     render() {
