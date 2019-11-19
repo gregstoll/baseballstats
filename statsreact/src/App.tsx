@@ -494,18 +494,17 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
         }
         const r = this.props;
         let wins = r.wins;
-        const percent = (100 * wins) / r.total;
-        let displayPercent = Math.round(percent * 100)/100;
         let displayHome = r.isHome; 
         let homeMoneyLine = '';
         let visitorMoneyLine = '';
-        if (displayPercent < 50)
+        if (wins * 2 < r.total) 
         {
-            displayPercent = Math.round((100 - displayPercent) * 100)/100;
             wins = r.total - wins;
             displayHome = !displayHome;
         }
-        let ml = Math.round((displayPercent/(100 - displayPercent)) * -100);
+        const percent = (100 * wins) / r.total;
+        const displayPercent = this.getDisplayPercent(percent, r.total);
+        let ml = Math.round((percent/(100 - percent)) * -100);
         let oml = "+" + (-1 * ml);
         if (displayHome) {
             homeMoneyLine = ml.toString();
@@ -546,6 +545,22 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
                 <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
             </div>
         </AnimateOnChange>;
+    }
+
+    private getDisplayPercent(percent: number, total: number): string {
+        // From http://tangotiger.net/wins.html
+        // Note:4-decimal numbers means there are over 1000 games at that game state,
+        // 3-decimal numbers is over 100, 2-decimal numbers is over 10,
+        // and 1-decimal numbers is between 1 and 10 games.
+        if (total < 100) {
+            return Math.round(percent).toFixed(0);
+        }
+        else if (total < 1000) {
+            return (Math.round(percent * 10) / 10).toFixed(1);
+        }
+        else {
+            return (Math.round(percent * 100) / 100).toFixed(2);
+        }
     }
 }
 interface IndeterminateProgressBarProps {
