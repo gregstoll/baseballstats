@@ -4,6 +4,7 @@ import React, {Component} from 'react'
 import ReactSlider from 'react-slider'
 import wgxpath from 'wicked-good-xpath';
 import AnimateOnChange from 'react-animate-on-change';
+import FriendlyProbability from 'probability-to-friendly-string';
 
 // Needed to initialize document.evaluate() from wicked-good-xpath
 wgxpath.install();
@@ -503,6 +504,7 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
             displayHome = !displayHome;
         }
         const percent = (100 * wins) / r.total;
+        const friendlyText = FriendlyProbability.fromProbability(wins / r.total).friendlyString;
         const displayPercent = this.getDisplayPercent(percent, r.total);
         let ml = Math.round((percent/(100 - percent)) * -100);
         let oml = "+" + (-1 * ml);
@@ -539,7 +541,7 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
                 <p className="littlespace" style={yearsStyle}>Years: {r.years[0]} - {r.years[1]}</p>
                 <p className="littlespace">Total games: {r.total}</p>
                 <p className="littlespace">Wins for {winnerTeamText}: {wins}</p>
-                <p className="littlespace">Win percentage: <b>{winnerTeamText} {displayPercent}%</b></p>
+                <p className="littlespace">Win percentage: <b>{winnerTeamText} {displayPercent}% ({friendlyText})</b></p>
                 <p className="littlespace">Leverage index: <b className={leverageClass}>{r.leverageIndex} ({leverageDescription})</b></p>
                 <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
                 <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
