@@ -11,7 +11,7 @@
     "@types/react-slider": "^0.8.1",
     "create-react-class": "^15.6.0",
     "eslint": "^6.0.0",
-    "probability-to-friendly-string": "^1.1.0",
+    "probability-to-friendly-string": "^1.1.1",
     "react": "^16.9.0",
     "react-animate-on-change": "^2.2.0",
     "react-dom": "^16.9.0",
