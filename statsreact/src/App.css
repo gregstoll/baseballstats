@@ -93,7 +93,7 @@ table.runsPerInning td,th {
             color: white;
             cursor: pointer;
         }
-        .handle.active {
+        .handle-active {
             background-color: grey;
         }
         .bar {

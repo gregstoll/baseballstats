@@ -382,7 +382,9 @@ class YearsSlider extends Component<YearsSliderProps, YearsSliderState> {
     render() {
         return <div>
             <p className="littlespace">Years to include: {this.state.years[0]} - {this.state.years[1]}</p>
-            <ReactSlider className="horizontal-slider" orientation="horizontal" withBars={true} defaultValue={[this.state.years[0], this.state.years[1]]} min={MIN_YEAR} max={MAX_YEAR} onChange={val => this.onChange(val)} />
+            <ReactSlider className="horizontal-slider" orientation="horizontal"
+                defaultValue={[this.state.years[0], this.state.years[1]]} min={MIN_YEAR} max={MAX_YEAR} onChange={val => this.onChange(val)}
+                trackClassName="bar" thumbClassName="handle" thumbActiveClassName="handle-active" />
         </div>
     }
 }
