@@ -44,7 +44,7 @@ function transformURL(url: string) : string {
     return url;
 }
 
-class RunsPerInningResult {
+export class RunsPerInningResult {
     totalSituations: number;
     countByRuns: Array<number>;
     constructor(totalSituations: number, countByRuns: Array<number>) {
