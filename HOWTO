@@ -1,15 +1,15 @@
 - call ./parseretrosheet.py data
-  - won't need this when done with balls/strikes?
+- call ./parseretrosheet.py -r StatsWithBallsStrikes data
 - call ./parseretrosheet.py -y data
+- call ./parseretrosheet.py -r StatsWithBallsStrikes -y data
 - call ./processcumulativestats.py statsyears
 - call ./processcumulativeballsstrikesstats.py statsyears
 - call ./processleveragefromcumulative.py
 - call ./processstats.py stats > probs.txt
-  - won't need this when done with balls/strikes?
 - call ./processballsstrikesstats.py statswithballsstrikes > probswithballsstrikes.txt
 - call ./processstatsruns.py runsperinningstats > runsperinning.xml
-  - won't need this when done with balls/strikes?
 - call ./processballsstrikesstatsruns.py runsperinningballsstrikesstats > runsperinningballsstrikes.xml
-- in statsreact/src/stats.html, look for MAX_YEAR and set it to the new max year
+- in statsreact/src/App.tsx, look for MAX_YEAR and set it to the new max year
+- in statsreact/public/index.html, update the HTML description to the new max year
 - in statsreact, call npm run build
 - follow instructions in statsreact/HOWTO to fix up links

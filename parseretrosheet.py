@@ -15,7 +15,7 @@ verbosity = Verbosity.normal
 skipOutput = False
 stopOnFirstError = False
 sortByYear = False
-knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300']
+knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300', 'BAL201906250']
 
 # TODO - make this a real class I guess
 GameSituationKey = typing.Tuple[int, bool, int, typing.Tuple[int, int, int], int]
@@ -34,6 +34,9 @@ class GameSituation:
 
     def __str__(self):
         return "inning: %d isHome: %d outs: %d curScoreDiff: %d runners: %s" % (self.inning, self.isHome, self.outs, self.curScoreDiff, self.runners)
+
+    def __repr__(self):
+        return str(self)
 
     def getKey(self) -> GameSituationKey:
         return (self.inning, self.isHome, self.outs, (self.runners[0], self.runners[1], self.runners[2]), self.curScoreDiff)
@@ -1786,7 +1789,20 @@ class TestParsePlay(unittest.TestCase):
         sitCopy.outs = 1
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
-    
+
+    # Not sure how we could parse this, so not running this test
+    #def test_tagout_with_errors_run_scores(self):
+    #    # game BAL201906250, bottom of the 3rd
+    #    (situation, playString) = self.util_setup(2, False, 'D9/G+.1-H;BX3(E9)(95/TH)')
+    #    situation.runners = [1, 0, 0]
+    #    sitCopy = situation.copy()
+    #    parsePlay(playString, situation)
+    #    sitCopy.outs = 0
+    #    sitCopy.runners = [0, 0, 0]
+    #    sitCopy.isHome = True
+    #    sitCopy.curScoreDiff = -1
+    #    self.assertEqual(sitCopy, situation)
+   
     def util_test_ballstrike(self, pitches: str, ballStrikes: typing.Iterable[typing.Tuple[int, int]]):
         expected = [BallStrikeCount(x, y) for (x, y) in ballStrikes]
         self.assertEqual(expected, getBallStrikeCountsFromPitches(pitches))
