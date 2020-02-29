@@ -75,15 +75,13 @@ class GameSituation:
         else:
             return self.curScoreDiff < 0
 
-#TODO - make this a NamedTuple
-class GameSituationKeyAndNextPlayLine:
-    def __init__(self, situationKey: GameSituationKey, playLine: str):
-        self.situationKey = situationKey
-        self.playLine = playLine
-
+class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
+    situationKey: GameSituationKey
+    playLine: str
     def __str__(self):
-        return "situationKey: %s playLine: %s" % (self.situationKey, self.playLine)
-
+        return f"situationKey: {self.situationKey} playLine: {self.playLine}"
+    def __repr__(self):
+        return self.__str__()
 
 def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> int:
     numGames = 0
