@@ -2,6 +2,9 @@
 import re, sys, copy, getopt, os, os.path
 import unittest
 import typing
+import cProfile
+import copy
+import multiprocessing
 from enum import IntEnum
 
 class Verbosity(IntEnum):
@@ -15,6 +18,7 @@ verbosity = Verbosity.normal
 skipOutput = False
 stopOnFirstError = False
 sortByYear = False
+doParallel = True
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300', 'BAL201906250']
 
 # TODO - make this a real class I guess
@@ -83,7 +87,11 @@ class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
     def __repr__(self):
         return self.__str__()
 
-def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> int:
+def parseFileParallel(fileName: str) -> (int, typing.Iterable['Report']):
+    with open(fileName, 'r', encoding='latin-1') as eventFile:
+        return parseFile(eventFile, parseFileParallel.reportsToRun)
+
+def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
     numGames = 0
     inGame = False
     curGameSituation : GameSituation = GameSituation()
@@ -134,7 +142,7 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> int:
         return 0
     assert curId != ""
     callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
-    return numGames
+    return (numGames, reports)
 
 def callReportsProcessedGame(gameSituationKeys: typing.List[GameSituationKey], finalGameSituation: GameSituation, reports: typing.Iterable['Report'], curId: str, playLines: typing.List[str]) -> None:
     # Don't include the last situation in the list of keys, because it's one after the last inning probably
@@ -1062,7 +1070,7 @@ class WalkOffWalkReport(Report):
             print(f"  {year}: {self.yearCount[year]}")
 
 def usage():
-    print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] <file paths>")
+    print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] [-p] <file paths>")
     print("-t: just run tests")
     print("-v: verbose")
     print("-q: quiet")
@@ -1070,10 +1078,16 @@ def usage():
     print("-h: help")
     print("-y: generate data sorted by year")
     print("-r: specify which reports to run (default: Stats)")
+    print("-p: profile and output to file \"profile\"")
     print()
     print("Possible reports:")
     for name in sorted(Reports.keys()):
         print("- " + name)
+
+# https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool/30816116#30816116
+def clone_reports(function, reportsToRun):
+    clonedReportsToRun = [copy.deepcopy(x) for x in reportsToRun]
+    function.reportsToRun = clonedReportsToRun
 
 # This selects what stats we're compiling.
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
@@ -1084,8 +1098,9 @@ Reports['WalkOffWalk']= [WalkOffWalkReport()]
 reportsToRun = Reports['Stats']
 def main(args):
     global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear
+    doProfile = False
     try:
-        opts, files = getopt.getopt(args, 'vhsyqr:')
+        opts, files = getopt.getopt(args, 'vhsyqr:p')
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -1109,8 +1124,13 @@ def main(args):
                 print("Unrecognized report name!")
                 usage()
                 sys.exit(1)
+        elif o == '-p':
+            doProfile = True
         else:
             assert False, "unhandled option: " + str(o)
+    if doProfile:
+        pr = cProfile.Profile()
+        pr.enable()
     if sortByYear:
         yearsToFiles = {}
         realFiles = []
@@ -1130,6 +1150,7 @@ def main(args):
                 print(year)
             for report in reportsToRun:
                 report.clearStats()
+            # TODO - do this in parallel?
             for fileName in yearsToFiles[year]:
                 if verbosity >= Verbosity.normal:
                     print(fileName)
@@ -1148,18 +1169,29 @@ def main(args):
                     realFiles.append(os.path.join(fileName, childFileName))
             else:
                 realFiles.append(fileName)
-        for fileName in realFiles:
-            #eventFileName = '2004COL.EVN'
-            if verbosity >= Verbosity.normal:
-                print(fileName)
-            eventFile = open(fileName, 'r', encoding='latin-1')
-            numGames += parseFile(eventFile, reportsToRun)
-            eventFile.close()
+        # TODO - do this in parallel?
+        # can call this for multiple reports, 
+        if doParallel:
+            pool = multiprocessing.Pool(initializer=clone_reports, initargs=(parseFile, reportsToRun))
+            results = pool.map(parseFileParallel, realFiles)
+            print(results)
+        else:
+            # TODO - use multiprocessing.Array to store data?
+            for fileName in realFiles:
+                #eventFileName = '2004COL.EVN'
+                if verbosity >= Verbosity.normal:
+                    print(fileName)
+                eventFile = open(fileName, 'r', encoding='latin-1')
+                numGames += parseFile(eventFile, reportsToRun)[0]
+                eventFile.close()
         if verbosity >= Verbosity.normal:
             print("numGames is %d" % numGames)
         if not skipOutput:
             for report in reportsToRun:
                 report.doneWithAll()
+    if doProfile:
+        pr.disable()
+        pr.dump_stats('profile')
 
 class TestBatterToFirst(unittest.TestCase):
     def util_test_expected(self, beginRunnerDests, endRunnerDests):
