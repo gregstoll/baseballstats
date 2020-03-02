@@ -785,7 +785,7 @@ class Report:
         pass
 
     def mergeInto(self, other: 'Report') -> None:
-        raise Exception(f"{type(self).__name__} must override mergeInto!")
+        raise Exception(f"{type(self).__name__} must override mergeInto to support parallel processing!")
 
     def doneWithYear(self, year: str) -> None:
         assert sortByYear, "doneWithYear called but sortByYear is false!"
@@ -871,7 +871,8 @@ class StatsWinExpectancyReport(StatsReport):
 class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
     def __init__(self):
         super().__init__()
-        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+        # gets initialized in processedGame()
+        self.playPitchesRe = None
 
     def reportFileName(self) -> str:
         return "statswithballsstrikes"
@@ -881,6 +882,8 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         if skipOutput:
             return
+        if self.playPitchesRe is None:
+            self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         # Add gameKeys to stats
         # Check the last situation to see who won.
         homeWon = finalGameSituation.isHomeWinning()
@@ -963,12 +966,15 @@ class StatsRunExpectancyPerInningReport(StatsReport):
 class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInningReport):
     def __init__(self):
         super().__init__()
-        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+        # gets initialized in processedGame()
+        self.playPitchesRe = None
 
     def reportFileName(self) -> str:
         return "runsperinningballsstrikesstats"
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        if self.playPitchesRe is None:
+            self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
