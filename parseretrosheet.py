@@ -89,6 +89,8 @@ class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
 
 def parseFileParallel(fileName: str) -> (int, typing.Iterable['Report']):
     with open(fileName, 'r', encoding='latin-1') as eventFile:
+        if verbosity >= Verbosity.normal:
+            print(fileName)
         return parseFile(eventFile, parseFileParallel.reportsToRun)
 
 def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
@@ -1172,8 +1174,9 @@ def main(args):
         # TODO - do this in parallel?
         # can call this for multiple reports, 
         if doParallel:
-            pool = multiprocessing.Pool(initializer=clone_reports, initargs=(parseFile, reportsToRun))
+            pool = multiprocessing.Pool(initializer=clone_reports, initargs=(parseFileParallel, reportsToRun))
             results = pool.map(parseFileParallel, realFiles)
+            #TODO
             print(results)
         else:
             # TODO - use multiprocessing.Array to store data?
