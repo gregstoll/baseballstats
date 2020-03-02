@@ -11,16 +11,17 @@ class Verbosity(IntEnum):
     quiet = 0
     normal = 1
     verbose = 2
+doParallel = True
+
 #TODO - use __all__
 #TODO - do something with these
-positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 verbosity = Verbosity.normal
 skipOutput = False
 stopOnFirstError = False
 sortByYear = False
-doParallel = True
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300', 'BAL201906250']
 
+positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 # TODO - make this a real class I guess
 GameSituationKey = typing.Tuple[int, bool, int, typing.Tuple[int, int, int], int]
 class GameSituation:
@@ -1206,8 +1207,6 @@ def main(args):
                     realFiles.append(os.path.join(fileName, childFileName))
             else:
                 realFiles.append(fileName)
-        # TODO - do this in parallel?
-        # can call this for multiple reports, 
         if doParallel:
             pool = multiprocessing.Pool(initializer=clone_reports, initargs=(parseFileParallel, reportsToRun))
             results = pool.map(parseFileParallel, realFiles)
@@ -1218,7 +1217,6 @@ def main(args):
                     clonedReport.mergeInto(report)
                 report.doneWithAll()
         else:
-            # TODO - use multiprocessing.Array to store data?
             for fileName in realFiles:
                 #eventFileName = '2004COL.EVN'
                 if verbosity >= Verbosity.normal:
