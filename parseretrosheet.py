@@ -91,7 +91,8 @@ def parseFileParallel(fileName: str) -> (int, typing.Iterable['Report']):
     with open(fileName, 'r', encoding='latin-1') as eventFile:
         if verbosity >= Verbosity.normal:
             print(fileName)
-        return parseFile(eventFile, parseFileParallel.reportsToRun)
+        clonedReportsToRun = [copy.deepcopy(x) for x in parseFileParallel.reportsToRun]
+        return parseFile(eventFile, clonedReportsToRun)
 
 def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
     numGames = 0
@@ -783,6 +784,9 @@ class Report:
     def clearStats(self) -> None:
         pass
 
+    def mergeInto(self, other: 'Report') -> None:
+        raise Exception(f"{type(self).__name__} must override mergeInto!")
+
     def doneWithYear(self, year: str) -> None:
         assert sortByYear, "doneWithYear called but sortByYear is false!"
 
@@ -832,6 +836,15 @@ class StatsWinExpectancyReport(StatsReport):
         else:
             numWins = 1 if isWin else 0 
             self.stats[situationKey] = (numWins, 1)
+
+    def mergeInto(self, other: 'StatsWinExpectancyReport') -> None:
+        for key in self.stats:
+            if key in other.stats:
+                otherValue = other.stats[key]
+                thisValue = self.stats[key]
+                other.stats[key] = (otherValue[0] + thisValue[0], otherValue[1] + thisValue[1])
+            else:
+                other.stats[key] = self.stats[key]
 
 
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
@@ -931,6 +944,21 @@ class StatsRunExpectancyPerInningReport(StatsReport):
                 else:
                     self.stats[keyToUse] = [0] * (runsGained + 1)
                 self.stats[keyToUse][runsGained] += 1
+
+    def mergeInto(self, other: 'StatsRunExpectancyPerInningReport') -> None:
+        for key in self.stats:
+            if key in other.stats:
+                otherValue = other.stats[key]
+                thisValue = self.stats[key]
+                for i in range(len(otherValue)):
+                    if i >= len(thisValue):
+                        break
+                    otherValue[i] += thisValue[i]
+                for i in range(len(otherValue), len(thisValue)):
+                    otherValue.append(thisValue[i])
+            else:
+                other.stats[key] = self.stats[key]
+
 
 class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInningReport):
     def __init__(self):
@@ -1088,7 +1116,8 @@ def usage():
 
 # https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool/30816116#30816116
 def clone_reports(function, reportsToRun):
-    clonedReportsToRun = [copy.deepcopy(x) for x in reportsToRun]
+    #clonedReportsToRun = [copy.deepcopy(x) for x in reportsToRun]
+    clonedReportsToRun = reportsToRun
     function.reportsToRun = clonedReportsToRun
 
 # This selects what stats we're compiling.
@@ -1176,8 +1205,12 @@ def main(args):
         if doParallel:
             pool = multiprocessing.Pool(initializer=clone_reports, initargs=(parseFileParallel, reportsToRun))
             results = pool.map(parseFileParallel, realFiles)
-            #TODO
-            print(results)
+            numGames = sum([x[0] for x in results])
+            allReports = [x[1] for x in results]
+            for (i, report) in enumerate(reportsToRun):
+                for clonedReport in [x[i] for x in allReports]:
+                    clonedReport.mergeInto(report)
+                report.doneWithAll()
         else:
             # TODO - use multiprocessing.Array to store data?
             for fileName in realFiles:
