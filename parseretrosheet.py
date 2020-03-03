@@ -92,7 +92,7 @@ def parseFileParallel(fileName: str) -> (int, typing.Iterable['Report']):
     with open(fileName, 'r', encoding='latin-1') as eventFile:
         if verbosity >= Verbosity.normal:
             print(fileName)
-        clonedReportsToRun = [copy.deepcopy(x) for x in parseFileParallel.reportsToRun]
+        clonedReportsToRun = [copy.deepcopy(x) for x in parseFileParallel.originalReportsToRun]
         return parseFile(eventFile, clonedReportsToRun)
 
 def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
@@ -1122,10 +1122,8 @@ def usage():
         print("- " + name)
 
 # https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool/30816116#30816116
-def clone_reports(function, reportsToRun):
-    #clonedReportsToRun = [copy.deepcopy(x) for x in reportsToRun]
-    clonedReportsToRun = reportsToRun
-    function.reportsToRun = clonedReportsToRun
+def set_reports(function, reportsToRun):
+    function.originalReportsToRun = reportsToRun
 
 # This selects what stats we're compiling.
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
@@ -1199,7 +1197,6 @@ def main(args):
                 for report in reportsToRun:
                     report.doneWithYear(str(year))
     else:
-        numGames = 0
         realFiles = []
         for fileName in files:
             if os.path.isdir(fileName):
@@ -1208,7 +1205,7 @@ def main(args):
             else:
                 realFiles.append(fileName)
         if doParallel:
-            pool = multiprocessing.Pool(initializer=clone_reports, initargs=(parseFileParallel, reportsToRun))
+            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFileParallel, reportsToRun))
             results = pool.map(parseFileParallel, realFiles)
             numGames = sum([x[0] for x in results])
             allReports = [x[1] for x in results]
@@ -1217,6 +1214,7 @@ def main(args):
                     clonedReport.mergeInto(report)
                 report.doneWithAll()
         else:
+            numGames = 0
             for fileName in realFiles:
                 #eventFileName = '2004COL.EVN'
                 if verbosity >= Verbosity.normal:
