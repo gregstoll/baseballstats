@@ -88,12 +88,15 @@ class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
     def __repr__(self):
         return self.__str__()
 
-def parseFileParallel(fileName: str) -> (int, typing.Iterable['Report']):
-    with open(fileName, 'r', encoding='latin-1') as eventFile:
-        if verbosity >= Verbosity.normal:
-            print(fileName)
-        clonedReportsToRun = [copy.deepcopy(x) for x in parseFileParallel.originalReportsToRun]
-        return parseFile(eventFile, clonedReportsToRun)
+def parseFilesParallel(fileNames: typing.Iterable[str]) -> (int, typing.Iterable['Report']):
+    clonedReportsToRun = [copy.deepcopy(x) for x in parseFilesParallel.originalReportsToRun]
+    numGames = 0
+    for fileName in fileNames:
+        with open(fileName, 'r', encoding='latin-1') as eventFile:
+            if verbosity >= Verbosity.normal:
+                print(fileName)
+            numGames += parseFile(eventFile, clonedReportsToRun)[0]
+    return (numGames, clonedReportsToRun)
 
 def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
     numGames = 0
@@ -179,18 +182,18 @@ def characterToBase(ch) -> int:
         return 4
     return int(ch)
 
-# decription of the format is at http://www.retrosheet.org/eventfile.htm
-playRe = re.compile(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$')
-simpleHitRe = re.compile(r"^([SDTH])(?:\d|/)")
-simpleHit2Re = re.compile(r"^([SDTH])\s*$")
-doublePlayRe = re.compile(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?')
-weirdDoublePlayRe = re.compile(r'^\d+(/.*?)*/.?[DT]P')
-simpleOutRe = re.compile(r'^\d\D')
-putOutRe = re.compile(r'^\d*(\d).*?(?:\((.)\))?')
+reCache = {}
+def getRe(pattern):
+    global reCache
+    oldRe = reCache.get(pattern, None)
+    if oldRe is not None:
+        return oldRe
+    reCache[pattern] = re.compile(pattern)
+    return reCache[pattern]
 
 def parsePlay(line: str, gameSituation: GameSituation):
-    global playRe, simpleHitRe, simpleHit2Re, doublePlayRe, weirdDoublePlayRe, simpleOutRe, putOutRe
-    playMatch = playRe.match(line)
+    # decription of the format is at http://www.retrosheet.org/eventfile.htm
+    playMatch = getRe(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$').match(line)
     # if runnerDests[x] = 0, runner (or batter) is out
     # if runnerDests[x] = 4, runner (or batter) scores
     # if runnerDests['B'] = -1, batter is still up
@@ -226,8 +229,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
         batterEvent = batterEvent.strip()
     
         doneParsingEvent = False
-        simpleHitMatch = simpleHitRe.match(batterEvent)
-        simpleHitMatch2 = simpleHit2Re.match(batterEvent)
+        simpleHitMatch = getRe(r"^([SDTH])(?:\d|/)").match(batterEvent)
+        simpleHitMatch2 = getRe(r"^([SDTH])\s*$").match(batterEvent)
         if (simpleHitMatch or simpleHitMatch2):
             if (simpleHitMatch):
                 typeOfHit = simpleHitMatch.group(1)
@@ -267,7 +270,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                         assert (dest == 2 or dest == 3 or dest == 4)
                         runnerDests[dest - 1] = dest
                     elif (tempEvent.startswith('CS')):
-                        if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^CS.\([^)]*?E.*?\)').match(tempEvent)):
                             # Error, so no out.
                             dest = characterToBase(tempEvent[2])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -277,7 +280,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('POCS')):
-                        if (re.match(r'^POCS.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^POCS.\([^)]*?E.*?\)').match(tempEvent)):
                             # Error, so no out.
                             dest = characterToBase(tempEvent[4])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -287,7 +290,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('PO')):
-                        if (re.match(r'^PO.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^PO.\([^)]*?E.*?\)').match(tempEvent)):
                             # Error, so no out.
                             pass
                         else:
@@ -329,7 +332,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = dest
                     elif (tempEvent.startswith('CS')):
-                        if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^CS.\([^)]*?E.*?\)').match(tempEvent)):
                             # There was an error, so not an out.
                             dest = characterToBase(tempEvent[2])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -399,7 +402,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 doneParsingEvent = True
         if (not doneParsingEvent):
             # double or triple play
-            doublePlayMatch = doublePlayRe.match(batterEvent)
+            doublePlayMatch = getRe(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?').match(batterEvent)
             if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
                 if (verbosity == Verbosity.verbose):
                     print("double/triple play")
@@ -429,7 +432,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            weirdDoublePlayMatch = weirdDoublePlayRe.match(batterEvent)
+            weirdDoublePlayMatch = getRe(r'^\d+(/.*?)*/.?[DT]P').match(batterEvent)
             if (weirdDoublePlayMatch):
                 # This is a double play.  The specifics of who's out will
                 # come later.
@@ -439,11 +442,11 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            simpleOutMatch = simpleOutRe.match(batterEvent)
+            simpleOutMatch = getRe(r'^\d\D').match(batterEvent)
             if (simpleOutMatch and "/FO" not in batterEvent or (len(batterEvent) == 1 and (int(batterEvent) >= 1 and int(batterEvent) <= 9))):
                 if (verbosity == Verbosity.verbose):
                     print("simple out")
-                if (re.match(r'^\dE', batterEvent)):
+                if (getRe(r'^\dE').match(batterEvent)):
                     if (verbosity == Verbosity.verbose):
                         print("error")
                     runnerDests['B'] = 1
@@ -455,11 +458,11 @@ def parsePlay(line: str, gameSituation: GameSituation):
                         runnerDests[runner] = runner
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            putOutMatch = putOutRe.match(batterEvent)
+            putOutMatch = getRe(r'^\d*(\d).*?(?:\((.)\))?').match(batterEvent)
             if (putOutMatch):
                 if (verbosity == Verbosity.verbose):
                     print("Got a putout")
-                if (re.search(r'\d?E\d', batterEvent)):
+                if (getRe(r'\d?E\d').search(batterEvent)):
                     # Error on the play - batter goes to first unless
                     # explicit
                     runnerDests['B'] = 1
@@ -509,7 +512,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('CS')):
                 # Caught stealing
-                if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
+                if (getRe(r'^CS.\([^)]*?E.*?\)').match(batterEvent)):
                     # There was an error, so not an out.
                     if (verbosity == Verbosity.verbose):
                         print("no caught stealing")
@@ -562,7 +565,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('POCS')):
                 # Pick-off (and caught stealing)
-                if (re.match(r'^POCS.\(.*?E.*?\)', batterEvent)):
+                if (getRe(r'^POCS.\(.*?E.*?\)').match(batterEvent)):
                     # There was an error, so not an out
                     dest = characterToBase(batterEvent[4])
                     assert (dest == 2 or dest == 3 or dest == 4)
@@ -578,7 +581,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('PO')):
                 # Pick-off
-                if (re.match(r'^PO.\([^)]*?E.*?\)', batterEvent)):
+                if (getRe(r'^PO.\([^)]*?E.*?\)').match(batterEvent)):
                     # Error, so no out.
                     pass
                 else:
@@ -615,14 +618,14 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnerDests[runner] = base
             elif (runnerItem[1] == 'X'):
                 # See if there was an error.
-                if (re.match(r'^...(?:\([^)]*?\))*\(\d*E.*\)', runnerItem)):
+                if (getRe(r'^...(?:\([^)]*?\))*\(\d*E.*\)').match(runnerItem)):
                     #if (runner == 'B'):
                         # It seems to be the case that if it is the batter
                         # doing stuff, in this case the runner is safe
                         #runnerDests[runner] = base
                     # So this is probably an error.  See if the intervening
                     # parentheses indicate an out
-                    if (re.match(r'^....*?\(\d*(/TH)?\).*?\(\d*E.*\)', runnerItem) or re.match(r'^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
+                    if (getRe(r'^....*?\(\d*(/TH)?\).*?\(\d*E.*\)').match(runnerItem) or getRe(r'^....*?\(\d*E.*\)\(\d*\)').match(runnerItem)):
                         # Yup, this is really an out.
                         runnerDests[runner] = 0
                     else:
@@ -1205,8 +1208,8 @@ def main(args):
             else:
                 realFiles.append(fileName)
         if doParallel:
-            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFileParallel, reportsToRun))
-            results = pool.map(parseFileParallel, realFiles)
+            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
+            results = pool.map(parseFilesParallel, [[x] for x in realFiles])
             numGames = sum([x[0] for x in results])
             allReports = [x[1] for x in results]
             for (i, report) in enumerate(reportsToRun):
