@@ -1170,43 +1170,48 @@ def main(args):
     if doProfile:
         pr = cProfile.Profile()
         pr.enable()
+
+    realFiles = []
+    for fileName in files:
+        if os.path.isdir(fileName):
+            for childFileName in sorted(os.listdir(fileName)):
+                realFiles.append(os.path.join(fileName, childFileName))
+        else:
+            realFiles.append(fileName)
+
     if sortByYear:
         yearsToFiles = {}
-        realFiles = []
-        for fileName in files:
-            if os.path.isdir(fileName):
-                for childFileName in sorted(os.listdir(fileName)):
-                    realFiles.append(os.path.join(fileName, childFileName))
-            else:
-                realFiles.append(fileName)
         for fileName in realFiles:
             year = int(os.path.basename(fileName)[:4])
             if year not in yearsToFiles:
                 yearsToFiles[year] = []
             yearsToFiles[year].append(fileName)
-        for year in sorted(yearsToFiles):
-            if verbosity >= Verbosity.normal:
-                print(year)
-            for report in reportsToRun:
-                report.clearStats()
-            # TODO - do this in parallel?
-            for fileName in yearsToFiles[year]:
-                if verbosity >= Verbosity.normal:
-                    print(fileName)
-                eventFile = open(fileName, 'r', encoding='latin-1')
-                parseFile(eventFile, reportsToRun)
-                eventFile.close()
-            if not skipOutput:
-                for report in reportsToRun:
+        if doParallel:
+            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
+            # need to do chunksize=1 to make sure each year is done separately
+            years = list(yearsToFiles.keys())
+            results = pool.map(parseFilesParallel, [yearsToFiles[year] for year in years], chunksize=1)
+            numGames = sum([x[0] for x in results])
+            allReportsByYear = [x[1] for x in results]
+            for (year, reportsForYear) in zip(years, allReportsByYear):
+                for report in reportsForYear:
                     report.doneWithYear(str(year))
+        else:
+            for year in sorted(yearsToFiles):
+                if verbosity >= Verbosity.normal:
+                    print(year)
+                for report in reportsToRun:
+                    report.clearStats()
+                for fileName in yearsToFiles[year]:
+                    if verbosity >= Verbosity.normal:
+                        print(fileName)
+                    eventFile = open(fileName, 'r', encoding='latin-1')
+                    parseFile(eventFile, reportsToRun)
+                    eventFile.close()
+                if not skipOutput:
+                    for report in reportsToRun:
+                        report.doneWithYear(str(year))
     else:
-        realFiles = []
-        for fileName in files:
-            if os.path.isdir(fileName):
-                for childFileName in sorted(os.listdir(fileName)):
-                    realFiles.append(os.path.join(fileName, childFileName))
-            else:
-                realFiles.append(fileName)
         if doParallel:
             pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
             results = pool.map(parseFilesParallel, [[x] for x in realFiles])
