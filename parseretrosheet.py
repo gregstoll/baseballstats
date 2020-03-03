@@ -791,6 +791,9 @@ class Report:
     def mergeInto(self, other: 'Report') -> None:
         raise Exception(f"{type(self).__name__} must override mergeInto to support parallel processing!")
 
+    def supportsParallelProcessing(self) -> bool:
+        return True
+
     def doneWithYear(self, year: str) -> None:
         assert sortByYear, "doneWithYear called but sortByYear is false!"
 
@@ -1022,6 +1025,8 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
+    def supportsParallelProcessing(self) -> bool:
+        return False
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         homeWon = finalGameSituation.isHomeWinning()
         if (homeWon is None):
@@ -1037,6 +1042,10 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
 
 # Finds games where the home team won with a walkoff walk on 4 pitches
 class WalkOffWalkReport(Report):
+    #TODO - add this
+    def supportsParallelProcessing(self) -> bool:
+        return False
+
     def __init__(self):
         super().__init__()
         self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
@@ -1136,7 +1145,7 @@ Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOuts
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
 reportsToRun = Reports['Stats']
 def main(args):
-    global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear
+    global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear, doParallel
     doProfile = False
     try:
         opts, files = getopt.getopt(args, 'vhsyqr:p')
@@ -1178,6 +1187,12 @@ def main(args):
                 realFiles.append(os.path.join(fileName, childFileName))
         else:
             realFiles.append(fileName)
+
+    if doParallel:
+        for report in reportsToRun:
+            if not report.supportsParallelProcessing():
+                print(f"{type(report).__name__} does not support parallel processing!  Using sequential processing instead.")
+                doParallel = False
 
     if sortByYear:
         yearsToFiles = {}
