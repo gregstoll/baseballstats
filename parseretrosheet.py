@@ -1219,7 +1219,6 @@ def main(args):
         else:
             numGames = 0
             for fileName in realFiles:
-                #eventFileName = '2004COL.EVN'
                 if verbosity >= Verbosity.normal:
                     print(fileName)
                 eventFile = open(fileName, 'r', encoding='latin-1')
