@@ -878,8 +878,6 @@ class StatsWinExpectancyReport(StatsReport):
 class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
     def __init__(self):
         super().__init__()
-        # gets initialized in processedGame()
-        self.playPitchesRe = None
 
     def reportFileName(self) -> str:
         return "statswithballsstrikes"
@@ -889,8 +887,6 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         if skipOutput:
             return
-        if self.playPitchesRe is None:
-            self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         # Add gameKeys to stats
         # Check the last situation to see who won.
         homeWon = finalGameSituation.isHomeWinning()
@@ -898,13 +894,14 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
+        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKeyOriginal = situationKeyAndPlayLine.situationKey
             isHomeInning = situationKeyOriginal[1]
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
             situationKeyList[1] = 1 if isHomeInning else 0
-            playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
+            playMatch = playPitchesRe.match(situationKeyAndPlayLine.playLine)
             pitches = playMatch.group(1)
             counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
@@ -973,19 +970,16 @@ class StatsRunExpectancyPerInningReport(StatsReport):
 class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInningReport):
     def __init__(self):
         super().__init__()
-        # gets initialized in processedGame()
-        self.playPitchesRe = None
 
     def reportFileName(self) -> str:
         return "runsperinningballsstrikesstats"
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
-        if self.playPitchesRe is None:
-            self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
+        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
-            playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
+            playMatch = playPitchesRe.match(situationKeyAndPlayLine.playLine)
             pitches = playMatch.group(1)
             counts = getBallStrikeCountsFromPitches(pitches)
             situation = GameSituation.fromKey(situationKey)
