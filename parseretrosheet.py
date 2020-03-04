@@ -2,21 +2,26 @@
 import re, sys, copy, getopt, os, os.path
 import unittest
 import typing
+import cProfile
+import copy
+import multiprocessing
 from enum import IntEnum
 
 class Verbosity(IntEnum):
     quiet = 0
     normal = 1
     verbose = 2
+doParallel = True
+
 #TODO - use __all__
 #TODO - do something with these
-positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 verbosity = Verbosity.normal
 skipOutput = False
 stopOnFirstError = False
 sortByYear = False
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300', 'BAL201906250']
 
+positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 # TODO - make this a real class I guess
 GameSituationKey = typing.Tuple[int, bool, int, typing.Tuple[int, int, int], int]
 class GameSituation:
@@ -83,7 +88,17 @@ class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
     def __repr__(self):
         return self.__str__()
 
-def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> int:
+def parseFilesParallel(fileNames: typing.Iterable[str]) -> (int, typing.Iterable['Report']):
+    clonedReportsToRun = [copy.deepcopy(x) for x in parseFilesParallel.originalReportsToRun]
+    numGames = 0
+    for fileName in fileNames:
+        with open(fileName, 'r', encoding='latin-1') as eventFile:
+            if verbosity >= Verbosity.normal:
+                print(fileName)
+            numGames += parseFile(eventFile, clonedReportsToRun)[0]
+    return (numGames, clonedReportsToRun)
+
+def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
     numGames = 0
     inGame = False
     curGameSituation : GameSituation = GameSituation()
@@ -134,7 +149,7 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> int:
         return 0
     assert curId != ""
     callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
-    return numGames
+    return (numGames, reports)
 
 def callReportsProcessedGame(gameSituationKeys: typing.List[GameSituationKey], finalGameSituation: GameSituation, reports: typing.Iterable['Report'], curId: str, playLines: typing.List[str]) -> None:
     # Don't include the last situation in the list of keys, because it's one after the last inning probably
@@ -167,18 +182,18 @@ def characterToBase(ch) -> int:
         return 4
     return int(ch)
 
-# decription of the format is at http://www.retrosheet.org/eventfile.htm
-playRe = re.compile(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$')
-simpleHitRe = re.compile(r"^([SDTH])(?:\d|/)")
-simpleHit2Re = re.compile(r"^([SDTH])\s*$")
-doublePlayRe = re.compile(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?')
-weirdDoublePlayRe = re.compile(r'^\d+(/.*?)*/.?[DT]P')
-simpleOutRe = re.compile(r'^\d\D')
-putOutRe = re.compile(r'^\d*(\d).*?(?:\((.)\))?')
+reCache = {}
+def getRe(pattern):
+    global reCache
+    oldRe = reCache.get(pattern, None)
+    if oldRe is not None:
+        return oldRe
+    reCache[pattern] = re.compile(pattern)
+    return reCache[pattern]
 
 def parsePlay(line: str, gameSituation: GameSituation):
-    global playRe, simpleHitRe, simpleHit2Re, doublePlayRe, weirdDoublePlayRe, simpleOutRe, putOutRe
-    playMatch = playRe.match(line)
+    # decription of the format is at http://www.retrosheet.org/eventfile.htm
+    playMatch = getRe(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$').match(line)
     # if runnerDests[x] = 0, runner (or batter) is out
     # if runnerDests[x] = 4, runner (or batter) scores
     # if runnerDests['B'] = -1, batter is still up
@@ -214,8 +229,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
         batterEvent = batterEvent.strip()
     
         doneParsingEvent = False
-        simpleHitMatch = simpleHitRe.match(batterEvent)
-        simpleHitMatch2 = simpleHit2Re.match(batterEvent)
+        simpleHitMatch = getRe(r"^([SDTH])(?:\d|/)").match(batterEvent)
+        simpleHitMatch2 = getRe(r"^([SDTH])\s*$").match(batterEvent)
         if (simpleHitMatch or simpleHitMatch2):
             if (simpleHitMatch):
                 typeOfHit = simpleHitMatch.group(1)
@@ -255,7 +270,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                         assert (dest == 2 or dest == 3 or dest == 4)
                         runnerDests[dest - 1] = dest
                     elif (tempEvent.startswith('CS')):
-                        if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^CS.\([^)]*?E.*?\)').match(tempEvent)):
                             # Error, so no out.
                             dest = characterToBase(tempEvent[2])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -265,7 +280,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('POCS')):
-                        if (re.match(r'^POCS.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^POCS.\([^)]*?E.*?\)').match(tempEvent)):
                             # Error, so no out.
                             dest = characterToBase(tempEvent[4])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -275,7 +290,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = 0
                     elif (tempEvent.startswith('PO')):
-                        if (re.match(r'^PO.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^PO.\([^)]*?E.*?\)').match(tempEvent)):
                             # Error, so no out.
                             pass
                         else:
@@ -317,7 +332,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                             assert (dest == 2 or dest == 3 or dest == 4)
                             runnerDests[dest - 1] = dest
                     elif (tempEvent.startswith('CS')):
-                        if (re.match(r'^CS.\([^)]*?E.*?\)', tempEvent)):
+                        if (getRe(r'^CS.\([^)]*?E.*?\)').match(tempEvent)):
                             # There was an error, so not an out.
                             dest = characterToBase(tempEvent[2])
                             assert (dest == 2 or dest == 3 or dest == 4)
@@ -387,7 +402,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 doneParsingEvent = True
         if (not doneParsingEvent):
             # double or triple play
-            doublePlayMatch = doublePlayRe.match(batterEvent)
+            doublePlayMatch = getRe(r'^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?').match(batterEvent)
             if (doublePlayMatch and ('DP' in batterEvent or 'TP' in batterEvent)):
                 if (verbosity == Verbosity.verbose):
                     print("double/triple play")
@@ -417,7 +432,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            weirdDoublePlayMatch = weirdDoublePlayRe.match(batterEvent)
+            weirdDoublePlayMatch = getRe(r'^\d+(/.*?)*/.?[DT]P').match(batterEvent)
             if (weirdDoublePlayMatch):
                 # This is a double play.  The specifics of who's out will
                 # come later.
@@ -427,11 +442,11 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            simpleOutMatch = simpleOutRe.match(batterEvent)
+            simpleOutMatch = getRe(r'^\d\D').match(batterEvent)
             if (simpleOutMatch and "/FO" not in batterEvent or (len(batterEvent) == 1 and (int(batterEvent) >= 1 and int(batterEvent) <= 9))):
                 if (verbosity == Verbosity.verbose):
                     print("simple out")
-                if (re.match(r'^\dE', batterEvent)):
+                if (getRe(r'^\dE').match(batterEvent)):
                     if (verbosity == Verbosity.verbose):
                         print("error")
                     runnerDests['B'] = 1
@@ -443,11 +458,11 @@ def parsePlay(line: str, gameSituation: GameSituation):
                         runnerDests[runner] = runner
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            putOutMatch = putOutRe.match(batterEvent)
+            putOutMatch = getRe(r'^\d*(\d).*?(?:\((.)\))?').match(batterEvent)
             if (putOutMatch):
                 if (verbosity == Verbosity.verbose):
                     print("Got a putout")
-                if (re.search(r'\d?E\d', batterEvent)):
+                if (getRe(r'\d?E\d').search(batterEvent)):
                     # Error on the play - batter goes to first unless
                     # explicit
                     runnerDests['B'] = 1
@@ -497,7 +512,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('CS')):
                 # Caught stealing
-                if (re.match(r'^CS.\([^)]*?E.*?\)', batterEvent)):
+                if (getRe(r'^CS.\([^)]*?E.*?\)').match(batterEvent)):
                     # There was an error, so not an out.
                     if (verbosity == Verbosity.verbose):
                         print("no caught stealing")
@@ -550,7 +565,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('POCS')):
                 # Pick-off (and caught stealing)
-                if (re.match(r'^POCS.\(.*?E.*?\)', batterEvent)):
+                if (getRe(r'^POCS.\(.*?E.*?\)').match(batterEvent)):
                     # There was an error, so not an out
                     dest = characterToBase(batterEvent[4])
                     assert (dest == 2 or dest == 3 or dest == 4)
@@ -566,7 +581,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
         if (not doneParsingEvent):
             if (batterEvent.startswith('PO')):
                 # Pick-off
-                if (re.match(r'^PO.\([^)]*?E.*?\)', batterEvent)):
+                if (getRe(r'^PO.\([^)]*?E.*?\)').match(batterEvent)):
                     # Error, so no out.
                     pass
                 else:
@@ -603,14 +618,14 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnerDests[runner] = base
             elif (runnerItem[1] == 'X'):
                 # See if there was an error.
-                if (re.match(r'^...(?:\([^)]*?\))*\(\d*E.*\)', runnerItem)):
+                if (getRe(r'^...(?:\([^)]*?\))*\(\d*E.*\)').match(runnerItem)):
                     #if (runner == 'B'):
                         # It seems to be the case that if it is the batter
                         # doing stuff, in this case the runner is safe
                         #runnerDests[runner] = base
                     # So this is probably an error.  See if the intervening
                     # parentheses indicate an out
-                    if (re.match(r'^....*?\(\d*(/TH)?\).*?\(\d*E.*\)', runnerItem) or re.match(r'^....*?\(\d*E.*\)\(\d*\)', runnerItem)):
+                    if (getRe(r'^....*?\(\d*(/TH)?\).*?\(\d*E.*\)').match(runnerItem) or getRe(r'^....*?\(\d*E.*\)\(\d*\)').match(runnerItem)):
                         # Yup, this is really an out.
                         runnerDests[runner] = 0
                     else:
@@ -773,6 +788,12 @@ class Report:
     def clearStats(self) -> None:
         pass
 
+    def mergeInto(self, other: 'Report') -> None:
+        raise Exception(f"{type(self).__name__} must override mergeInto to support parallel processing!")
+
+    def supportsParallelProcessing(self) -> bool:
+        return True
+
     def doneWithYear(self, year: str) -> None:
         assert sortByYear, "doneWithYear called but sortByYear is false!"
 
@@ -823,6 +844,15 @@ class StatsWinExpectancyReport(StatsReport):
             numWins = 1 if isWin else 0 
             self.stats[situationKey] = (numWins, 1)
 
+    def mergeInto(self, other: 'StatsWinExpectancyReport') -> None:
+        for key in self.stats:
+            if key in other.stats:
+                otherValue = other.stats[key]
+                thisValue = self.stats[key]
+                other.stats[key] = (otherValue[0] + thisValue[0], otherValue[1] + thisValue[1])
+            else:
+                other.stats[key] = self.stats[key]
+
 
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
     # (number of wins, number of situations)
@@ -848,7 +878,6 @@ class StatsWinExpectancyReport(StatsReport):
 class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
     def __init__(self):
         super().__init__()
-        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
 
     def reportFileName(self) -> str:
         return "statswithballsstrikes"
@@ -865,13 +894,14 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
+        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKeyOriginal = situationKeyAndPlayLine.situationKey
             isHomeInning = situationKeyOriginal[1]
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
             situationKeyList[1] = 1 if isHomeInning else 0
-            playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
+            playMatch = playPitchesRe.match(situationKeyAndPlayLine.playLine)
             pitches = playMatch.group(1)
             counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
@@ -922,19 +952,34 @@ class StatsRunExpectancyPerInningReport(StatsReport):
                     self.stats[keyToUse] = [0] * (runsGained + 1)
                 self.stats[keyToUse][runsGained] += 1
 
+    def mergeInto(self, other: 'StatsRunExpectancyPerInningReport') -> None:
+        for key in self.stats:
+            if key in other.stats:
+                otherValue = other.stats[key]
+                thisValue = self.stats[key]
+                for i in range(len(otherValue)):
+                    if i >= len(thisValue):
+                        break
+                    otherValue[i] += thisValue[i]
+                for i in range(len(otherValue), len(thisValue)):
+                    otherValue.append(thisValue[i])
+            else:
+                other.stats[key] = self.stats[key]
+
+
 class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInningReport):
     def __init__(self):
         super().__init__()
-        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
 
     def reportFileName(self) -> str:
         return "runsperinningballsstrikesstats"
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
+        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
-            playMatch = self.playPitchesRe.match(situationKeyAndPlayLine.playLine)
+            playMatch = playPitchesRe.match(situationKeyAndPlayLine.playLine)
             pitches = playMatch.group(1)
             counts = getBallStrikeCountsFromPitches(pitches)
             situation = GameSituation.fromKey(situationKey)
@@ -974,6 +1019,8 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
+    def supportsParallelProcessing(self) -> bool:
+        return False
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         homeWon = finalGameSituation.isHomeWinning()
         if (homeWon is None):
@@ -991,12 +1038,12 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
 class WalkOffWalkReport(Report):
     def __init__(self):
         super().__init__()
-        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         self.numGames = 0
         self.numGamesWithPitches = 0
         self.walkOffWalks = 0
         self.walkOffWalksOnFourPitches = 0
         self.yearCount = {}
+        self.walkOffWalksOnFourPitchesLines = []
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         reallyVerbose = False # gameId == 'CHA201404020'
@@ -1022,7 +1069,8 @@ class WalkOffWalkReport(Report):
         lastPlayLine = situationKeysAndPlayLines[-1].playLine
         if reallyVerbose:
             print(f"lastPlayLine: {lastPlayLine}")
-        playMatch = self.playPitchesRe.match(lastPlayLine)
+        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+        playMatch = playPitchesRe.match(lastPlayLine)
         pitches = playMatch.group(1)
         if reallyVerbose:
             print(f"pitches: {pitches}")
@@ -1041,17 +1089,23 @@ class WalkOffWalkReport(Report):
                     # walk
                     self.walkOffWalks += 1
                     self.yearCount[year] += 1
+                    lastCount = getBallStrikeCountsFromPitches(pitches)[-1]
+
+                    # here's the old way of doing it:
+                    # could look at count instead, make sure it's 3-0
                     # This is surprisingly complicated because there's a lot of extraneous stuff in here.
-                    # TODO - use getBallStrikeCountsFromPitches instead
-                    # TODO - could look at count instead, make sure it's 3-0
-                    numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
+                    #numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
                     # Check this to make sure we have reasonable pitches
-                    numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
+                    #numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
+                    numStrikes = lastCount.strikes
+                    numBalls = lastCount.balls
                     print(f"Found game with gameId: {gameId}")
                     print("Last line was " + lastPlayLine)
-                    if numStrikes == 0 and numBalls == 4:
+                    # U means unknown pitch, so it pretty much can't be a four pitch walk
+                    if numStrikes == 0 and numBalls == 4 and 'U' not in pitches:
                         print("on four pitches!")
                         self.walkOffWalksOnFourPitches += 1
+                        self.walkOffWalksOnFourPitchesLines.append(f"{gameId}: {lastPlayLine}")
 
     def doneWithAll(self) -> None:
         print(f"numGames: {self.numGames}")
@@ -1060,9 +1114,24 @@ class WalkOffWalkReport(Report):
         print(f"walkOffWalksOnFourPitches: {self.walkOffWalksOnFourPitches}")
         for year in sorted(self.yearCount.keys()):
             print(f"  {year}: {self.yearCount[year]}")
+        #for line in sorted(self.walkOffWalksOnFourPitchesLines):
+        #    print(line)
+
+    def mergeInto(self, other: 'WalkOffWalkReport'):
+        other.numGames += self.numGames
+        other.numGamesWithPitches += self.numGamesWithPitches
+        other.walkOffWalks += self.walkOffWalks
+        other.walkOffWalksOnFourPitches += self.walkOffWalksOnFourPitches
+        for line in self.walkOffWalksOnFourPitchesLines:
+            other.walkOffWalksOnFourPitchesLines.append(line)
+        for year in self.yearCount:
+            if year not in other.yearCount:
+                other.yearCount[year] = self.yearCount[year]
+            else:
+                other.yearCount[year] += self.yearCount[year]
 
 def usage():
-    print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] <file paths>")
+    print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] [-p] <file paths>")
     print("-t: just run tests")
     print("-v: verbose")
     print("-q: quiet")
@@ -1070,10 +1139,15 @@ def usage():
     print("-h: help")
     print("-y: generate data sorted by year")
     print("-r: specify which reports to run (default: Stats)")
+    print("-p: profile and output to file \"profile\"")
     print()
     print("Possible reports:")
     for name in sorted(Reports.keys()):
         print("- " + name)
+
+# https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool/30816116#30816116
+def set_reports(function, reportsToRun):
+    function.originalReportsToRun = reportsToRun
 
 # This selects what stats we're compiling.
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
@@ -1083,9 +1157,10 @@ Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOuts
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
 reportsToRun = Reports['Stats']
 def main(args):
-    global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear
+    global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear, doParallel
+    doProfile = False
     try:
-        opts, files = getopt.getopt(args, 'vhsyqr:')
+        opts, files = getopt.getopt(args, 'vhsyqr:p')
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -1109,57 +1184,85 @@ def main(args):
                 print("Unrecognized report name!")
                 usage()
                 sys.exit(1)
+        elif o == '-p':
+            doProfile = True
         else:
             assert False, "unhandled option: " + str(o)
+    if doProfile:
+        pr = cProfile.Profile()
+        pr.enable()
+
+    realFiles = []
+    for fileName in files:
+        if os.path.isdir(fileName):
+            for childFileName in sorted(os.listdir(fileName)):
+                realFiles.append(os.path.join(fileName, childFileName))
+        else:
+            realFiles.append(fileName)
+
+    if doParallel:
+        for report in reportsToRun:
+            if not report.supportsParallelProcessing():
+                print(f"{type(report).__name__} does not support parallel processing!  Using sequential processing instead.")
+                doParallel = False
+
     if sortByYear:
         yearsToFiles = {}
-        realFiles = []
-        for fileName in files:
-            if os.path.isdir(fileName):
-                for childFileName in sorted(os.listdir(fileName)):
-                    realFiles.append(os.path.join(fileName, childFileName))
-            else:
-                realFiles.append(fileName)
         for fileName in realFiles:
             year = int(os.path.basename(fileName)[:4])
             if year not in yearsToFiles:
                 yearsToFiles[year] = []
             yearsToFiles[year].append(fileName)
-        for year in sorted(yearsToFiles):
-            if verbosity >= Verbosity.normal:
-                print(year)
-            for report in reportsToRun:
-                report.clearStats()
-            for fileName in yearsToFiles[year]:
+        if doParallel:
+            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
+            # need to do chunksize=1 to make sure each year is done separately
+            years = list(yearsToFiles.keys())
+            results = pool.map(parseFilesParallel, [yearsToFiles[year] for year in years], chunksize=1)
+            numGames = sum([x[0] for x in results])
+            allReportsByYear = [x[1] for x in results]
+            for (year, reportsForYear) in zip(years, allReportsByYear):
+                for report in reportsForYear:
+                    report.doneWithYear(str(year))
+        else:
+            for year in sorted(yearsToFiles):
+                if verbosity >= Verbosity.normal:
+                    print(year)
+                for report in reportsToRun:
+                    report.clearStats()
+                for fileName in yearsToFiles[year]:
+                    if verbosity >= Verbosity.normal:
+                        print(fileName)
+                    eventFile = open(fileName, 'r', encoding='latin-1')
+                    parseFile(eventFile, reportsToRun)
+                    eventFile.close()
+                if not skipOutput:
+                    for report in reportsToRun:
+                        report.doneWithYear(str(year))
+    else:
+        if doParallel:
+            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
+            results = pool.map(parseFilesParallel, [[x] for x in realFiles])
+            numGames = sum([x[0] for x in results])
+            allReports = [x[1] for x in results]
+            for (i, report) in enumerate(reportsToRun):
+                for clonedReport in [x[i] for x in allReports]:
+                    clonedReport.mergeInto(report)
+        else:
+            numGames = 0
+            for fileName in realFiles:
                 if verbosity >= Verbosity.normal:
                     print(fileName)
                 eventFile = open(fileName, 'r', encoding='latin-1')
-                parseFile(eventFile, reportsToRun)
+                numGames += parseFile(eventFile, reportsToRun)[0]
                 eventFile.close()
-            if not skipOutput:
-                for report in reportsToRun:
-                    report.doneWithYear(str(year))
-    else:
-        numGames = 0
-        realFiles = []
-        for fileName in files:
-            if os.path.isdir(fileName):
-                for childFileName in sorted(os.listdir(fileName)):
-                    realFiles.append(os.path.join(fileName, childFileName))
-            else:
-                realFiles.append(fileName)
-        for fileName in realFiles:
-            #eventFileName = '2004COL.EVN'
-            if verbosity >= Verbosity.normal:
-                print(fileName)
-            eventFile = open(fileName, 'r', encoding='latin-1')
-            numGames += parseFile(eventFile, reportsToRun)
-            eventFile.close()
         if verbosity >= Verbosity.normal:
             print("numGames is %d" % numGames)
         if not skipOutput:
             for report in reportsToRun:
                 report.doneWithAll()
+    if doProfile:
+        pr.disable()
+        pr.dump_stats('profile')
 
 class TestBatterToFirst(unittest.TestCase):
     def util_test_expected(self, beginRunnerDests, endRunnerDests):
