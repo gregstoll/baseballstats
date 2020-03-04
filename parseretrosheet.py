@@ -1042,13 +1042,8 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
 
 # Finds games where the home team won with a walkoff walk on 4 pitches
 class WalkOffWalkReport(Report):
-    #TODO - add this
-    def supportsParallelProcessing(self) -> bool:
-        return False
-
     def __init__(self):
         super().__init__()
-        self.playPitchesRe = re.compile(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         self.numGames = 0
         self.numGamesWithPitches = 0
         self.walkOffWalks = 0
@@ -1079,7 +1074,8 @@ class WalkOffWalkReport(Report):
         lastPlayLine = situationKeysAndPlayLines[-1].playLine
         if reallyVerbose:
             print(f"lastPlayLine: {lastPlayLine}")
-        playMatch = self.playPitchesRe.match(lastPlayLine)
+        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+        playMatch = playPitchesRe.match(lastPlayLine)
         pitches = playMatch.group(1)
         if reallyVerbose:
             print(f"pitches: {pitches}")
@@ -1117,6 +1113,17 @@ class WalkOffWalkReport(Report):
         print(f"walkOffWalksOnFourPitches: {self.walkOffWalksOnFourPitches}")
         for year in sorted(self.yearCount.keys()):
             print(f"  {year}: {self.yearCount[year]}")
+
+    def mergeInto(self, other: 'WalkOffWalkReport'):
+        other.numGames += self.numGames
+        other.numGamesWithPitches += self.numGamesWithPitches
+        other.walkOffWalks += self.walkOffWalks
+        other.walkOffWalksOnFourPitches += self.walkOffWalksOnFourPitches
+        for year in self.yearCount:
+            if year not in other.yearCount:
+                other.yearCount[year] = self.yearCount[year]
+            else:
+                other.yearCount[year] += self.yearCount[year]
 
 def usage():
     print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] [-p] <file paths>")
@@ -1235,7 +1242,6 @@ def main(args):
             for (i, report) in enumerate(reportsToRun):
                 for clonedReport in [x[i] for x in allReports]:
                     clonedReport.mergeInto(report)
-                report.doneWithAll()
         else:
             numGames = 0
             for fileName in realFiles:
