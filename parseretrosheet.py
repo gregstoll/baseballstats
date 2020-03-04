@@ -1043,6 +1043,7 @@ class WalkOffWalkReport(Report):
         self.walkOffWalks = 0
         self.walkOffWalksOnFourPitches = 0
         self.yearCount = {}
+        self.walkOffWalksOnFourPitchesLines = []
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         reallyVerbose = False # gameId == 'CHA201404020'
@@ -1088,17 +1089,23 @@ class WalkOffWalkReport(Report):
                     # walk
                     self.walkOffWalks += 1
                     self.yearCount[year] += 1
+                    lastCount = getBallStrikeCountsFromPitches(pitches)[-1]
+
+                    # here's the old way of doing it:
+                    # could look at count instead, make sure it's 3-0
                     # This is surprisingly complicated because there's a lot of extraneous stuff in here.
-                    # TODO - use getBallStrikeCountsFromPitches instead
-                    # TODO - could look at count instead, make sure it's 3-0
-                    numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
+                    #numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
                     # Check this to make sure we have reasonable pitches
-                    numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
+                    #numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
+                    numStrikes = lastCount.strikes
+                    numBalls = lastCount.balls
                     print(f"Found game with gameId: {gameId}")
                     print("Last line was " + lastPlayLine)
-                    if numStrikes == 0 and numBalls == 4:
+                    # U means unknown pitch, so it pretty much can't be a four pitch walk
+                    if numStrikes == 0 and numBalls == 4 and 'U' not in pitches:
                         print("on four pitches!")
                         self.walkOffWalksOnFourPitches += 1
+                        self.walkOffWalksOnFourPitchesLines.append(f"{gameId}: {lastPlayLine}")
 
     def doneWithAll(self) -> None:
         print(f"numGames: {self.numGames}")
@@ -1107,12 +1114,16 @@ class WalkOffWalkReport(Report):
         print(f"walkOffWalksOnFourPitches: {self.walkOffWalksOnFourPitches}")
         for year in sorted(self.yearCount.keys()):
             print(f"  {year}: {self.yearCount[year]}")
+        #for line in sorted(self.walkOffWalksOnFourPitchesLines):
+        #    print(line)
 
     def mergeInto(self, other: 'WalkOffWalkReport'):
         other.numGames += self.numGames
         other.numGamesWithPitches += self.numGamesWithPitches
         other.walkOffWalks += self.walkOffWalks
         other.walkOffWalksOnFourPitches += self.walkOffWalksOnFourPitches
+        for line in self.walkOffWalksOnFourPitchesLines:
+            other.walkOffWalksOnFourPitchesLines.append(line)
         for year in self.yearCount:
             if year not in other.yearCount:
                 other.yearCount[year] = self.yearCount[year]
