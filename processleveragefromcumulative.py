@@ -182,12 +182,12 @@ def main():
     totalGames = 0
     for k in list(data.keys()):
         totalGames += data[k].totalCount
-    print(totalGames)
+    print(f"totalGames: {totalGames}")
     totalLeverage = 0.0
     for k in list(data.keys()):
         totalLeverage += calculateRawLeverage(data, data[k]) * data[k].totalCount
     averageLeverage = totalLeverage / totalGames
-    print(averageLeverage)
+    print(f"averageLeverage: {averageLeverage}")
     with open(os.path.join(directory, outputFileName), 'w') as f:
         for k in sorted(data.keys()):
             s = data[k]
