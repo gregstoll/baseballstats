@@ -1130,6 +1130,84 @@ class WalkOffWalkReport(Report):
             else:
                 other.yearCount[year] += self.yearCount[year]
 
+class CountsToWalksAndStrikeoutsReport(Report):
+    class CountStats:
+        def __init__(self):
+            self.total = 0
+            self.walks = 0
+            self.strikeouts = 0
+        def __str__(self):
+            walkPercent = (100 * float(self.walks)) / self.total
+            strikeoutPercent = (100 * float(self.strikeouts)) / self.total
+            return f"total: {self.total} walks: {self.walks} strikeouts: {self.strikeouts} walk%: {walkPercent:.2f} strikeout%: {strikeoutPercent:.2f}"
+        def __repr__(self):
+            return self.__str__()
+
+    def __init__(self):
+        super().__init__()
+        self.numGames = 0
+        self.numGamesWithPitches = 0
+        self.countsStats = {}
+        self.yearCount = {}
+
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        reallyVerbose = False # gameId == 'CHA201404020'
+        self.numGames += 1
+        year = int(gameId[3:7])
+        for playLine in [x.playLine for x in situationKeysAndPlayLines]:
+            if reallyVerbose:
+                print(f"playLine: {playLine}")
+            # TODO split this logic out for parsing a line?
+            playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
+            playMatch = playPitchesRe.match(playLine)
+            pitches = playMatch.group(1)
+            if reallyVerbose:
+                print(f"pitches: {pitches}")
+            if len([c for c in pitches if c != '?']) == 0:
+                continue
+            if year not in self.yearCount:
+                self.yearCount[year] = 0
+            self.yearCount[year] += 1
+            allCounts = getBallStrikeCountsFromPitches(pitches)
+            lastCount = allCounts[-1]
+            isWalk = False
+            isStrikeout = False
+            if lastCount.balls == 4:
+                isWalk = True
+            elif lastCount.strikes == 3:
+                isStrikeout = True
+            for count in allCounts:
+                if not (count in self.countsStats):
+                    self.countsStats[count] = CountsToWalksAndStrikeoutsReport.CountStats()
+                self.countsStats[count].total += 1
+                if isWalk:
+                    self.countsStats[count].walks += 1
+                elif isStrikeout:
+                    self.countsStats[count].strikeouts += 1
+    def doneWithAll(self) -> None:
+        print(f"numGames: {self.numGames}")
+        for count in sorted(self.countsStats.keys()):
+            if count.balls < 4 and count.strikes < 3:
+                print(f"{count}: {self.countsStats[count]}")
+        for year in sorted(self.yearCount.keys()):
+            print(f"PAs in {year}: {self.yearCount[year]}")
+
+    def mergeInto(self, other: 'CountsToWalksAndStrikeoutsReport'):
+        other.numGames += self.numGames
+        other.numGamesWithPitches += self.numGamesWithPitches
+        for count in self.countsStats:
+            if count not in other.countsStats:
+                other.countsStats[count] = self.countsStats[count]
+            else:
+                other.countsStats[count].total += self.countsStats[count].total
+                other.countsStats[count].walks += self.countsStats[count].walks
+                other.countsStats[count].strikeouts += self.countsStats[count].strikeouts
+        for year in self.yearCount:
+            if year not in other.yearCount:
+                other.yearCount[year] = self.yearCount[year]
+            else:
+                other.yearCount[year] += self.yearCount[year]
+
 def usage():
     print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] [-p] <file paths>")
     print("-t: just run tests")
@@ -1155,6 +1233,7 @@ Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningRepor
 Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), StatsRunExpectancyPerInningWithBallsStrikesReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
+Reports['CountsToWalksAndStrikeouts']= [CountsToWalksAndStrikeoutsReport()]
 reportsToRun = Reports['Stats']
 def main(args):
     global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear, doParallel
