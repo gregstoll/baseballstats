@@ -199,16 +199,16 @@ class PlayLineInfo(typing.NamedTuple):
     pitchesString: str
     playString: str
 
-# TODO - make this a static method on PlayLineInfo?
-def parsePlayLine(line: str) -> PlayLineInfo:
-    # decription of the format is at http://www.retrosheet.org/eventfile.htm
-    playMatch = getRe(r'^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$').match(line)
-    assert playMatch
-    return PlayLineInfo(inning=int(playMatch.group(1)), isHome=(int(playMatch.group(2))==1), playerId=playMatch.group(3), countWhenPlayHappened=playMatch.group(4), pitchesString=playMatch.group(5), playString=playMatch.group(6))
+    @staticmethod
+    def fromLine(line: str) -> 'PlayLineInfo':
+        # decription of the format is at http://www.retrosheet.org/eventfile.htm
+        playMatch = getRe(r'^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$').match(line)
+        assert playMatch
+        return PlayLineInfo(inning=int(playMatch.group(1)), isHome=(int(playMatch.group(2))==1), playerId=playMatch.group(3), countWhenPlayHappened=playMatch.group(4), pitchesString=playMatch.group(5), playString=playMatch.group(6))
 
 def parsePlay(line: str, gameSituation: GameSituation):
     # decription of the format is at http://www.retrosheet.org/eventfile.htm
-    playLineInfo = parsePlayLine(line)
+    playLineInfo = PlayLineInfo.fromLine(line)
     # if runnerDests[x] = 0, runner (or batter) is out
     # if runnerDests[x] = 4, runner (or batter) scores
     # if runnerDests['B'] = -1, batter is still up
@@ -914,7 +914,7 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
             situationKeyList[1] = 1 if isHomeInning else 0
-            pitches = parsePlayLine(situationKeyAndPlayLine.playLine).pitchesString
+            pitches = PlayLineInfo.fromLine(situationKeyAndPlayLine.playLine).pitchesString
             counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
             situationKeyList.append(typing.cast(int, (0, 0)))
@@ -990,7 +990,7 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
-            pitches = parsePlayLine(situationKeyAndPlayLine.playLine).pitchesString
+            pitches = PlayLineInfo.fromLine(situationKeyAndPlayLine.playLine).pitchesString
             counts = getBallStrikeCountsFromPitches(pitches)
             situation = GameSituation.fromKey(situationKey)
             key = (situation.inning, situation.isHome)
@@ -1079,7 +1079,7 @@ class WalkOffWalkReport(Report):
         lastPlayLine = situationKeysAndPlayLines[-1].playLine
         if reallyVerbose:
             print(f"lastPlayLine: {lastPlayLine}")
-        pitches = parsePlayLine(lastPlayLine).pitchesString
+        pitches = PlayLineInfo.fromLine(lastPlayLine).pitchesString
         if reallyVerbose:
             print(f"pitches: {pitches}")
         if len([c for c in pitches if c != '?']) > 0:
@@ -1165,7 +1165,7 @@ class CountsToWalksAndStrikeoutsReport(Report):
         for playLine in [x.playLine for x in situationKeysAndPlayLines]:
             if reallyVerbose:
                 print(f"playLine: {playLine}")
-            playLineInfo = parsePlayLine(playLine)
+            playLineInfo = PlayLineInfo.fromLine(playLine)
             pitches = playLineInfo.pitchesString
             if reallyVerbose:
                 print(f"pitches: {pitches}")
