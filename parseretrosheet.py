@@ -191,9 +191,24 @@ def getRe(pattern):
     reCache[pattern] = re.compile(pattern)
     return reCache[pattern]
 
+class PlayLineInfo(typing.NamedTuple):
+    inning: int
+    isHome: bool
+    playerId: str
+    countWhenPlayHappened: str
+    pitchesString: str
+    playString: str
+
+# TODO - make this a static method on PlayLineInfo?
+def parsePlayLine(line: str) -> PlayLineInfo:
+    # decription of the format is at http://www.retrosheet.org/eventfile.htm
+    playMatch = getRe(r'^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$').match(line)
+    assert playMatch
+    return PlayLineInfo(inning=int(playMatch.group(1)), isHome=(int(playMatch.group(2))==1), playerId=playMatch.group(3), countWhenPlayHappened=playMatch.group(4), pitchesString=playMatch.group(5), playString=playMatch.group(6))
+
 def parsePlay(line: str, gameSituation: GameSituation):
     # decription of the format is at http://www.retrosheet.org/eventfile.htm
-    playMatch = getRe(r'^play,\s?(\d+),\s?([01]),.*?,.*?,.*?,(.*)$').match(line)
+    playLineInfo = parsePlayLine(line)
     # if runnerDests[x] = 0, runner (or batter) is out
     # if runnerDests[x] = 4, runner (or batter) scores
     # if runnerDests['B'] = -1, batter is still up
@@ -215,10 +230,9 @@ def parsePlay(line: str, gameSituation: GameSituation):
     if (verbosity == Verbosity.verbose):
         print("Game situation is: %s" % gameSituation)
         print(line[0:-1])
-    assert playMatch
-    assert gameSituation.inning == int(playMatch.group(1))
-    assert gameSituation.isHome == (int(playMatch.group(2)) == 1)
-    playString = playMatch.group(3)
+    assert gameSituation.inning == playLineInfo.inning
+    assert gameSituation.isHome == playLineInfo.isHome
+    playString = playLineInfo.playString
     # Strip !'s, #'s, and ?'s
     playString = playString.replace('!', '').replace('#', '').replace('?', '')
     playArray = playString.split('.')
@@ -894,15 +908,13 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
             # This game must have been tied when it stopped.  Don't count
             # these stats.
             return
-        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKeyOriginal = situationKeyAndPlayLine.situationKey
             isHomeInning = situationKeyOriginal[1]
             #TODO this is probably slow?
             situationKeyList = list(situationKeyOriginal)
             situationKeyList[1] = 1 if isHomeInning else 0
-            playMatch = playPitchesRe.match(situationKeyAndPlayLine.playLine)
-            pitches = playMatch.group(1)
+            pitches = parsePlayLine(situationKeyAndPlayLine.playLine).pitchesString
             counts = getBallStrikeCountsFromPitches(pitches)
             isWin = (isHomeInning and homeWon) or (not isHomeInning and not homeWon)
             situationKeyList.append(typing.cast(int, (0, 0)))
@@ -976,11 +988,9 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
 
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
-        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
-            playMatch = playPitchesRe.match(situationKeyAndPlayLine.playLine)
-            pitches = playMatch.group(1)
+            pitches = parsePlayLine(situationKeyAndPlayLine.playLine).pitchesString
             counts = getBallStrikeCountsFromPitches(pitches)
             situation = GameSituation.fromKey(situationKey)
             key = (situation.inning, situation.isHome)
@@ -1069,9 +1079,7 @@ class WalkOffWalkReport(Report):
         lastPlayLine = situationKeysAndPlayLines[-1].playLine
         if reallyVerbose:
             print(f"lastPlayLine: {lastPlayLine}")
-        playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
-        playMatch = playPitchesRe.match(lastPlayLine)
-        pitches = playMatch.group(1)
+        pitches = parsePlayLine(lastPlayLine).pitchesString
         if reallyVerbose:
             print(f"pitches: {pitches}")
         if len([c for c in pitches if c != '?']) > 0:
@@ -1157,10 +1165,8 @@ class CountsToWalksAndStrikeoutsReport(Report):
         for playLine in [x.playLine for x in situationKeysAndPlayLines]:
             if reallyVerbose:
                 print(f"playLine: {playLine}")
-            # TODO split this logic out for parsing a line?
-            playPitchesRe = getRe(r'^play,\s?\d+,\s?[01],.*?,.*?,(.*?),(.*)$')
-            playMatch = playPitchesRe.match(playLine)
-            pitches = playMatch.group(1)
+            playLineInfo = parsePlayLine(playLine)
+            pitches = playLineInfo.pitchesString
             if reallyVerbose:
                 print(f"pitches: {pitches}")
             if len([c for c in pitches if c != '?']) == 0:
