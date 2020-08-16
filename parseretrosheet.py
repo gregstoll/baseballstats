@@ -88,6 +88,10 @@ class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
     def __repr__(self):
         return self.__str__()
 
+# TODO - write this and use it
+def parseBatterEvent(batterEvent: str):
+    pass
+
 def parseFilesParallel(fileNames: typing.Iterable[str]) -> (int, typing.Iterable['Report']):
     clonedReportsToRun = [copy.deepcopy(x) for x in parseFilesParallel.originalReportsToRun]
     numGames = 0
@@ -1104,8 +1108,8 @@ class WalkOffWalkReport(Report):
             return
         if lastGameSituation.isHome and lastGameSituation.outs <= 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
             playString = playLineInfo.playString
+            # TODO - refactor this with main parsing?
             playString = playString.replace('!', '').replace('#', '').replace('?', '')
-            # TODO - refactor this stuff and share with StatsWinExpectancyWithBallsStrikesReport
             playArray = playString.split('.')
             batterEvents = playArray[0].split(';')
             for batterEvent in batterEvents:
