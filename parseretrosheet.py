@@ -1119,19 +1119,10 @@ class WalkOffWalkReport(Report):
                     self.walkOffWalks += 1
                     self.yearCount[year] += 1
                     lastCount = getBallStrikeCountsFromPitches(pitches)[-1]
-
-                    # here's the old way of doing it:
-                    # could look at count instead, make sure it's 3-0
-                    # This is surprisingly complicated because there's a lot of extraneous stuff in here.
-                    #numStrikes = len([p for p in pitches if p == 'C' or p == 'F' or p == 'K' or p == 'L' or p == 'M' or p == 'O' or p == 'R' or p == 'S' or p == 'T'])
-                    # Check this to make sure we have reasonable pitches
-                    #numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
-                    numStrikes = lastCount.strikes
-                    numBalls = lastCount.balls
                     #print(f"Found game with gameId: {gameId}")
                     #print("Last line was " + lastPlayLine)
                     # U means unknown pitch, so it pretty much can't be a four pitch walk
-                    if numStrikes == 0 and numBalls == 4 and 'U' not in pitches:
+                    if lastCount.strikes == 0 and lastCount.balls == 4:
                         #print("on four pitches!")
                         self.walkOffWalksOnFourPitches += 1
                         self.walkOffWalksOnFourPitchesLines.append(f"{gameId}: {lastPlayLine}")
