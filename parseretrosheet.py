@@ -1034,8 +1034,6 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
                         self.stats[keyToUse] = [0] * (runsGained + 1)
                     self.stats[keyToUse][runsGained] += 1
 
-
-
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
@@ -1053,9 +1051,6 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
             return
         if (9, True, 2, (0, 0, 0), -6) in [x.situationKey for x in situationKeysAndPlayLines]:
             self.gameIds.append(gameId)
-            print("GOT IT with gameId:")
-            print(gameId)
-            sys.exit(0)
 
     def doneWithAll(self) -> None:
         for gameId in sorted(self.gameIds):
@@ -1407,7 +1402,6 @@ class TestParsePlay(unittest.TestCase):
         situation.inning = inning
         situation.isHome = isHome
         situation.outs = outs
-        #TODO refactor?
         return (situation, 'play,' + str(inning) + ',' + ('1' if situation.isHome else '0') + ',,,,' + playString)
     
     def test_simpleout(self):
