@@ -132,11 +132,12 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, ty
                     try:
                         parsePlay(line, curGameSituation)
                     except AssertionError:
-                        print("Error in game " + curId)
-                        if (curId in knownBadGames):
-                            print("known bad game")
+                        if verbosity >= Verbosity.normal:
+                            print("Error in game " + curId)
+                            if (curId in knownBadGames):
+                                print("known bad game")
                         if (curId not in knownBadGames and (verbosity == Verbosity.verbose or stopOnFirstError)):
-                            raise
+                            raise f"Error in game {curId}"
                         else:
                             # We're just gonna punt and ignore the error
                             inGame = False
@@ -319,7 +320,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
                     elif (tempEvent.startswith('E')):
                         pass
                     else:
-                        print("ERROR - unrecognized K+ event: %s" % tempEvent)
+                        if verbosity >= Verbosity.normal:
+                            print("ERROR - unrecognized K+ event: %s" % tempEvent)
                         assert False
                 doneParsingEvent = True
         if (not doneParsingEvent):
@@ -370,7 +372,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
                     elif (tempEvent.startswith('E')):
                         runnerDests['B'] = 1
                     else:
-                        print("ERROR - unrecognized W+ or IW+ event: %s" % tempEvent)
+                        if verbosity >= Verbosity.normal:
+                            print("ERROR - unrecognized W+ or IW+ event: %s" % tempEvent)
                         assert False
                 doneParsingEvent = True
         if (not doneParsingEvent):
@@ -607,8 +610,9 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 runnersDefaultStayStill = True
                 doneParsingEvent = True
         if (not doneParsingEvent):
-            print("ERROR - couldn't parse event %s" % batterEvent)
-            print("line is: %s" % line[0:-1])
+            if verbosity >= Verbosity.normal:
+                print("ERROR - couldn't parse event %s" % batterEvent)
+                print("line is: %s" % line[0:-1])
             return
     # Now parse runner stuff.
     if (len(playArray) > 1):
@@ -682,7 +686,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 print("using defaultBatterBase of %d" % defaultBatterBase)
             runnerDests['B'] = defaultBatterBase
         else:
-            print("ERROR - unresolved batter!")
+            if verbosity >= Verbosity.normal:
+                print("ERROR - unresolved batter!")
             assert False
     # 'B' going to -1 means nothing happens, so don't consider that.
     if ('B' in unresolvedRunners):
@@ -698,20 +703,23 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 for runner in unresolvedRunners:
                     runnerDests[runner] = runner
             else:
-                print("ERROR - unresolved runners %s!" % unresolvedRunners)
-                print("runnerDests: %s" % (runnerDests))
+                if verbosity >= Verbosity.normal:
+                    print("ERROR - unresolved runners %s!" % unresolvedRunners)
+                    print("runnerDests: %s" % (runnerDests))
                 assert False
     # Check that no new entries to runnerDests
     newRunners = [runner for runner in runnerDests if runner not in beginningRunners]
     if (verbosity == Verbosity.verbose):
         print("runnerDests: %s" % (runnerDests))
     if ('B' not in newRunners):
-        print("ERROR - don't know what happened to B!")
+        if verbosity >= Verbosity.normal:
+            print("ERROR - don't know what happened to B!")
         assert False
     else:
         newRunners.remove('B')
     if (len(newRunners) > 0):
-        print("ERROR - picked up extra runners %s!" % newRunners)
+        if verbosity >= Verbosity.normal:
+            print("ERROR - picked up extra runners %s!" % newRunners)
         assert False
     newRunners = [0, 0, 0]
     # Deal with runnerDests
@@ -727,7 +735,8 @@ def parsePlay(line: str, gameSituation: GameSituation):
             pass
         else:
             if (newRunners[runnerDests[runner] - 1] == 1):
-                print("ERROR - already a runner at base %d!" % runnerDests[runner])
+                if verbosity >= Verbosity.normal:
+                    print("ERROR - already a runner at base %d!" % runnerDests[runner])
                 assert False
             newRunners[runnerDests[runner] - 1] = 1
     gameSituation.runners = newRunners
@@ -788,7 +797,8 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
             # "CBABX" is used in 1989MIL.EVA
             # TODO - contact retrosheet?
             if pitch != 'U':
-                print(f"Unknown pitch {pitch} in {pitches}, skipping")
+                if verbosity >= Verbosity.normal:
+                    print(f"Unknown pitch {pitch} in {pitches}, skipping")
             return [BallStrikeCount(0, 0)]
         else:
             assert False, "Unexpected pitch character " + str(pitch) + " in " + str(pitches)
@@ -1029,8 +1039,10 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
 class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
-    def supportsParallelProcessing(self) -> bool:
-        return False
+    def __init__(self):
+        super().__init__()
+        self.gameIds = []
+
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
         homeWon = finalGameSituation.isHomeWinning()
         if (homeWon is None):
@@ -1040,9 +1052,17 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
         if not homeWon:
             return
         if (9, True, 2, (0, 0, 0), -6) in [x.situationKey for x in situationKeysAndPlayLines]:
+            self.gameIds.append(gameId)
             print("GOT IT with gameId:")
             print(gameId)
             sys.exit(0)
+
+    def doneWithAll(self) -> None:
+        for gameId in sorted(self.gameIds):
+            print(f"GOT IT with gameId: {gameId}")
+
+    def mergeInto(self, other: 'HomeTeamWonDownSixWithTwoOutsInNinthReport'):
+        other.gameIds.extend(self.gameIds)
 
 # Finds games where the home team won with a walkoff walk on 4 pitches
 class WalkOffWalkReport(Report):
@@ -1079,7 +1099,8 @@ class WalkOffWalkReport(Report):
         lastPlayLine = situationKeysAndPlayLines[-1].playLine
         if reallyVerbose:
             print(f"lastPlayLine: {lastPlayLine}")
-        pitches = PlayLineInfo.fromLine(lastPlayLine).pitchesString
+        playLineInfo = PlayLineInfo.fromLine(lastPlayLine)
+        pitches = playLineInfo.pitchesString
         if reallyVerbose:
             print(f"pitches: {pitches}")
         if len([c for c in pitches if c != '?']) > 0:
@@ -1087,7 +1108,7 @@ class WalkOffWalkReport(Report):
         if not homeWon:
             return
         if lastGameSituation.isHome and lastGameSituation.outs <= 2 and lastGameSituation.runners == [1, 1, 1] and lastGameSituation.curScoreDiff == 0:
-            playString = playMatch.group(2)
+            playString = playLineInfo.playString
             playString = playString.replace('!', '').replace('#', '').replace('?', '')
             # TODO - refactor this stuff and share with StatsWinExpectancyWithBallsStrikesReport
             playArray = playString.split('.')
@@ -1107,11 +1128,11 @@ class WalkOffWalkReport(Report):
                     #numBalls = len([p for p in pitches if p == 'B' or p == 'I' or p == 'P' or p == 'V'])
                     numStrikes = lastCount.strikes
                     numBalls = lastCount.balls
-                    print(f"Found game with gameId: {gameId}")
-                    print("Last line was " + lastPlayLine)
+                    #print(f"Found game with gameId: {gameId}")
+                    #print("Last line was " + lastPlayLine)
                     # U means unknown pitch, so it pretty much can't be a four pitch walk
                     if numStrikes == 0 and numBalls == 4 and 'U' not in pitches:
-                        print("on four pitches!")
+                        #print("on four pitches!")
                         self.walkOffWalksOnFourPitches += 1
                         self.walkOffWalksOnFourPitchesLines.append(f"{gameId}: {lastPlayLine}")
 
@@ -1224,6 +1245,7 @@ def usage():
     print("-y: generate data sorted by year")
     print("-r: specify which reports to run (default: Stats)")
     print("-p: profile and output to file \"profile\"")
+    print("-a: run all reports (useful to test changes with -q)")
     print()
     print("Possible reports:")
     for name in sorted(Reports.keys()):
@@ -1245,7 +1267,7 @@ def main(args):
     global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear, doParallel
     doProfile = False
     try:
-        opts, files = getopt.getopt(args, 'vhsyqr:p')
+        opts, files = getopt.getopt(args, 'vhsyqr:pa')
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)
@@ -1271,6 +1293,10 @@ def main(args):
                 sys.exit(1)
         elif o == '-p':
             doProfile = True
+        elif o == '-a':
+            reportsToRun = []
+            for a in Reports:
+                reportsToRun.extend(Reports[a])
         else:
             assert False, "unhandled option: " + str(o)
     if doProfile:
