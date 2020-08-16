@@ -1325,15 +1325,16 @@ def main(args):
                 yearsToFiles[year] = []
             yearsToFiles[year].append(fileName)
         if doParallel:
-            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
-            # need to do chunksize=1 to make sure each year is done separately
-            years = list(yearsToFiles.keys())
-            results = pool.map(parseFilesParallel, [yearsToFiles[year] for year in years], chunksize=1)
-            numGames = sum([x[0] for x in results])
-            allReportsByYear = [x[1] for x in results]
-            for (year, reportsForYear) in zip(years, allReportsByYear):
-                for report in reportsForYear:
-                    report.doneWithYear(str(year))
+            cpus = os.cpu_count()
+            with multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun), processes=cpus) as pool:
+                # need to do chunksize=1 to make sure each year is done separately
+                years = list(yearsToFiles.keys())
+                results = pool.map(parseFilesParallel, [yearsToFiles[year] for year in years], chunksize=1)
+                numGames = sum([x[0] for x in results])
+                allReportsByYear = [x[1] for x in results]
+                for (year, reportsForYear) in zip(years, allReportsByYear):
+                    for report in reportsForYear:
+                        report.doneWithYear(str(year))
         else:
             for year in sorted(yearsToFiles):
                 if verbosity >= Verbosity.normal:
@@ -1351,13 +1352,14 @@ def main(args):
                         report.doneWithYear(str(year))
     else:
         if doParallel:
-            pool = multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun))
-            results = pool.map(parseFilesParallel, [[x] for x in realFiles])
-            numGames = sum([x[0] for x in results])
-            allReports = [x[1] for x in results]
-            for (i, report) in enumerate(reportsToRun):
-                for clonedReport in [x[i] for x in allReports]:
-                    clonedReport.mergeInto(report)
+            cpus = os.cpu_count()
+            with multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun), processes=cpus) as pool:
+                results = pool.map(parseFilesParallel, [[x] for x in realFiles])
+                numGames = sum([x[0] for x in results])
+                allReports = [x[1] for x in results]
+                for (i, report) in enumerate(reportsToRun):
+                    for clonedReport in [x[i] for x in allReports]:
+                        clonedReport.mergeInto(report)
         else:
             numGames = 0
             for fileName in realFiles:
