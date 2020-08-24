@@ -8,7 +8,7 @@
 - call ./processleveragefromcumulative.py
 - call ./processstats.py stats > probs.txt
 - call ./processballsstrikesstats.py statswithballsstrikes > probswithballsstrikes.txt
-- call ./processstatsruns.py runsperinningstats > runsperinning.xml
+- call ./processallstatsruns.py
 - call ./processballsstrikesstatsruns.py runsperinningballsstrikesstats > runsperinningballsstrikes.xml
 - in statsreact/src/App.tsx, look for MAX_YEAR and set it to the new max year
 - in statsreact/public/index.html, update the HTML description to the new max year
