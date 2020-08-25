@@ -353,7 +353,7 @@ interface YearsSliderState {
 }
 class YearsSlider extends Component<YearsSliderProps, YearsSliderState> {
     setYearsEvent: number = undefined;
-        // delay before triggering setYears
+    // delay before triggering setYears
     TIMEOUT: number = 500;
     onChange(value) {
         if (this.setYearsEvent !== undefined) {
@@ -590,7 +590,7 @@ interface BaseballSituationState {
     runsPerInningData?: Document
 }
 class BaseballSituation extends Component<{}, BaseballSituationState> {
-    addInitialState(state, name, years) {
+    addInitialState(state, name: string, years: [number, number] | []) {
         state['results' + name] = {total: 0, wins: 0, leverageIndex: 0, isHome: false, isInitial: true, years: years};
     }
     constructor(props: {}) {
@@ -671,7 +671,7 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
             this.calculateStats(s.inning.homeOrVisitor, s.score, s.inning.num, s.outs, s.runners, s.balls, s.strikes, localStartYear, localEndYear, 'output' + i, hash);
         }
     }
-    calculateStats(whichTeam, scorediff, inning, outs, runners, balls, strikes, startYear, endYear, name, hash) {
+    calculateStats(whichTeam: "V" | "H", scorediff: number, inning: number, outs: number, runners: number, balls: number, strikes: number, startYear: number, endYear: number, name: string, hash: string) {
         const isHome = whichTeam === "H";
         if (!isHome)
         {
