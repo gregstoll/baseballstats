@@ -12,6 +12,7 @@ wgxpath.install();
 const MIN_YEAR = 1957;
 const MAX_YEAR = 2019;
 const SHOW_BALLS_STRIKES = true;
+const RUNS_PER_INNING_BY_YEAR = true;
 //TODO?
 const extraYears : Array<[number, number]> = [];
 function transformNonZeroYear(y: number) : number
@@ -720,7 +721,7 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
             this.updateRunsPerInning();
         }
     }
-    updateRunsPerInning(responseXML?: Document) {
+    getRunsPerInningResultFromXML(responseXML?: Document) : RunsPerInningResult {
         const outs = this.state.outs;
         const runners = this.state.runners;
         const balls = this.state.balls;
@@ -745,7 +746,11 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
                 countByRuns[runs] = parseInt(situationChild.innerHTML, 10);
             }
         }
-        this.setState({runsPerInning: new RunsPerInningResult(total, countByRuns)});
+        return new RunsPerInningResult(total, countByRuns);
+    }
+    updateRunsPerInning(responseXML?: Document) {
+        const runsPerInningResult = this.getRunsPerInningResultFromXML(responseXML);
+        this.setState({runsPerInning: runsPerInningResult});
     }
     setInning(newInning: Inning) {
         this.setState({inning: newInning}, () => this.updateCalculations());
