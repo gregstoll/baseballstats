@@ -4,6 +4,7 @@
 - call ./parseretrosheet.py -r StatsWithBallsStrikes -y data
 - call ./processcumulativestats.py statsyears
 - call ./processcumulativeballsstrikesstats.py statsyears
+- call ./processcumulativeballsstrikesrunsperinningstats.py statsyears
 - call ./processcumulativerunsperinningstats.py statsyears
 - call ./processleveragefromcumulative.py
 - call ./processstats.py stats > probs.txt
