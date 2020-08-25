@@ -12,7 +12,6 @@ wgxpath.install();
 const MIN_YEAR = 1957;
 const MAX_YEAR = 2019;
 const SHOW_BALLS_STRIKES = true;
-const RUNS_PER_INNING_BY_YEAR = true;
 //TODO?
 const extraYears : Array<[number, number]> = [];
 function transformNonZeroYear(y: number) : number
@@ -68,6 +67,17 @@ export class RunsPerInningResult {
             }
         }
         return true;
+    }
+    minus(other: RunsPerInningResult) : RunsPerInningResult {
+        let newCountByRuns: number[] = [];
+        for (let i = 0; i < this.countByRuns.length; ++i)
+        {
+            newCountByRuns[i] = this.countByRuns[i];
+            if (i < other.countByRuns.length) {
+                newCountByRuns[i] -= other.countByRuns[i];
+            }
+        }
+        return new RunsPerInningResult(this.totalSituations - other.totalSituations, newCountByRuns);
     }
     getProbabilityForExactNumberOfRuns(numberOfRuns: number) : number {
         return this.countByRuns[numberOfRuns] / this.totalSituations;
@@ -587,7 +597,7 @@ interface BaseballSituationState {
     runsPerInning?: RunsPerInningResult,
     pendingHash?: string,
     pendingCount?: number,
-    runsPerInningData?: Document
+    runsPerInningData?: Map<number, Document>
 }
 class BaseballSituation extends Component<{}, BaseballSituationState> {
     addInitialState(state, name: string, years: [number, number] | []) {
@@ -705,31 +715,53 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
                 return newState;
             });
         });
-        if (!this.state['runsPerInningData'])
-        {
-            let FILENAME = transformURL(SHOW_BALLS_STRIKES ? "runsperinningballsstrikes.xml" : "runsperinning.xml");
-            fetch(`${FILENAME}`).then(response => {
-                return response.text();
-            }).then(xmlText => {
-                let xml = (new DOMParser()).parseFromString(xmlText, "text/xml");
-                this.setState({runsPerInningData: xml});
-                this.updateRunsPerInning(xml);
+        this.fetchRunsPerInningDataAsync(endYear).then(endXml => {
+            this.updateRunsPerInningDataIfNecessary(endYear, endXml);
+            if (startYear > MIN_YEAR) {
+                this.fetchRunsPerInningDataAsync(startYear - 1).then(startXml => {
+                    this.updateRunsPerInningDataIfNecessary(startYear, startXml);
+                    this.updateRunsPerInning(startXml, endXml);
+                });
+            }
+            else {
+                this.updateRunsPerInning(undefined, endXml);
+            }
+        });
+    }
+    updateRunsPerInningDataIfNecessary(year: number, xml: Document) {
+        if (!(this.state.runsPerInningData && this.state.runsPerInningData.has(year))) {
+            this.setState((prevState, props) => {
+                let newMap : Map<number, Document>;
+                if (prevState.runsPerInningData !== undefined) {
+                    newMap = prevState.runsPerInningData;
+                }
+                else {
+                    newMap = new Map<number, Document>();
+                }
+                newMap.set(year, xml);
+                return {'runsPerInningData': newMap};
             });
         }
-        else
-        {
-            this.updateRunsPerInning();
-        }
     }
-    getRunsPerInningResultFromXML(responseXML?: Document) : RunsPerInningResult {
+    async fetchRunsPerInningDataAsync(year: number) : Promise<Document> {
+        if (this.state.runsPerInningData) {
+            const data = this.state.runsPerInningData.get(year);
+            if (data !== undefined) {
+                return data;
+            }
+        }
+        const FILENAME = transformURL("statsruns/runsperinning" + (SHOW_BALLS_STRIKES ? "ballsstrikes" : "") + "cumulative" + year + ".xml");
+        const response = await fetch(FILENAME);
+        const text = await response.text();
+        return (new DOMParser()).parseFromString(text, "text/xml");
+    }
+    getRunsPerInningResultFromXML(xml: Document) : RunsPerInningResult {
         const outs = this.state.outs;
         const runners = this.state.runners;
         const balls = this.state.balls;
         const strikes = this.state.strikes;
-        //TODO - this seems hacky?
-        let runsPerInningData = this.state.runsPerInningData !== undefined ? this.state.runsPerInningData : responseXML;
         let ballsStrikesXPath = SHOW_BALLS_STRIKES ? `[@balls=${balls}][@strikes=${strikes}]` : '';
-        let situationElement = runsPerInningData.evaluate(`//situation[@outs=${outs}][@runners=${runners}]${ballsStrikesXPath}[1]`, this.state.runsPerInningData, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
+        let situationElement = xml.evaluate(`//situation[@outs=${outs}][@runners=${runners}]${ballsStrikesXPath}[1]`, xml, null, XPathResult.ANY_UNORDERED_NODE_TYPE, null).singleNodeValue;
         let situationChildren = situationElement.childNodes;
         let total = 0;
         let countByRuns = [];
@@ -748,9 +780,10 @@ class BaseballSituation extends Component<{}, BaseballSituationState> {
         }
         return new RunsPerInningResult(total, countByRuns);
     }
-    updateRunsPerInning(responseXML?: Document) {
-        const runsPerInningResult = this.getRunsPerInningResultFromXML(responseXML);
-        this.setState({runsPerInning: runsPerInningResult});
+    updateRunsPerInning(startXml: Document | undefined, endXml: Document) {
+        const endResult = this.getRunsPerInningResultFromXML(endXml);
+        const startResult = startXml !== undefined ? this.getRunsPerInningResultFromXML(startXml) : new RunsPerInningResult(0, []);
+        this.setState({runsPerInning: endResult.minus(startResult)});
     }
     setInning(newInning: Inning) {
         this.setState({inning: newInning}, () => this.updateCalculations());
