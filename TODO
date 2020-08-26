@@ -1,7 +1,9 @@
 processStats stuff for ballsStrikes
  - is this done?
 HOWTO is getting long, make it easier to do
-
+This seems wrong:
+    # Make sure we don't duplicate keys.
+    # Strip off the inning info (for now?) and the curScoreDiff
 --
 
 refactoring
