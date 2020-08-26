@@ -30,7 +30,7 @@ class GameSituation:
         self.isHome = False
         self.outs = 0
         # Runners on first, second, third
-        self.runners = [0, 0, 0]
+        self.runners : typing.List[int] = [0, 0, 0]
         # Number of runs the currently batting team is ahead by (can be negative)
         self.curScoreDiff = 0
 
@@ -941,7 +941,7 @@ class StatsRunExpectancyPerInningReport(StatsReport):
     def reportFileName(self) -> str:
         return "runsperinningstats"
 
-    def getNextInning(self, inning) -> typing.Tuple[int, bool]:
+    def getNextInning(self, inning: typing.Tuple[int, bool]) -> typing.Tuple[int, bool]:
         if (inning[1]):
             return (inning[0]+1, False)
         else:
@@ -1225,6 +1225,55 @@ class CountsToWalksAndStrikeoutsReport(Report):
             else:
                 other.yearCount[year] += self.yearCount[year]
 
+class BasesLoadedNoOutsNoRunsReport(Report):
+    def __init__(self):
+        super().__init__()
+        self.numSituations = 0
+        self.numZeroRuns = 0
+
+    def getNextInning(self, inning: typing.Tuple[int, bool]) -> typing.Tuple[int, bool]:
+        if (inning[1]):
+            return (inning[0]+1, False)
+        else:
+            return (inning[0], True)
+
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+        inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
+        for situationKey in [x.situationKey for x in situationKeysAndPlayLines]:
+            situation = GameSituation.fromKey(situationKey)
+            key = (situation.inning, situation.isHome)
+            if (key in inningsToKeys):
+                inningsToKeys[key].append(situation)
+            else:
+                inningsToKeys[key] = [situation]
+
+        for inning in inningsToKeys:
+            startingRunDiff = inningsToKeys[inning][0].curScoreDiff
+            if (self.getNextInning(inning) in inningsToKeys):
+                endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0].curScoreDiff
+            else:
+                endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+            if (endingRunDiff - startingRunDiff < 0):
+                print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
+                assert False
+            # Add the statistics now.
+            for situation in inningsToKeys[inning]:
+                if situation.runners == [1, 1, 1] and situation.outs == 0:
+                    self.numSituations += 1
+                    runsGained = endingRunDiff - situation.curScoreDiff
+                    if runsGained == 0:
+                        self.numZeroRuns += 1
+
+    def doneWithAll(self) -> None:
+        print(f"{self.numSituations}|{self.numZeroRuns}|{(100.0) * self.numZeroRuns / self.numSituations}")
+
+    def doneWithYear(self, year: str) -> None:
+        print(f"{year}|{self.numSituations}|{self.numZeroRuns}|{(100.0) * self.numZeroRuns / self.numSituations}")
+
+    def mergeInto(self, other: 'BasesLoadedNoOutsNoRunsReport'):
+        other.numSituations += self.numSituations
+        other.numZeroRuns += self.numZeroRuns
+
 def usage():
     print("Usage: parseRetrosheet.py [-t] [-v] [-q] [-s] [-h] [-y] [-r <report name>] [-p] <file paths>")
     print("-t: just run tests")
@@ -1252,6 +1301,7 @@ Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), 
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
 Reports['CountsToWalksAndStrikeouts']= [CountsToWalksAndStrikeoutsReport()]
+Reports['BasesLoadedNoOutsNoRuns'] = [BasesLoadedNoOutsNoRunsReport()]
 reportsToRun = Reports['Stats']
 def main(args):
     global verbosity, skipOutput, stopOnFirstError, reportsToRun, sortByYear, doParallel
@@ -1289,6 +1339,7 @@ def main(args):
                 reportsToRun.extend(Reports[a])
         else:
             assert False, "unhandled option: " + str(o)
+    pr = None
     if doProfile:
         pr = cProfile.Profile()
         pr.enable()
@@ -1364,6 +1415,7 @@ def main(args):
             for report in reportsToRun:
                 report.doneWithAll()
     if doProfile:
+        assert pr is not None
         pr.disable()
         pr.dump_stats('profile')
 

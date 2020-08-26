@@ -28,7 +28,14 @@
             "args": ["-r", "StatsWithBallsStrikes", "data"],
             "console": "integratedTerminal"
         },
-
+        {
+            "name": "Run all with BasesLoadedNoOutsNoRuns",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-r", "BasesLoadedNoOutsNoRuns", "-y", "data"],
+            "console": "integratedTerminal"
+        },
         {
             "name": "Run single",
             "type": "python",
@@ -51,6 +58,14 @@
             "request": "launch",
             "program": "${file}",
             "args": ["-r", "WalkOffWalk", "data/1957BAL.EVA"],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run single with BasesLoadedNoOutsNoRuns",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": ["-r", "BasesLoadedNoOutsNoRuns", "data/1957BAL.EVA"],
             "console": "integratedTerminal"
         },
     ]
