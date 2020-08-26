@@ -92,7 +92,7 @@ class GameSituationKeyAndNextPlayLine(typing.NamedTuple):
 def parseBatterEvent(batterEvent: str):
     pass
 
-def parseFilesParallel(fileNames: typing.Iterable[str]) -> (int, typing.Iterable['Report']):
+def parseFilesParallel(fileNames: typing.Iterable[str]) -> typing.Tuple[int, typing.Iterable['Report']]:
     clonedReportsToRun = [copy.deepcopy(x) for x in parseFilesParallel.originalReportsToRun]
     numGames = 0
     for fileName in fileNames:
@@ -102,7 +102,7 @@ def parseFilesParallel(fileNames: typing.Iterable[str]) -> (int, typing.Iterable
             numGames += parseFile(eventFile, clonedReportsToRun)[0]
     return (numGames, clonedReportsToRun)
 
-def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, typing.Iterable['Report']):
+def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> typing.Tuple[int, typing.Iterable['Report']]:
     numGames = 0
     inGame = False
     curGameSituation : GameSituation = GameSituation()
@@ -141,7 +141,7 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, ty
                             if (curId in knownBadGames):
                                 print("known bad game")
                         if (curId not in knownBadGames and (verbosity == Verbosity.verbose or stopOnFirstError)):
-                            raise f"Error in game {curId}"
+                            raise Exception(f"Error in game {curId}")
                         else:
                             # We're just gonna punt and ignore the error
                             inGame = False
@@ -151,7 +151,7 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> (int, ty
                             gameSituationKeys.append(curGameSituationKey)
                             playLines.append(line.strip())
     if numGames == 0:
-        return 0
+        return (0, reports)
     assert curId != ""
     callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
     return (numGames, reports)
