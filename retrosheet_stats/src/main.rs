@@ -1,5 +1,8 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
+use std::collections::HashSet;
+
+use data::{RunnerDests, RunnerInitialPosition};
 use regex::Regex;
 
 mod data {
@@ -80,6 +83,10 @@ mod data {
         pub fn get(self: &Self, key: RunnerInitialPosition) -> Option<RunnerFinalPosition> {
             self.dests.get(&key).map(|x| *x)
         }
+
+        pub fn keys(self: &Self) -> impl Iterator<Item=RunnerInitialPosition> + '_ {
+            self.dests.keys().map(|x| *x).into_iter()
+        }
     }
 
 }
@@ -144,6 +151,18 @@ impl GameSituation {
             }
         }
     }
+
+    fn parse_play(self: &mut GameSituation, line: &str) {
+        // decription of the format is at http://www.retrosheet.org/eventfile.htm
+        let play_line_info = PlayLineInfo::new_from_line(line);
+        let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
+        let beginning_runners = runner_dests.keys().collect::<HashSet<_>>();
+        let mut runners_default_stay_still = false;
+
+        //TODO - a lot of stuff
+        self.next_inning_if_three_outs();
+    }
+
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PlayLineInfo<'a> {
@@ -172,6 +191,7 @@ impl PlayLineInfo<'_> {
         }
     }
 }
+
 
 // TODO - parallel
 
@@ -371,5 +391,32 @@ mod tests {
             play_str: "HR/78/F"
         };
         assert_eq!(expected, play_line_info);
+    }
+
+    mod parse_play_tests {
+        #![allow(non_snake_case)]
+        use super::*;
+
+        fn setup(outs: u8, is_home: bool, play_string: &str) -> (GameSituation, String) {
+            let situation = GameSituation {
+                // Whether runners are on first, second, third bases
+                runners: [false, false, false],
+                inning: 1,
+                cur_score_diff: 0,
+                outs: outs,
+                is_home: is_home,
+            };
+
+            (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
+        }
+
+        #[test]
+        fn test_simpleout() {
+            let (mut situation, play_line) = setup(0, false, "8");
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 1;
+            situation.parse_play(&play_line);
+            assert_eq!(expected_situation, situation);
+        }
     }
 }
