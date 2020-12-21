@@ -1,3 +1,7 @@
+#[macro_use] extern crate lazy_static;
+extern crate regex;
+use regex::Regex;
+
 mod data {
     use std::collections::HashMap;
 
@@ -79,6 +83,7 @@ mod data {
     }
 
 }
+
 enum Verbosity {
     Quiet = 0,
     Normal = 1,
@@ -140,7 +145,33 @@ impl GameSituation {
         }
     }
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PlayLineInfo<'a> {
+    inning: u8,
+    is_home: bool,
+    player_id: &'a str,
+    count_when_play_happened: &'a str,
+    pitches_str: &'a str,
+    play_str: &'a str
+}
 
+impl PlayLineInfo<'_> {
+    fn new_from_line<'a>(line: &'a str) -> PlayLineInfo<'a> {
+        lazy_static! {
+            // TODO perf - opt out of unicode?
+            static ref PLAY_RE : Regex = Regex::new(r"^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$").unwrap();
+        }
+        let play_match = PLAY_RE.captures(line).unwrap();
+        return PlayLineInfo {
+            inning: play_match.get(1).unwrap().as_str().parse::<u8>().unwrap(),
+            is_home: play_match.get(2).unwrap().as_str() == "1",
+            player_id: play_match.get(3).unwrap().as_str(),
+            count_when_play_happened: play_match.get(4).unwrap().as_str(),
+            pitches_str: play_match.get(5).unwrap().as_str(),
+            play_str: play_match.get(6).unwrap().as_str(),
+        }
+    }
+}
 
 // TODO - parallel
 
@@ -325,5 +356,20 @@ mod tests {
                 assert_eq!(Some(expectedValue), dests.get(key), "{:?} {:?}", runners, key);
             }
         }
+    }
+
+    #[test]
+    fn test_parse_play_line_info() {
+        let play_line_info_str = "play,4,1,corrc001,22,BSBFFX,HR/78/F";
+        let play_line_info = PlayLineInfo::new_from_line(play_line_info_str);
+        let expected = PlayLineInfo {
+            inning: 4,
+            is_home: true,
+            player_id: "corrc001",
+            count_when_play_happened: "22",
+            pitches_str: "BSBFFX",
+            play_str: "HR/78/F"
+        };
+        assert_eq!(expected, play_line_info);
     }
 }
