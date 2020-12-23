@@ -1,11 +1,19 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 use std::collections::HashSet;
+use anyhow::{Error, Result};
 
-use data::{RunnerDests, RunnerInitialPosition};
+//TODO - remove this
+#[allow(unused_imports)]
+//TODO - remove this
+#[allow(dead_code)]
+
+use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
 use regex::Regex;
 
 mod data {
+    //TODO - remove this
+    #![allow(dead_code)]
     use std::collections::HashMap;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -23,7 +31,27 @@ mod data {
         ThirdBase,
         HomePlate, // this means the runner scored
         StillAtBat, // only valid for Batter
-        Undetermined
+        Undetermined,
+        Out
+    }
+
+    impl RunnerFinalPosition {
+        pub fn runner_index(self: &Self) -> usize {
+            match *self {
+                RunnerFinalPosition::FirstBase => {
+                    0
+                },
+                RunnerFinalPosition::SecondBase => {
+                    1
+                },
+                RunnerFinalPosition::ThirdBase => {
+                    2
+                },
+                _ => {
+                    panic!("runner_index() called on {:?}", self);
+                }
+            }
+        }
     }
 
     pub struct RunnerDests {
@@ -87,14 +115,35 @@ mod data {
         pub fn keys(self: &Self) -> impl Iterator<Item=RunnerInitialPosition> + '_ {
             self.dests.keys().map(|x| *x).into_iter()
         }
+
+        pub fn set_all<F>(self: &mut Self, func: F)
+            where F: Fn(RunnerInitialPosition) -> RunnerFinalPosition {
+            //self.dests.entry(key)
+            for (&key, value) in self.dests.iter_mut() {
+                *value = func(key);
+            }
+        }
+
+        pub fn set(self: &mut Self, key: RunnerInitialPosition, value: RunnerFinalPosition) {
+            self.dests.insert(key, value);
+        }
     }
 
 }
 
+//TODO - remove this
+#[allow(dead_code)]
+#[derive(Clone, Copy, Debug)]
 enum Verbosity {
     Quiet = 0,
     Normal = 1,
     Verbose = 2
+}
+
+impl Verbosity {
+    fn is_at_least(self: &Self, compare: Verbosity) -> bool {
+        return *self as u8 >= compare as u8;
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -108,6 +157,9 @@ struct GameSituation {
 }
 
 impl GameSituation {
+    //TODO - remove this
+    #![allow(dead_code)]
+
     fn new() -> GameSituation {
         GameSituation {
             cur_score_diff: 0,
@@ -152,15 +204,103 @@ impl GameSituation {
         }
     }
 
-    fn parse_play(self: &mut GameSituation, line: &str) {
+    fn parse_play(self: &mut GameSituation, line: &str, verbosity: Verbosity) -> Result<()> {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
         let play_line_info = PlayLineInfo::new_from_line(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
+        // TODO perf - use a Vec<> or something? Or do we even need this, can we just use runner_dests?
         let beginning_runners = runner_dests.keys().collect::<HashSet<_>>();
         let mut runners_default_stay_still = false;
+        //TODO - verbosity log statements
+        if verbosity.is_at_least(Verbosity::Verbose) {
+            println!("Game situation is {:?}", self);
+            println!("{}", line);
+        }
 
-        //TODO - a lot of stuff
+        // TODO - should return a result?
+        assert_eq!(self.inning, play_line_info.inning);
+        assert_eq!(self.is_home, play_line_info.is_home);
+
+        let play_string = &play_line_info.play_str;
+        // TODO perf - is this collect() necessary?
+        let play_array: Vec<&str> = play_string.split('.').collect();
+        assert!(play_array.len() <= 2);
+        // Deal with the first part of the string.
+        let batter_events = play_array[0].split(';');
+        for batter_event in batter_events {
+            let batter_event = batter_event.trim();
+            let mut done_parsing_event = false;
+            lazy_static! {
+                static ref SIMPLE_HIT_RE : Regex = Regex::new(r"([SDTH])(?:\d|/)").unwrap();
+                static ref SIMPLE_HIT_2_RE : Regex = Regex::new(r"([SDTH])\s*$").unwrap();
+            }
+            let simple_hit_match = SIMPLE_HIT_RE.captures(batter_event);
+            let simple_hit_2_match = SIMPLE_HIT_RE.captures(batter_event);
+            let captures = simple_hit_match.or(simple_hit_2_match);
+            if let Some(inner_captures) = captures {
+                let type_of_hit = inner_captures.get(1).unwrap().as_str();
+                match type_of_hit {
+                    "S" => {
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase);
+                    },
+                    "D" => {
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::SecondBase);
+                    },
+                    "T" => {
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::ThirdBase);
+                    },
+                    "H" => {
+                        runner_dests.set_all(|_| RunnerFinalPosition::HomePlate);
+                    },
+                    _ => panic!("Unexpected type_of_hit {}", type_of_hit)
+                }
+                // Sometimes these aren't specified - assume runners don't move
+                runners_default_stay_still = true;
+                done_parsing_event = true;
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("HR") {
+                    runner_dests.set_all(|_| RunnerFinalPosition::HomePlate);
+                }
+                done_parsing_event = true;
+            }
+            // TODO - much more
+        }
+
+        // TODO - Now parse runner stuff
+
+        // TODO even more stuff
+
+        // Deal with runner_dests
+        // TODO - move this into a method
+        self.runners = [false, false, false];
+        for key in runner_dests.keys() {
+            let dest = runner_dests.get(key).unwrap();
+            match dest {
+                RunnerFinalPosition::Out => {
+                    self.outs += 1;
+                },
+                RunnerFinalPosition::HomePlate => {
+                    self.cur_score_diff += 1;
+                },
+                RunnerFinalPosition::Undetermined | RunnerFinalPosition::StillAtBat => {
+                    // Either we're the batter, and nothing happens, or
+                    // we don't know what happens, and it doesn't matter because there
+                    // are three outs.
+                },
+                RunnerFinalPosition::FirstBase | RunnerFinalPosition::SecondBase | RunnerFinalPosition::ThirdBase => {
+                    if *self.runners.get(dest.runner_index()).unwrap() {
+                        if verbosity.is_at_least(Verbosity::Normal) {
+                            println!("ERROR - already a runner at base {}!", dest.runner_index());
+                        }
+                        return Err(Error::msg("ERROR - duplicate runner"));
+                    }
+                    *(self.runners.get_mut(dest.runner_index()).unwrap()) = true;
+                }
+            }
+        }
         self.next_inning_if_three_outs();
+        Ok(())
     }
 
 }
@@ -171,7 +311,7 @@ struct PlayLineInfo<'a> {
     player_id: &'a str,
     count_when_play_happened: &'a str,
     pitches_str: &'a str,
-    play_str: &'a str
+    play_str: String
 }
 
 impl PlayLineInfo<'_> {
@@ -181,13 +321,16 @@ impl PlayLineInfo<'_> {
             static ref PLAY_RE : Regex = Regex::new(r"^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$").unwrap();
         }
         let play_match = PLAY_RE.captures(line).unwrap();
+        // remove characters we don't care about
+        let play_str = play_match.get(6).unwrap().as_str().chars()
+            .filter(|&x| x != '!' && x != '#' && x != '?').collect();
         return PlayLineInfo {
             inning: play_match.get(1).unwrap().as_str().parse::<u8>().unwrap(),
             is_home: play_match.get(2).unwrap().as_str() == "1",
             player_id: play_match.get(3).unwrap().as_str(),
             count_when_play_happened: play_match.get(4).unwrap().as_str(),
             pitches_str: play_match.get(5).unwrap().as_str(),
-            play_str: play_match.get(6).unwrap().as_str(),
+            play_str: play_str
         }
     }
 }
@@ -388,9 +531,22 @@ mod tests {
             player_id: "corrc001",
             count_when_play_happened: "22",
             pitches_str: "BSBFFX",
-            play_str: "HR/78/F"
+            play_str: "HR/78/F".to_owned()
         };
         assert_eq!(expected, play_line_info);
+    }
+
+    #[test]
+    fn test_verbosity_is_at_least() {
+        assert_eq!(true, Verbosity::Verbose.is_at_least(Verbosity::Verbose));
+        assert_eq!(true, Verbosity::Verbose.is_at_least(Verbosity::Normal));
+        assert_eq!(true, Verbosity::Verbose.is_at_least(Verbosity::Quiet));
+        assert_eq!(false, Verbosity::Normal.is_at_least(Verbosity::Verbose));
+        assert_eq!(true, Verbosity::Normal.is_at_least(Verbosity::Normal));
+        assert_eq!(true, Verbosity::Normal.is_at_least(Verbosity::Quiet));
+        assert_eq!(false, Verbosity::Quiet.is_at_least(Verbosity::Verbose));
+        assert_eq!(false, Verbosity::Quiet.is_at_least(Verbosity::Normal));
+        assert_eq!(true, Verbosity::Quiet.is_at_least(Verbosity::Quiet));
     }
 
     mod parse_play_tests {
@@ -411,12 +567,24 @@ mod tests {
         }
 
         #[test]
-        fn test_simpleout() {
+        #[ignore]
+        fn test_simpleout() -> Result<()> {
             let (mut situation, play_line) = setup(0, false, "8");
             let mut expected_situation = situation.clone();
             expected_situation.outs = 1;
-            situation.parse_play(&play_line);
+            situation.parse_play(&play_line, Verbosity::Normal)?;
             assert_eq!(expected_situation, situation);
+            Ok(())
+        }
+
+        #[test]
+        fn test_single() -> Result<()> {
+            let (mut situation, play_line) = setup(0, false, "S7");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners[0] = true;
+            situation.parse_play(&play_line, Verbosity::Normal)?;
+            assert_eq!(expected_situation, situation);
+            Ok(())
         }
     }
 }
