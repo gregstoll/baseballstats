@@ -42,18 +42,19 @@ mod data {
     impl RunnerInitialPosition {
         pub fn base_number(self: &Self) -> usize {
             match *self {
-                RunnerInitialPosition::Batter => {
-                    0
-                },
-                RunnerInitialPosition::FirstBase => {
-                    1
-                },
-                RunnerInitialPosition::SecondBase => {
-                    2
-                },
-                RunnerInitialPosition::ThirdBase => {
-                    3
-                },
+                RunnerInitialPosition::Batter => 0,
+                RunnerInitialPosition::FirstBase => 1,
+                RunnerInitialPosition::SecondBase => 2,
+                RunnerInitialPosition::ThirdBase => 3
+            }
+        }
+
+        pub fn runner_index(self: &Self) -> usize {
+            match *self {
+                RunnerInitialPosition::Batter => panic!("Can't call runner_index() on Batter"),
+                RunnerInitialPosition::FirstBase => 0,
+                RunnerInitialPosition::SecondBase => 1,
+                RunnerInitialPosition::ThirdBase => 2
             }
         }
     }
@@ -339,8 +340,30 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("HR") {
                     runner_dests.set_all(|_| RunnerFinalPosition::HomePlate);
+                    done_parsing_event = true;
                 }
-                done_parsing_event = true;
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("K") {
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out);
+                    runners_default_stay_still = true;
+                    // TODO - refactor this to only call starts_with() once?
+                    if batter_event.starts_with("K+") || batter_event.starts_with("K23+") {
+                        let temp_event = if batter_event.starts_with("K+") { &batter_event[2..] } else { &batter_event[4..] };
+                        if temp_event.starts_with("SB") {
+                            let dest: RunnerFinalPosition = temp_event.chars().nth(2)
+                                .ok_or(anyhow!("K+SB line too short: {}", batter_event))?.try_into()?;
+                            if dest == RunnerFinalPosition::FirstBase {
+                                return Err(anyhow!("K+SB to first base?: {}", batter_event));
+                            }
+                            runner_dests.set(RunnerInitialPosition::Batter, dest);
+                        }
+                        // TODO - more of these
+
+                    }
+                    //TODO - more
+                    done_parsing_event = true;
+                }
             }
             // TODO - much more
         }
@@ -380,6 +403,7 @@ impl GameSituation {
         // Deal with runner_dests
         // TODO - move this into a method
         self.runners = [false, false, false];
+        let mut undetermined_runner = None;
         for key in runner_dests.keys() {
             let dest = runner_dests.get(key).unwrap();
             match dest {
@@ -389,21 +413,38 @@ impl GameSituation {
                 RunnerFinalPosition::HomePlate => {
                     self.cur_score_diff += 1;
                 },
-                RunnerFinalPosition::Undetermined | RunnerFinalPosition::StillAtBat => {
-                    // Either we're the batter, and nothing happens, or
-                    // we don't know what happens, and it doesn't matter because there
-                    // are three outs.
+                RunnerFinalPosition::Undetermined => {
+                    if runners_default_stay_still {
+                        if *self.runners.get(key.runner_index()).unwrap() {
+                            if verbosity.is_at_least(Verbosity::Normal) {
+                                println!("ERROR - already a runner at base {}!", key.runner_index());
+                            }
+                            return Err(anyhow!("ERROR - duplicate runner at base {}", key.runner_index()));
+                        }
+                        *(self.runners.get_mut(key.runner_index()).unwrap()) = true;
+                    }
+                    else {
+                        undetermined_runner = Some(key);
+                    }
+                },
+                RunnerFinalPosition::StillAtBat => {
+                    if key != RunnerInitialPosition::Batter {
+                        return Err(anyhow!("Got StillAtBat for initial position {:?}", key));
+                    }
                 },
                 RunnerFinalPosition::FirstBase | RunnerFinalPosition::SecondBase | RunnerFinalPosition::ThirdBase => {
                     if *self.runners.get(dest.runner_index()).unwrap() {
                         if verbosity.is_at_least(Verbosity::Normal) {
                             println!("ERROR - already a runner at base {}!", dest.runner_index());
                         }
-                        return Err(anyhow!("ERROR - duplicate runner"));
+                        return Err(anyhow!("ERROR - duplicate runner at base {}", dest.runner_index()));
                     }
                     *(self.runners.get_mut(dest.runner_index()).unwrap()) = true;
                 }
             }
+        }
+        if undetermined_runner.is_some() && self.outs < 3 {
+            return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner))
         }
         self.next_inning_if_three_outs();
         Ok(())
@@ -766,6 +807,23 @@ mod tests {
             expected_situation.cur_score_diff = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
+
+        #[test]
+        fn test_strikeout() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "K");
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_strikeout_putout() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "K23");
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
 
 
 
