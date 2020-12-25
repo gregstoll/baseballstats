@@ -289,14 +289,19 @@ impl GameSituation {
             println!("{}", line);
         }
 
-        // TODO - should return a result?
-        assert_eq!(self.inning, play_line_info.inning);
-        assert_eq!(self.is_home, play_line_info.is_home);
+        if self.inning != play_line_info.inning {
+            return Err(anyhow!("Mismatched inning - expected {} from GameSituation, got {} from play_line_info", self.inning, play_line_info.inning));
+        }
+        if self.is_home != play_line_info.is_home {
+            return Err(anyhow!("Mismatched is_home - expected {} from GameSituation, got {} from play_line_info", self.is_home, play_line_info.is_home));
+        }
 
         let play_string = &play_line_info.play_str;
         // TODO perf - is this collect() necessary?
         let play_array: Vec<&str> = play_string.split('.').collect();
-        assert!(play_array.len() <= 2);
+        if play_array.len() > 2 {
+            return Err(anyhow!("play_array is too long after splitting on '.': \"{}\"", play_string));
+        }
         // Deal with the first part of the string.
         let batter_events = play_array[0].split(';');
         for batter_event in batter_events {
@@ -324,7 +329,7 @@ impl GameSituation {
                     "H" => {
                         runner_dests.set_all(|_| RunnerFinalPosition::HomePlate);
                     },
-                    _ => panic!("Unexpected type_of_hit {}", type_of_hit)
+                    _ => return Err(anyhow!(format!("Unexpected type_of_hit {}", type_of_hit)))
                 }
                 // Sometimes these aren't specified - assume runners don't move
                 runners_default_stay_still = true;
@@ -345,7 +350,9 @@ impl GameSituation {
             for runner_item in runner_array {
                 let runner_chars = runner_item.chars().collect::<Vec<_>>();
                 if runner_chars.len() != 3 {
-                    assert_eq!('(', runner_chars[3]);
+                    if '(' != runner_chars[3] {
+                        return Err(anyhow!("Expected '(' as fourth character in runner_chars \"{}\"", runner_item));
+                    }
                 }
                 let initial_runner: RunnerInitialPosition = runner_chars[0].try_into()?;
                 let final_runner: RunnerFinalPosition = runner_chars[2].try_into()?;
@@ -692,6 +699,18 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, true, false];
             expected_situation.cur_score_diff = 3;
+            situation.parse_play(&play_line, Verbosity::Normal)?;
+            assert_eq!(expected_situation, situation);
+            Ok(())
+        }
+
+        #[test]
+        fn test_triple() -> Result<()> {
+            let (mut situation, play_line) = setup(0, false, "T9/F9LD.2-H");
+            situation.runners = [false, true, false];
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.cur_score_diff = 1;
             situation.parse_play(&play_line, Verbosity::Normal)?;
             assert_eq!(expected_situation, situation);
             Ok(())
