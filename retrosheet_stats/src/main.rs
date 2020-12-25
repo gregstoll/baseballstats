@@ -1,6 +1,6 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
-use std::collections::HashSet;
+use std::{collections::HashSet, convert::TryInto};
 use anyhow::{Error, Result};
 
 //TODO - remove this
@@ -14,7 +14,7 @@ use regex::Regex;
 mod data {
     //TODO - remove this
     #![allow(dead_code)]
-    use std::collections::HashMap;
+    use std::{collections::HashMap, convert::TryFrom};
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum RunnerInitialPosition {
@@ -22,6 +22,39 @@ mod data {
         FirstBase,
         SecondBase,
         ThirdBase
+    }
+
+    impl TryFrom<char> for RunnerInitialPosition {
+        type Error = anyhow::Error;
+
+        fn try_from(value: char) -> Result<Self, Self::Error> {
+            match value {
+                'B' => Ok(RunnerInitialPosition::Batter),
+                '1' => Ok(RunnerInitialPosition::FirstBase),
+                '2' => Ok(RunnerInitialPosition::SecondBase),
+                '3' => Ok(RunnerInitialPosition::ThirdBase),
+                _ => Err(anyhow::Error::msg("Unrecognized char for RunnerInitialPosition"))
+            }
+        }
+    }
+
+    impl RunnerInitialPosition {
+        pub fn base_number(self: &Self) -> usize {
+            match *self {
+                RunnerInitialPosition::Batter => {
+                    0
+                },
+                RunnerInitialPosition::FirstBase => {
+                    1
+                },
+                RunnerInitialPosition::SecondBase => {
+                    2
+                },
+                RunnerInitialPosition::ThirdBase => {
+                    3
+                },
+            }
+        }
     }
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +67,22 @@ mod data {
         Undetermined,
         Out
     }
+
+    impl TryFrom<char> for RunnerFinalPosition {
+        type Error = anyhow::Error;
+
+        fn try_from(value: char) -> Result<Self, Self::Error> {
+            match value {
+                '1' => Ok(RunnerFinalPosition::FirstBase),
+                '2' => Ok(RunnerFinalPosition::SecondBase),
+                '3' => Ok(RunnerFinalPosition::ThirdBase),
+                'H' => Ok(RunnerFinalPosition::HomePlate),
+                _ => Err(anyhow::Error::msg("Unrecognized char for RunnerFinalPosition"))
+            }
+        }
+    }
+
+
 
     impl RunnerFinalPosition {
         pub fn runner_index(self: &Self) -> usize {
@@ -48,9 +97,31 @@ mod data {
                     2
                 },
                 _ => {
+                    //TODO
                     panic!("runner_index() called on {:?}", self);
                 }
             }
+        }
+        pub fn base_number(self: &Self) -> usize {
+            match *self {
+                RunnerFinalPosition::FirstBase => {
+                    1
+                },
+                RunnerFinalPosition::SecondBase => {
+                    2
+                },
+                RunnerFinalPosition::ThirdBase => {
+                    3
+                },
+                RunnerFinalPosition::HomePlate => {
+                    4
+                },
+                _ => {
+                    //TODO
+                    panic!("base_number() called on {:?}", self);
+                }
+            }
+
         }
     }
 
@@ -268,6 +339,32 @@ impl GameSituation {
         }
 
         // TODO - Now parse runner stuff
+        if play_array.len() > 1 {
+            let runner_array = play_array[1].split(';').into_iter().map(|x| x.trim());
+            for runner_item in runner_array {
+                let runner_chars = runner_item.chars().collect::<Vec<_>>();
+                if runner_chars.len() != 3 {
+                    assert_eq!('(', runner_chars[3]);
+                }
+                let initial_runner: RunnerInitialPosition = runner_chars[0].try_into()?;
+                let final_runner: RunnerFinalPosition = runner_chars[2].try_into()?;
+                match runner_chars[1] {
+                    '-' => {
+                        // This looks weird, but sometimes a runner can go to the
+                        // same base (a little redundant, but OK)
+                        if initial_runner.base_number() > final_runner.base_number() {
+                            return Err(anyhow::Error::msg(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
+                        }
+                        runner_dests.set(initial_runner, final_runner);
+                    },
+                    'X' => {
+                        //TODO
+                    },
+                    //TODO better message
+                    _ => return Err(anyhow::Error::msg(format!("Invalid character {} in runner specification for play {}", runner_chars[1], play_string)))
+                };
+            }
+        }
 
         // TODO even more stuff
 
@@ -582,6 +679,18 @@ mod tests {
             let (mut situation, play_line) = setup(0, false, "S7");
             let mut expected_situation = situation.clone();
             expected_situation.runners[0] = true;
+            situation.parse_play(&play_line, Verbosity::Normal)?;
+            assert_eq!(expected_situation, situation);
+            Ok(())
+        }
+
+        #[test]
+        fn test_double() -> Result<()> {
+            let (mut situation, play_line) = setup(0, false, "D7/G5.3-H;2-H;1-H");
+            situation.runners = [true, true, true];
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.cur_score_diff = 3;
             situation.parse_play(&play_line, Verbosity::Normal)?;
             assert_eq!(expected_situation, situation);
             Ok(())
