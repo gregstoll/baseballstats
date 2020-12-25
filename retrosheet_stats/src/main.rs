@@ -147,6 +147,7 @@ mod data {
                 // TODO - this is a change from python, used to be StillAtBat (-1)
                 dests.insert(RunnerInitialPosition::ThirdBase, RunnerFinalPosition::Undetermined);
             }
+            dests.insert(RunnerInitialPosition::Batter, RunnerFinalPosition::Undetermined);
             RunnerDests { dests }
         }
 
@@ -668,8 +669,8 @@ mod tests {
             };
 
             (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
-
         }
+
         fn setup(runners: [bool;3], play_string: &str) -> (GameSituation, String) {
             let situation = GameSituation {
                 runners,
@@ -682,15 +683,19 @@ mod tests {
             (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
         }
 
+        fn assert_result(expected_situation: &GameSituation, initial_situation: &mut GameSituation, play_line: &str) -> Result<()> {
+            initial_situation.parse_play(&play_line, Verbosity::Normal)?;
+            assert_eq!(expected_situation, initial_situation);
+            Ok(())
+        }
+
         #[test]
         #[ignore]
         fn test_simpleout() -> Result<()> {
             let (mut situation, play_line) = setup([false, false, false], "8");
             let mut expected_situation = situation.clone();
             expected_situation.outs = 1;
-            situation.parse_play(&play_line, Verbosity::Normal)?;
-            assert_eq!(expected_situation, situation);
-            Ok(())
+            assert_result(&expected_situation, &mut situation, &play_line)
         }
 
         #[test]
@@ -698,9 +703,7 @@ mod tests {
             let (mut situation, play_line) = setup([false, false, false], "S7");
             let mut expected_situation = situation.clone();
             expected_situation.runners[0] = true;
-            situation.parse_play(&play_line, Verbosity::Normal)?;
-            assert_eq!(expected_situation, situation);
-            Ok(())
+            assert_result(&expected_situation, &mut situation, &play_line)
         }
 
         #[test]
@@ -709,9 +712,7 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, true, false];
             expected_situation.cur_score_diff = 3;
-            situation.parse_play(&play_line, Verbosity::Normal)?;
-            assert_eq!(expected_situation, situation);
-            Ok(())
+            assert_result(&expected_situation, &mut situation, &play_line)
         }
 
         #[test]
@@ -720,9 +721,53 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, true];
             expected_situation.cur_score_diff = 1;
-            situation.parse_play(&play_line, Verbosity::Normal)?;
-            assert_eq!(expected_situation, situation);
-            Ok(())
+            assert_result(&expected_situation, &mut situation, &play_line)
         }
+
+        #[test]
+        fn test_home_run() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "H/L7D");
+            let mut expected_situation = situation.clone();
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_home_run_explicit_runners() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "HR/F78XD.2-H;1-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.cur_score_diff = 3;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_home_run_inside_park() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, true], "HR9/F9LS.3-H;1-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.cur_score_diff = 3;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_home_run_inside_park_just_h() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, true], "H9/F9LS.3-H;1-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.cur_score_diff = 3;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_home_run_inside_park_just_h_no_runners() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "H9/F9LS");
+            let mut expected_situation = situation.clone();
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+
+
     }
 }
