@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 use std::{collections::HashSet, convert::TryInto};
-use anyhow::{Error, Result};
+use anyhow::{anyhow, Result};
 
 //TODO - remove this
 #[allow(unused_imports)]
@@ -15,6 +15,7 @@ mod data {
     //TODO - remove this
     #![allow(dead_code)]
     use std::{collections::HashMap, convert::TryFrom};
+    use anyhow::anyhow;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum RunnerInitialPosition {
@@ -33,7 +34,7 @@ mod data {
                 '1' => Ok(RunnerInitialPosition::FirstBase),
                 '2' => Ok(RunnerInitialPosition::SecondBase),
                 '3' => Ok(RunnerInitialPosition::ThirdBase),
-                _ => Err(anyhow::Error::msg("Unrecognized char for RunnerInitialPosition"))
+                _ => Err(anyhow!("Unrecognized char for RunnerInitialPosition"))
             }
         }
     }
@@ -77,7 +78,7 @@ mod data {
                 '2' => Ok(RunnerFinalPosition::SecondBase),
                 '3' => Ok(RunnerFinalPosition::ThirdBase),
                 'H' => Ok(RunnerFinalPosition::HomePlate),
-                _ => Err(anyhow::Error::msg("Unrecognized char for RunnerFinalPosition"))
+                _ => Err(anyhow!("Unrecognized char for RunnerFinalPosition"))
             }
         }
     }
@@ -352,16 +353,16 @@ impl GameSituation {
                     '-' => {
                         // This looks weird, but sometimes a runner can go to the
                         // same base (a little redundant, but OK)
+                        //TODO refactor
                         if initial_runner.base_number() > final_runner.base_number() {
-                            return Err(anyhow::Error::msg(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
+                            return Err(anyhow!(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
                         }
                         runner_dests.set(initial_runner, final_runner);
                     },
                     'X' => {
                         //TODO
                     },
-                    //TODO better message
-                    _ => return Err(anyhow::Error::msg(format!("Invalid character {} in runner specification for play {}", runner_chars[1], play_string)))
+                    _ => return Err(anyhow!(format!("Invalid character {} in runner specification for play {}", runner_chars[1], play_string)))
                 };
             }
         }
@@ -390,7 +391,7 @@ impl GameSituation {
                         if verbosity.is_at_least(Verbosity::Normal) {
                             println!("ERROR - already a runner at base {}!", dest.runner_index());
                         }
-                        return Err(Error::msg("ERROR - duplicate runner"));
+                        return Err(anyhow!("ERROR - duplicate runner"));
                     }
                     *(self.runners.get_mut(dest.runner_index()).unwrap()) = true;
                 }
