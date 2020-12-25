@@ -658,14 +658,25 @@ mod tests {
         #![allow(non_snake_case)]
         use super::*;
 
-        fn setup(outs: u8, is_home: bool, play_string: &str) -> (GameSituation, String) {
+        fn setup_with_inning(outs: u8, is_home: bool, runners: [bool;3], play_string: &str) -> (GameSituation, String) {
             let situation = GameSituation {
-                // Whether runners are on first, second, third bases
-                runners: [false, false, false],
+                runners,
                 inning: 1,
                 cur_score_diff: 0,
-                outs: outs,
-                is_home: is_home,
+                outs,
+                is_home
+            };
+
+            (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
+
+        }
+        fn setup(runners: [bool;3], play_string: &str) -> (GameSituation, String) {
+            let situation = GameSituation {
+                runners,
+                inning: 1,
+                cur_score_diff: 0,
+                outs: 0,
+                is_home: false
             };
 
             (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
@@ -674,7 +685,7 @@ mod tests {
         #[test]
         #[ignore]
         fn test_simpleout() -> Result<()> {
-            let (mut situation, play_line) = setup(0, false, "8");
+            let (mut situation, play_line) = setup([false, false, false], "8");
             let mut expected_situation = situation.clone();
             expected_situation.outs = 1;
             situation.parse_play(&play_line, Verbosity::Normal)?;
@@ -684,7 +695,7 @@ mod tests {
 
         #[test]
         fn test_single() -> Result<()> {
-            let (mut situation, play_line) = setup(0, false, "S7");
+            let (mut situation, play_line) = setup([false, false, false], "S7");
             let mut expected_situation = situation.clone();
             expected_situation.runners[0] = true;
             situation.parse_play(&play_line, Verbosity::Normal)?;
@@ -694,8 +705,7 @@ mod tests {
 
         #[test]
         fn test_double() -> Result<()> {
-            let (mut situation, play_line) = setup(0, false, "D7/G5.3-H;2-H;1-H");
-            situation.runners = [true, true, true];
+            let (mut situation, play_line) = setup([true, true, true], "D7/G5.3-H;2-H;1-H");
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, true, false];
             expected_situation.cur_score_diff = 3;
@@ -706,8 +716,7 @@ mod tests {
 
         #[test]
         fn test_triple() -> Result<()> {
-            let (mut situation, play_line) = setup(0, false, "T9/F9LD.2-H");
-            situation.runners = [false, true, false];
+            let (mut situation, play_line) = setup([false, true, false], "T9/F9LD.2-H");
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, true];
             expected_situation.cur_score_diff = 1;
