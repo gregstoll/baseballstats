@@ -420,9 +420,15 @@ impl GameSituation {
                     // No play
                     runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat);
                     runners_default_stay_still = true;
+                    done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+            }
             // TODO - much more
+            if !done_parsing_event {
+                return Err(anyhow!("ERROR - unrecognized event {} (line is {})", batter_event, line));
+            }
         }
 
         // TODO - Now parse runner stuff
