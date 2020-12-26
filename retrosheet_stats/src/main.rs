@@ -429,6 +429,22 @@ impl GameSituation {
                     done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+                if batter_event.starts_with("HP") {
+                    // hit by pitch
+                    runner_dests.batter_to_first();
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("DGR") {
+                    // ground rule double
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::SecondBase);
+                    done_parsing_event = true;
+                }
+            }
+
+
             // TODO - much more
             if !done_parsing_event {
                 return Err(anyhow!("ERROR - unrecognized event {} (line is {})", batter_event, line));
@@ -893,6 +909,15 @@ mod tests {
         }
 
         #[test]
+        fn test_ground_rule_double() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "DGR/L9LS.2-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
         fn test_home_run() -> Result<()> {
             let (mut situation, play_line) = setup([false, false, false], "H/L7D");
             let mut expected_situation = situation.clone();
@@ -932,6 +957,22 @@ mod tests {
             let (mut situation, play_line) = setup([false, false, false], "H9/F9LS");
             let mut expected_situation = situation.clone();
             expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_hit_by_pitch() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "HP.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_hit_by_pitch_no_runners() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "HP");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
