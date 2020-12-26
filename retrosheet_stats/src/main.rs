@@ -379,7 +379,6 @@ impl GameSituation {
                                 runner_dests.set(start, RunnerFinalPosition::Out);
                             }
                         }
-                        //TODO - this may not be tested?
                         else if temp_event.starts_with("PO") {
                             lazy_static! {
                                 static ref PO_ERROR_RE : Regex = Regex::new(r"^PO.\([^)]*?E.*?\)").unwrap();
@@ -463,6 +462,10 @@ impl GameSituation {
         self.runners = [false, false, false];
         let mut undetermined_runner = None;
         for key in runner_dests.keys() {
+            // TODO - do this a more performant way?
+            if beginning_runners.get(&key).is_none() {
+                return Err(anyhow!("ERROR - picked up extra runner {:?}", key));
+            }
             let dest = runner_dests.get(key).unwrap();
             match dest {
                 RunnerFinalPosition::Out => {
@@ -917,6 +920,26 @@ mod tests {
             expected_situation.outs = 2;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
+
+        #[test]
+        fn test_strikeout_pickoff_other_runner_advance() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "K+PO1.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_strikeout_pickoff_error() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "K+PO2(E3).2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+
 
         #[test]
         fn test_no_play() -> Result<()> {
