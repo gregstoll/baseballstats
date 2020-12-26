@@ -278,7 +278,7 @@ impl GameSituation {
         }
     }
 
-    fn parse_play(self: &mut GameSituation, line: &str, verbosity: Verbosity) -> Result<()> {
+    pub fn parse_play(self: &mut GameSituation, line: &str, verbosity: Verbosity) -> Result<()> {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
         let play_line_info = PlayLineInfo::new_from_line(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
@@ -347,53 +347,16 @@ impl GameSituation {
                 if batter_event.starts_with("K") {
                     runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out);
                     runners_default_stay_still = true;
-                    // TODO - refactor this to only call starts_with() once?
                     if batter_event.starts_with("K+") || batter_event.starts_with("K23+") {
                         let temp_event = if batter_event.starts_with("K+") { &batter_event[2..] } else { &batter_event[4..] };
                         if temp_event.starts_with("SB") {
-                            let dest: RunnerFinalPosition = temp_event.chars().nth(2)
-                                .ok_or(anyhow!("K+SB line too short: {}", batter_event))?.try_into()?;
-                            if dest == RunnerFinalPosition::FirstBase {
-                                return Err(anyhow!("K+SB to first base?: {}", batter_event));
-                            }
-                            let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
-                            runner_dests.set(start, dest);
+                            GameSituation::handle_sb_event(temp_event, &mut runner_dests)?;
                         }
                         else if temp_event.starts_with("CS") || temp_event.starts_with("POCS"){
-                            lazy_static! {
-                                static ref CS_ERROR_RE : Regex = Regex::new(r"^(?:PO)?CS.\([^)]*?E.*?\)").unwrap();
-                            }
-                            let dest_position = if temp_event.starts_with("CS") { 2 } else { 4 };
-                            let dest: RunnerFinalPosition = temp_event.chars().nth(dest_position)
-                                .ok_or(anyhow!("CS line too short: {}", batter_event))?.try_into()?;
-                            if dest == RunnerFinalPosition::FirstBase {
-                                return Err(anyhow!("CS to first base?: {}", batter_event));
-                            }
-                            let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
-
-                            if CS_ERROR_RE.is_match(temp_event) {
-                                // Error, so no out.
-                                runner_dests.set(start, dest);
-                            }
-                            else {
-                                runner_dests.set(start, RunnerFinalPosition::Out);
-                            }
+                            GameSituation::handle_cs_or_pocs_event(temp_event, &mut runner_dests)?;
                         }
                         else if temp_event.starts_with("PO") {
-                            lazy_static! {
-                                static ref PO_ERROR_RE : Regex = Regex::new(r"^PO.\([^)]*?E.*?\)").unwrap();
-                            }
-                            if PO_ERROR_RE.is_match(temp_event) {
-                                // Error, so no out
-                            }
-                            else {
-                                let start: RunnerInitialPosition = temp_event.chars().nth(2)
-                                    .ok_or(anyhow!("PO line too short: {}", batter_event))?.try_into()?;
-                                if start == RunnerInitialPosition::Batter {
-                                    return Err(anyhow!("PO for batter?: {}", batter_event));
-                                }
-                                runner_dests.set(start, RunnerFinalPosition::Out);
-                            }
+                            GameSituation::handle_po_event(temp_event, &mut runner_dests)?;
                         }
                         //TODO - pretty sure this isn't tested
                         else if temp_event.starts_with("PB") || temp_event.starts_with("WP") {
@@ -428,6 +391,41 @@ impl GameSituation {
                     // Passed ball or wild pitch
                     runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat);
                     runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                // Note that we already checked for "WP"
+                if batter_event.starts_with("W") || batter_event.starts_with("I") {
+                    // walk
+                    runner_dests.batter_to_first();
+                    if batter_event.starts_with("W+") || batter_event.starts_with("IW+") || batter_event.starts_with("I+") {
+                        let temp_event = if batter_event.starts_with("IW+") { &batter_event[3..] } else { &batter_event[2..] };
+                        if temp_event.starts_with("SB") {
+                            GameSituation::handle_sb_event(temp_event, &mut runner_dests)?;
+                        }
+                        else if temp_event.starts_with("CS") || temp_event.starts_with("POCS"){
+                            GameSituation::handle_cs_or_pocs_event(temp_event, &mut runner_dests)?;
+                        }
+                        else if temp_event.starts_with("PO") {
+                            GameSituation::handle_po_event(temp_event, &mut runner_dests)?;
+                        }
+                        else if temp_event.starts_with("PB") || temp_event.starts_with("WP") {
+                            // passed ball or wild pitch
+                        }
+                        else if temp_event.starts_with("OA") || temp_event.starts_with("DI") {
+                            // other advance or defensive indifference
+                        }
+                        else if temp_event.starts_with("E") {
+                            // already had a walk, so whatever the error is will be shown in the runners
+                        }
+                        else {
+                            if verbosity.is_at_least(Verbosity::Normal) {
+                                println!("ERROR - unrecognized W+ event {}", temp_event);
+                            }
+                            return Err(anyhow!("ERROR - unrecognized W+ event {}", temp_event));
+                        }
+                    }
                     done_parsing_event = true;
                 }
             }
@@ -523,6 +521,62 @@ impl GameSituation {
         Ok(())
     }
 
+    fn handle_sb_event(sb_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
+        assert!(sb_event.starts_with("SB"));
+        let sb_parts = sb_event.split(';');
+        for sb_part in sb_parts {
+            let dest: RunnerFinalPosition = sb_part.chars().nth(2)
+                .ok_or(anyhow!("SB part too short: {}", sb_event))?.try_into()?;
+            if dest == RunnerFinalPosition::FirstBase {
+                return Err(anyhow!("SB to first base?: {}", sb_event));
+            }
+            let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
+            runner_dests.set(start, dest);
+        }
+        Ok(())
+    }
+
+    fn handle_cs_or_pocs_event(cs_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
+        assert!(cs_event.starts_with("CS") || cs_event.starts_with("POCS"));
+        lazy_static! {
+            static ref CS_ERROR_RE : Regex = Regex::new(r"^(?:PO)?CS.\([^)]*?E.*?\)").unwrap();
+        }
+        let dest_position = if cs_event.starts_with("CS") { 2 } else { 4 };
+        let dest: RunnerFinalPosition = cs_event.chars().nth(dest_position)
+            .ok_or(anyhow!("CS line too short {}", cs_event))?.try_into()?;
+        if dest == RunnerFinalPosition::FirstBase {
+            return Err(anyhow!("CS to first base?: {}", cs_event));
+        }
+        let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
+
+        if CS_ERROR_RE.is_match(cs_event) {
+            // Error, so no out.
+            runner_dests.set(start, dest);
+        }
+        else {
+            runner_dests.set(start, RunnerFinalPosition::Out);
+        }
+        Ok(())
+    }
+
+    fn handle_po_event(po_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
+        assert!(po_event.starts_with("PO"));
+        lazy_static! {
+            static ref PO_ERROR_RE : Regex = Regex::new(r"^PO.\([^)]*?E.*?\)").unwrap();
+        }
+        if PO_ERROR_RE.is_match(po_event) {
+            // Error, so no out
+        }
+        else {
+            let start: RunnerInitialPosition = po_event.chars().nth(2)
+                .ok_or(anyhow!("PO line too short: {}", po_event))?.try_into()?;
+            if start == RunnerInitialPosition::Batter {
+                return Err(anyhow!("PO for batter?: {}", po_event));
+            }
+            runner_dests.set(start, RunnerFinalPosition::Out);
+        }
+        Ok(())
+    }
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PlayLineInfo<'a> {
@@ -973,5 +1027,42 @@ mod tests {
             let expected_situation = situation.clone();
             assert_result(&expected_situation, &mut situation, &play_line)
         }
+
+        #[test]
+        fn test_walk() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "W.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_intentional_walk() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, true], "IW");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_walk_wild_pitch() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "W+WP.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+
+        #[test]
+        fn test_walk_plus_putout_caught_stealing() -> Result<()> {
+            // game CHN201708160, bottom of the 4th
+            let (mut situation, play_line) = setup([false, true, false], "W+POCS3(26)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+
     }
 }
