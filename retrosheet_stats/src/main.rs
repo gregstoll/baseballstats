@@ -424,6 +424,12 @@ impl GameSituation {
                 }
             }
             if !done_parsing_event {
+                if batter_event.starts_with("PB") || batter_event.starts_with("WP") {
+                    // Passed ball or wild pitch
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat);
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
             }
             // TODO - much more
             if !done_parsing_event {
@@ -945,7 +951,21 @@ mod tests {
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
+        #[test]
+        fn test_wild_pitch() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "WP.2-3;1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
 
+        #[test]
+        fn test_passed_ball() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "PB.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
 
         #[test]
         fn test_no_play() -> Result<()> {
