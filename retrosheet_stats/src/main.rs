@@ -310,8 +310,8 @@ impl GameSituation {
             let batter_event = batter_event.trim();
             let mut done_parsing_event = false;
             lazy_static! {
-                static ref SIMPLE_HIT_RE : Regex = Regex::new(r"([SDTH])(?:\d|/)").unwrap();
-                static ref SIMPLE_HIT_2_RE : Regex = Regex::new(r"([SDTH])\s*$").unwrap();
+                static ref SIMPLE_HIT_RE : Regex = Regex::new(r"^([SDTH])(?:\d|/)").unwrap();
+                static ref SIMPLE_HIT_2_RE : Regex = Regex::new(r"^([SDTH])\s*$").unwrap();
             }
             let simple_hit_match = SIMPLE_HIT_RE.captures(batter_event);
             let simple_hit_2_match = SIMPLE_HIT_RE.captures(batter_event);
@@ -356,10 +356,62 @@ impl GameSituation {
                             if dest == RunnerFinalPosition::FirstBase {
                                 return Err(anyhow!("K+SB to first base?: {}", batter_event));
                             }
-                            runner_dests.set(RunnerInitialPosition::Batter, dest);
+                            let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
+                            runner_dests.set(start, dest);
                         }
-                        // TODO - more of these
+                        else if temp_event.starts_with("CS") || temp_event.starts_with("POCS"){
+                            lazy_static! {
+                                static ref CS_ERROR_RE : Regex = Regex::new(r"^(?:PO)?CS.\([^)]*?E.*?\)").unwrap();
+                            }
+                            let dest_position = if temp_event.starts_with("CS") { 2 } else { 4 };
+                            let dest: RunnerFinalPosition = temp_event.chars().nth(dest_position)
+                                .ok_or(anyhow!("CS line too short: {}", batter_event))?.try_into()?;
+                            if dest == RunnerFinalPosition::FirstBase {
+                                return Err(anyhow!("CS to first base?: {}", batter_event));
+                            }
+                            let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
 
+                            if CS_ERROR_RE.is_match(temp_event) {
+                                // Error, so no out.
+                                runner_dests.set(start, dest);
+                            }
+                            else {
+                                runner_dests.set(start, RunnerFinalPosition::Out);
+                            }
+                        }
+                        //TODO - this may not be tested?
+                        else if temp_event.starts_with("PO") {
+                            lazy_static! {
+                                static ref PO_ERROR_RE : Regex = Regex::new(r"^PO.\([^)]*?E.*?\)").unwrap();
+                            }
+                            if PO_ERROR_RE.is_match(temp_event) {
+                                // Error, so no out
+                            }
+                            else {
+                                let start: RunnerInitialPosition = temp_event.chars().nth(2)
+                                    .ok_or(anyhow!("PO line too short: {}", batter_event))?.try_into()?;
+                                if start == RunnerInitialPosition::Batter {
+                                    return Err(anyhow!("PO for batter?: {}", batter_event));
+                                }
+                                runner_dests.set(start, RunnerFinalPosition::Out);
+                            }
+                        }
+                        //TODO - pretty sure this isn't tested
+                        else if temp_event.starts_with("PB") || temp_event.starts_with("WP") {
+                            // nothing happens
+                        }
+                        else if temp_event.starts_with("OA") || temp_event.starts_with("OBA") || temp_event.starts_with("DI") {
+                            // nothing happens
+                        }
+                        else if temp_event.starts_with("E") {
+                            // nothing happens
+                        }
+                        else {
+                            if verbosity.is_at_least(Verbosity::Normal) {
+                                println!("ERROR - unrecognized K+ event {}", temp_event);
+                            }
+                            return Err(anyhow!("ERROR - unrecognized K+ event {}", temp_event));
+                        }
                     }
                     //TODO - more
                     done_parsing_event = true;
@@ -824,8 +876,40 @@ mod tests {
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
+        #[test]
+        fn test_strikeout_passed_ball() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "K+PB.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
 
+        #[test]
+        fn test_strikeout_miscue() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, true], "K+WP.B-1");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
 
+        #[test]
+        fn test_strikeout_putout_other_runner_advance() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "K23+WP.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
 
+        #[test]
+        fn test_strikeout_putout_caught_stealing() -> Result<()> {
+            // see game BAL196505282, end of 5th inning
+            let (mut situation, play_line) = setup([false, true, false], "K23+CS3(34)/DP");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
     }
 }
