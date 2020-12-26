@@ -413,8 +413,14 @@ impl GameSituation {
                             return Err(anyhow!("ERROR - unrecognized K+ event {}", temp_event));
                         }
                     }
-                    //TODO - more
                     done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("NP") {
+                    // No play
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat);
+                    runners_default_stay_still = true;
                 }
             }
             // TODO - much more
@@ -909,6 +915,13 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, false];
             expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_no_play() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "NP");
+            let expected_situation = situation.clone();
             assert_result(&expected_situation, &mut situation, &play_line)
         }
     }
