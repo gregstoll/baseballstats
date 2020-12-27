@@ -445,7 +445,34 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("C/") || batter_event == "C" {
                     // catcher's interference
+                    // this destination may get overridden
                     runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("E") {
+                    // error letting the runner reach base
+                    // this destination may get overridden
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("FC") {
+                    // fielder's choice
+                    // this destination may get overridden
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("FLE") {
+                    // error on fly foul ball. Nothing happens.
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat).unwrap();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -482,7 +509,31 @@ impl GameSituation {
                         runner_dests.set(initial_runner, final_runner)?;
                     },
                     'X' => {
-                        //TODO
+                        lazy_static! {
+                            static ref RUNNER_OUT_ERROR_RE : Regex = Regex::new(r"^...(?:\([^)]*?\))*\(\d*E.*\)").unwrap();
+                        }
+                        if RUNNER_OUT_ERROR_RE.is_match(runner_item) {
+                            // So this is probably an error.  See if the intervening
+                            // parentheses indicate an out
+                            lazy_static! {
+                                static ref RUNNER_OUT_ERROR_ACTUAL_OUT_1_RE : Regex = Regex::new(r"^....*?\(\d*(/TH)?\).*?\(\d*E.*\)").unwrap();
+                                static ref RUNNER_OUT_ERROR_ACTUAL_OUT_2_RE : Regex = Regex::new(r"^....*?\(\d*E.*\)\(\d*\)").unwrap();
+                            }
+                            if RUNNER_OUT_ERROR_ACTUAL_OUT_1_RE.is_match(runner_item) || RUNNER_OUT_ERROR_ACTUAL_OUT_2_RE.is_match(runner_item) {
+                                // Yup, this is really an out.
+                                runner_dests.set(initial_runner, RunnerFinalPosition::Out)?;
+                            }
+                            else {
+                                // Nope, so runner is safe
+                                if initial_runner.base_number() > final_runner.base_number() {
+                                    return Err(anyhow!(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
+                                }
+                                runner_dests.set(initial_runner, final_runner)?;
+                            }
+                        }
+                        else {
+                            runner_dests.set(initial_runner, RunnerFinalPosition::Out)?;
+                        }
                     },
                     _ => return Err(anyhow!(format!("Invalid character {} in runner specification for play {}", runner_chars[1], play_string)))
                 };
@@ -954,11 +1005,52 @@ mod tests {
         }
 
         #[test]
-        fn test_ground_rule_double() -> Result<()> {
+        fn test_groundrule_double() -> Result<()> {
             let (mut situation, play_line) = setup([false, true, false], "DGR/L9LS.2-H");
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, true, false];
             expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_throwing_error() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "E1/TH/BG15.1-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_fielding_error() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "E3.1-2;B-1");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_fielders_choice_out_at_home() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, true], "FC5/G5.3XH(52)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_fielders_choice_no_outs() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, true], "FC3/G3S.3-H;1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_error_on_foul_ball() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "FLE5/P5F");
+            let expected_situation = situation.clone();
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
