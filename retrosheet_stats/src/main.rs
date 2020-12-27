@@ -1,6 +1,6 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
-use std::{collections::HashSet, convert::TryInto};
+use std::{convert::TryInto};
 use anyhow::{anyhow, Result};
 
 //TODO - remove this
@@ -192,14 +192,15 @@ mod data {
 
         pub fn set_all<F>(self: &mut Self, func: F)
             where F: Fn(RunnerInitialPosition) -> RunnerFinalPosition {
-            //self.dests.entry(key)
             for (&key, value) in self.dests.iter_mut() {
                 *value = func(key);
             }
         }
 
-        pub fn set(self: &mut Self, key: RunnerInitialPosition, value: RunnerFinalPosition) {
-            self.dests.insert(key, value);
+        pub fn set(self: &mut Self, key: RunnerInitialPosition, value: RunnerFinalPosition) -> anyhow::Result<()> {
+            // This is an error if the key doesn't already exist, it means
+            // a runner came into existence that wasn't there at the beginning
+            self.dests.insert(key, value).map(|_| ()).ok_or(anyhow!("Added runner {:?}", key))
         }
     }
 
@@ -282,8 +283,6 @@ impl GameSituation {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
         let play_line_info = PlayLineInfo::new_from_line(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
-        // TODO perf - use a Vec<> or something? Or do we even need this, can we just use runner_dests?
-        let beginning_runners = runner_dests.keys().collect::<HashSet<_>>();
         let mut runners_default_stay_still = false;
         //TODO - verbosity log statements
         if verbosity.is_at_least(Verbosity::Verbose) {
@@ -320,13 +319,13 @@ impl GameSituation {
                 let type_of_hit = inner_captures.get(1).unwrap().as_str();
                 match type_of_hit {
                     "S" => {
-                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase);
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
                     },
                     "D" => {
-                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::SecondBase);
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::SecondBase).unwrap();
                     },
                     "T" => {
-                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::ThirdBase);
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::ThirdBase).unwrap();
                     },
                     "H" => {
                         runner_dests.set_all(|_| RunnerFinalPosition::HomePlate);
@@ -345,7 +344,7 @@ impl GameSituation {
             }
             if !done_parsing_event {
                 if batter_event.starts_with("K") {
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out);
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out).unwrap();
                     runners_default_stay_still = true;
                     if batter_event.starts_with("K+") || batter_event.starts_with("K23+") {
                         let temp_event = if batter_event.starts_with("K+") { &batter_event[2..] } else { &batter_event[4..] };
@@ -381,7 +380,7 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("NP") {
                     // No play
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat);
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat).unwrap();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -389,7 +388,7 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("PB") || batter_event.starts_with("WP") {
                     // Passed ball or wild pitch
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat);
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat).unwrap();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -439,14 +438,14 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("DGR") {
                     // ground rule double
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::SecondBase);
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::SecondBase).unwrap();
                     done_parsing_event = true;
                 }
             }
             if !done_parsing_event {
                 if batter_event.starts_with("C/") || batter_event == "C" {
                     // catcher's interference
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase);
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -480,7 +479,7 @@ impl GameSituation {
                         if initial_runner.base_number() > final_runner.base_number() {
                             return Err(anyhow!(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
                         }
-                        runner_dests.set(initial_runner, final_runner);
+                        runner_dests.set(initial_runner, final_runner)?;
                     },
                     'X' => {
                         //TODO
@@ -496,11 +495,8 @@ impl GameSituation {
         // TODO - move this into a method
         self.runners = [false, false, false];
         let mut undetermined_runner = None;
+        // TODO - better way to iterate over this
         for key in runner_dests.keys() {
-            // TODO - do this a more performant way?
-            if beginning_runners.get(&key).is_none() {
-                return Err(anyhow!("ERROR - picked up extra runner {:?}", key));
-            }
             let dest = runner_dests.get(key).unwrap();
             match dest {
                 RunnerFinalPosition::Out => {
@@ -556,7 +552,7 @@ impl GameSituation {
                 return Err(anyhow!("SB to first base?: {}", sb_event));
             }
             let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
-            runner_dests.set(start, dest);
+            runner_dests.set(start, dest)?;
         }
         Ok(())
     }
@@ -576,10 +572,10 @@ impl GameSituation {
 
         if CS_ERROR_RE.is_match(cs_event) {
             // Error, so no out.
-            runner_dests.set(start, dest);
+            runner_dests.set(start, dest)?;
         }
         else {
-            runner_dests.set(start, RunnerFinalPosition::Out);
+            runner_dests.set(start, RunnerFinalPosition::Out)?;
         }
         Ok(())
     }
@@ -598,7 +594,7 @@ impl GameSituation {
             if start == RunnerInitialPosition::Batter {
                 return Err(anyhow!("PO for batter?: {}", po_event));
             }
-            runner_dests.set(start, RunnerFinalPosition::Out);
+            runner_dests.set(start, RunnerFinalPosition::Out)?;
         }
         Ok(())
     }
