@@ -443,6 +443,15 @@ impl GameSituation {
                     done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+                if batter_event.starts_with("C/") || batter_event == "C" {
+                    // catcher's interference
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase);
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+
 
 
             // TODO - much more
@@ -883,6 +892,46 @@ mod tests {
         }
 
         #[test]
+        fn test_catchers_interference() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "C/E2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners[0] = true;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_catchers_interference_runner() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "C/E2.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_catchers_interference_runner_explicit() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "C/E2.B-1;1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_pitchers_interference() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "C/E1");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_first_basemans_interference() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "C/E3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
         fn test_single() -> Result<()> {
             let (mut situation, play_line) = setup([false, false, false], "S7");
             let mut expected_situation = situation.clone();
@@ -1103,7 +1152,5 @@ mod tests {
             expected_situation.outs = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
-
-
     }
 }
