@@ -477,6 +477,61 @@ impl GameSituation {
                     done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+                if batter_event.starts_with("SHE") {
+                    // Error on sac hit (bunt).  Advances given explicitly
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.contains("DP") || batter_event.contains("TP") {
+                    // Double or triple play
+                    lazy_static! {
+                        static ref DOUBLE_PLAY_RE : Regex = Regex::new(r"^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?").unwrap();
+                    }
+                    let double_play_captures = DOUBLE_PLAY_RE.captures(batter_event);
+                    if let Some(double_play_captures) = double_play_captures {
+                        if verbosity.is_at_least(Verbosity::Verbose) {
+                            println!("double/triple play");
+                        }
+                        // The batter is out if the last character is a number, not ')'
+                        // (unless there's a "(B)" in the string
+                        let double_play_string = batter_event.split('/').next().unwrap();
+                        if double_play_string.chars().last().unwrap() != ')' {
+                            runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out).unwrap();
+                        } else {
+                            runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
+                        }
+                        runner_dests.set(double_play_captures.get(1).unwrap().as_str().chars().next().unwrap().try_into()?, RunnerFinalPosition::Out).unwrap();
+                        if let Some(second_group) = double_play_captures.get(2) {
+                            runner_dests.set(second_group.as_str().chars().next().unwrap().try_into()?, RunnerFinalPosition::Out).unwrap();
+                        }
+                        if let Some(third_group) = double_play_captures.get(3) {
+                            runner_dests.set(third_group.as_str().chars().next().unwrap().try_into()?, RunnerFinalPosition::Out).unwrap();
+                        }
+                        // Unfortunately, since it could be a caught fly ball and throw out,
+                        // we have to assume runners can't go anywhere.
+                        runners_default_stay_still = true;
+                        done_parsing_event = true;
+                    }
+                }
+            }
+            if !done_parsing_event {
+                lazy_static! {
+                    static ref WEIRD_DOUBLE_PLAY_RE : Regex = Regex::new(r"^\d+(/.*?)*/.?[DT]P").unwrap();
+                }
+                if WEIRD_DOUBLE_PLAY_RE.is_match(batter_event) {
+                    // This is a double play. The specifics of who's out will
+                    // come later.
+                    if verbosity.is_at_least(Verbosity::Verbose) {
+                        println!("weird double/triple play");
+                    }
+                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out).unwrap();
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+
 
 
 
@@ -486,7 +541,7 @@ impl GameSituation {
             }
         }
 
-        // TODO - Now parse runner stuff
+        // Now parse runner stuff
         if play_array.len() > 1 {
             let runner_array = play_array[1].split(';').into_iter().map(|x| x.trim());
             for runner_item in runner_array {
@@ -937,6 +992,35 @@ mod tests {
             expected_situation.outs = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
+
+        #[test]
+        fn test_doubleplay() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "64(1)3/GDP/G6");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_doubleplay_lineout() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "8(B)84(2)/LDP/L8");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_doubleplay_lineout_unassisted() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "3(B)3(1)/LDP");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+
 
         #[test]
         fn test_catchers_interference() -> Result<()> {
