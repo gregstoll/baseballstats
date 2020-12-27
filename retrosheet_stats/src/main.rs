@@ -123,7 +123,16 @@ mod data {
                     panic!("base_number() called on {:?}", self);
                 }
             }
-
+        }
+        pub fn from_position(position: u8) -> Option<RunnerFinalPosition> {
+            match position {
+                3 => Some(RunnerFinalPosition::FirstBase),
+                // second baseman and shortstop both map to second base
+                4 | 6 => Some(RunnerFinalPosition::SecondBase),
+                5 => Some(RunnerFinalPosition::ThirdBase),
+                // TODO - add catcher?
+                _ => None
+            }
         }
     }
 
@@ -284,6 +293,8 @@ impl GameSituation {
         let play_line_info = PlayLineInfo::new_from_line(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
         let mut runners_default_stay_still = false;
+        // TODO - use smallvec or something?
+        let mut out_at_bases: Vec<RunnerFinalPosition> = Vec::new();
         //TODO - verbosity log statements
         if verbosity.is_at_least(Verbosity::Verbose) {
             println!("Game situation is {:?}", self);
@@ -556,6 +567,57 @@ impl GameSituation {
                     done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+                lazy_static! {
+                    static ref PUT_OUT_RE : Regex = Regex::new(r"^\d*(\d).*?(?:\((.)\))?").unwrap();
+                }
+                if let Some(put_out_captures) = PUT_OUT_RE.captures(batter_event) {
+                    if verbosity.is_at_least(Verbosity::Verbose) {
+                        println!("Got a putout");
+                    }
+                    lazy_static! {
+                        static ref PUT_OUT_ERROR_RE : Regex = Regex::new(r"\d?E\d").unwrap();
+                    }
+                    if PUT_OUT_ERROR_RE.is_match(batter_event) {
+                        // Error on the play - batter goes to first unless explicit
+                        runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
+                    }
+                    else {
+                        // TODO - used to use default_batter_base here, I think this is equivalent
+                        if batter_event.contains("/FO") {
+                            // Force out - this means the thing in parentheses
+                            // is the runner who is out.
+                            if verbosity.is_at_least(Verbosity::Verbose) {
+                                println!("force out")
+                            }
+                            let out_from_base = put_out_captures.get(2).ok_or(anyhow!("force out didn't have which runner was out {}", batter_event))?.as_str();
+                            let out_from_base: RunnerInitialPosition = out_from_base.chars().next().unwrap().try_into()?;
+                            runner_dests.set(out_from_base, RunnerFinalPosition::Out)?;
+                        }
+                        else {
+                            // Determine from put_out_captures.get(1) (who made out) and
+                            // put_out_captures.get(2) (where out is) which base the out was at.
+                            if let Some(runner_base) = put_out_captures.get(2) {
+                                let runner: RunnerInitialPosition = runner_base.as_str().chars().next().unwrap().try_into()?;
+                                runner_dests.set(runner, RunnerFinalPosition::Out)?;
+                            }
+                            else {
+                                let out_at_base = put_out_captures.get(1).unwrap().as_str().parse::<u8>().map_err(|_| anyhow!("Base not an integer in batter_event {}", batter_event))?;
+                                let out_at_base = RunnerFinalPosition::from_position(out_at_base);
+                                if let Some(out_at_base_position) = out_at_base {
+                                    out_at_bases.push(out_at_base_position);
+                                }
+                                else {
+                                    // If we don't know what base it was, assume first base
+                                    out_at_bases.push(RunnerFinalPosition::FirstBase);
+                                }
+                            }
+                        }
+                    }
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
 
 
 
@@ -620,7 +682,20 @@ impl GameSituation {
             }
         }
 
-        // TODO even more stuff
+        // TODO - move into a method?
+        for out_at_base in out_at_bases {
+            // Find the closest unresolved runner behind that base
+            let possible_runners =
+                runner_dests.keys()
+                    .filter(|s| runner_dests.get(*s).unwrap() == RunnerFinalPosition::Undetermined)
+                    .filter(|s| s.base_number() < out_at_base.base_number())
+                    .max_by(|x, y| x.base_number().cmp(&y.base_number()));
+            let closest_runner = possible_runners.ok_or(anyhow!("Couldn't find closest runner to base {:?}", out_at_base))?;
+            if verbosity.is_at_least(Verbosity::Verbose) {
+                println!("Picked runner {:?} for out_at_base {:?}", closest_runner, out_at_base);
+            }
+            runner_dests.set(closest_runner, RunnerFinalPosition::Out).unwrap();
+        }
 
         // Deal with runner_dests
         // TODO - move this into a method
@@ -1049,7 +1124,6 @@ mod tests {
         }
 
         #[test]
-        #[ignore]
         fn test_forceout() -> Result<()> {
             let (mut situation, play_line) = setup([false, true, false], "83");
             let mut expected_situation = situation.clone();
@@ -1103,6 +1177,25 @@ mod tests {
             expected_situation.runners = [false, false, false];
             expected_situation.outs = 1;
             expected_situation.cur_score_diff = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_groundout_advance() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "54(B)/BG25/SH.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_groundout_safe_and_score() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, true], "54(1)/FO/G5.3-H;B-1");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            expected_situation.outs = 1;
+            expected_situation.cur_score_diff = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
