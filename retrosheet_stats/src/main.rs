@@ -531,6 +531,31 @@ impl GameSituation {
                     done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+                lazy_static! {
+                    static ref SIMPLE_OUT_RE : Regex = Regex::new(r"^\d\D").unwrap();
+                }
+                let very_simple_out = 
+                    if batter_event.len() == 1 {
+                        let batter_char = batter_event.chars().next().unwrap();
+                        batter_char >= '1' && batter_char <= '9'
+                    } else {
+                        false
+                    };
+                if (SIMPLE_OUT_RE.is_match(batter_event) && !batter_event.contains("/FO")) || very_simple_out {
+                    if verbosity.is_at_least(Verbosity::Verbose) {
+                        println!("simple out");
+                    }
+                    lazy_static! {
+                        static ref SIMPLE_OUT_ERROR_RE : Regex = Regex::new(r"\dE").unwrap();
+                    }
+                    let is_error =  SIMPLE_OUT_ERROR_RE.is_match(batter_event);
+                    runner_dests.set(RunnerInitialPosition::Batter, if is_error { RunnerFinalPosition::FirstBase } else { RunnerFinalPosition::Out }).unwrap();
+                    // runners don't move unless explicit
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
 
 
 
@@ -985,11 +1010,99 @@ mod tests {
         }
 
         #[test]
-        #[ignore]
         fn test_simpleout() -> Result<()> {
             let (mut situation, play_line) = setup([false, false, false], "8");
             let mut expected_situation = situation.clone();
             expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_simpleout_oneout() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "8");
+            situation.outs = 1;
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_simpleout_nextinning_top() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "8");
+            situation.outs = 2;
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.is_home = true;
+            expected_situation.outs = 0;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_simpleout_nextinning_bottom() -> Result<()> {
+            let (mut situation, play_line) = setup_with_inning(2, true, [false, true, false], "8");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.is_home = false;
+            expected_situation.inning = 2;
+            expected_situation.outs = 0;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        #[ignore]
+        fn test_forceout() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "83");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_out_advance_first_second() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "8.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_out_advance_second_third() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "8.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_out_advance_third_score() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, true], "8.3-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 1;
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_out_advance_second_third_score() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, true], "8.2-3;3-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 1;
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_out_advance_second_third_all_score() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, true], "8.2-H;3-H");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 1;
+            expected_situation.cur_score_diff = 2;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
