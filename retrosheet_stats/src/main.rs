@@ -82,44 +82,22 @@ mod data {
         }
     }
 
-
-
     impl RunnerFinalPosition {
-        pub fn runner_index(self: &Self) -> usize {
+        pub fn runner_index(self: &Self) -> anyhow::Result<usize> {
             match *self {
-                RunnerFinalPosition::FirstBase => {
-                    0
-                },
-                RunnerFinalPosition::SecondBase => {
-                    1
-                },
-                RunnerFinalPosition::ThirdBase => {
-                    2
-                },
-                _ => {
-                    //TODO
-                    panic!("runner_index() called on {:?}", self);
-                }
+                RunnerFinalPosition::FirstBase => Ok(0),
+                RunnerFinalPosition::SecondBase => Ok(1),
+                RunnerFinalPosition::ThirdBase => Ok(2),
+                _ => Err(anyhow!("runner_index() called on {:?}", self))
             }
         }
-        pub fn base_number(self: &Self) -> usize {
+        pub fn base_number(self: &Self) -> anyhow::Result<usize> {
             match *self {
-                RunnerFinalPosition::FirstBase => {
-                    1
-                },
-                RunnerFinalPosition::SecondBase => {
-                    2
-                },
-                RunnerFinalPosition::ThirdBase => {
-                    3
-                },
-                RunnerFinalPosition::HomePlate => {
-                    4
-                },
-                _ => {
-                    //TODO
-                    panic!("base_number() called on {:?}", self);
-                }
+                RunnerFinalPosition::FirstBase => Ok(1),
+                RunnerFinalPosition::SecondBase => Ok(2),
+                RunnerFinalPosition::ThirdBase => Ok(3),
+                RunnerFinalPosition::HomePlate => Ok(4),
+                _ => Err(anyhow!("base_number() called on {:?}", self))
             }
         }
         pub fn from_position(position: u8) -> Option<RunnerFinalPosition> {
@@ -703,7 +681,7 @@ impl GameSituation {
                         // This looks weird, but sometimes a runner can go to the
                         // same base (a little redundant, but OK)
                         //TODO refactor
-                        if initial_runner.base_number() > final_runner.base_number() {
+                        if initial_runner.base_number() > final_runner.base_number()? {
                             return Err(anyhow!(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
                         }
                         runner_dests.set(initial_runner, final_runner)?;
@@ -725,7 +703,7 @@ impl GameSituation {
                             }
                             else {
                                 // Nope, so runner is safe
-                                if initial_runner.base_number() > final_runner.base_number() {
+                                if initial_runner.base_number() > final_runner.base_number()? {
                                     return Err(anyhow!(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
                                 }
                                 runner_dests.set(initial_runner, final_runner)?;
@@ -746,7 +724,7 @@ impl GameSituation {
             let possible_runners =
                 runner_dests.keys()
                     .filter(|s| runner_dests.get(*s).unwrap() == RunnerFinalPosition::Undetermined)
-                    .filter(|s| s.base_number() < out_at_base.base_number())
+                    .filter(|s| s.base_number() < out_at_base.base_number().unwrap())
                     .max_by(|x, y| x.base_number().cmp(&y.base_number()));
             let closest_runner = possible_runners.ok_or(anyhow!("Couldn't find closest runner to base {:?}", out_at_base))?;
             if verbosity.is_at_least(Verbosity::Verbose) {
@@ -799,10 +777,10 @@ impl GameSituation {
                     }
                 },
                 RunnerFinalPosition::FirstBase | RunnerFinalPosition::SecondBase | RunnerFinalPosition::ThirdBase => {
-                    if *new_situation.runners.get(dest.runner_index()).unwrap() {
-                        duplicate_runner = Some(dest.runner_index());
+                    if *new_situation.runners.get(dest.runner_index()?).unwrap() {
+                        duplicate_runner = Some(dest.runner_index()?);
                     }
-                    *(new_situation.runners.get_mut(dest.runner_index()).unwrap()) = true;
+                    *(new_situation.runners.get_mut(dest.runner_index()?).unwrap()) = true;
                 }
             }
         }
@@ -830,7 +808,7 @@ impl GameSituation {
             if dest == RunnerFinalPosition::FirstBase {
                 return Err(anyhow!("SB to first base?: {}", sb_event));
             }
-            let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
+            let start: RunnerInitialPosition = (dest.base_number()? - 1).to_string().chars().next().unwrap().try_into()?;
             runner_dests.set(start, dest)?;
             runner_dests.set_batter_still_at_bat_if_not_set();
         }
@@ -848,7 +826,7 @@ impl GameSituation {
         if dest == RunnerFinalPosition::FirstBase {
             return Err(anyhow!("CS to first base?: {}", cs_event));
         }
-        let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
+        let start: RunnerInitialPosition = (dest.base_number()? - 1).to_string().chars().next().unwrap().try_into()?;
 
         if CS_ERROR_RE.is_match(cs_event) {
             // Error, so no out.
