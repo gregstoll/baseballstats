@@ -800,10 +800,7 @@ impl GameSituation {
                 },
                 RunnerFinalPosition::FirstBase | RunnerFinalPosition::SecondBase | RunnerFinalPosition::ThirdBase => {
                     if *new_situation.runners.get(dest.runner_index()).unwrap() {
-                        if verbosity.is_at_least(Verbosity::Normal) {
-                            println!("ERROR - already a runner at base {}!", dest.runner_index());
-                        }
-                        return Err(anyhow!("ERROR - duplicate runner at base {}", dest.runner_index()));
+                        duplicate_runner = Some(dest.runner_index());
                     }
                     *(new_situation.runners.get_mut(dest.runner_index()).unwrap()) = true;
                 }
@@ -962,9 +959,9 @@ where P: AsRef<Path> {
                     in_game = false;
                 }
                 else if let Ok(new_situation) = new_situation {
-                    if cur_id == "BAL195704270" {
-                        println!("After line {}, situation is {:?}", line, new_situation);
-                    }
+                    //if cur_id == "BAL195704270" {
+                    //    println!("After line {}, situation is {:?}", line, new_situation);
+                    //}
                     if all_game_situations.last() != Some(&new_situation) {
                         all_game_situations.push(new_situation);
                         //TODO - avoid this clone
@@ -1374,7 +1371,18 @@ mod tests {
             expected_situation.is_home = true;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
- 
+
+        #[test]
+        fn test_forceout_duplicate_runners_again_but_three_outs() -> Result<()> {
+            // game BAL195708021, bottom of the 3th inning
+            let (mut situation, play_line) = setup_with_inning(2, false, [true, true, false], "5(2)/FO");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 0;
+            expected_situation.is_home = true;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
         #[test]
         fn test_explicit_sacrifice() -> Result<()> {
             let (mut situation, play_line) = setup([true, false, false], "23/SH.1-2");
