@@ -2,14 +2,10 @@
 extern crate regex;
 use std::{convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
 use anyhow::{anyhow, Result};
-
-//TODO - remove this
-#[allow(unused_imports)]
-//TODO - remove this
-#[allow(dead_code)]
-
+use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
 use regex::Regex;
+use glob::glob;
 
 mod data {
     use std::{collections::HashMap, convert::TryFrom};
@@ -559,7 +555,7 @@ impl GameSituation {
                         println!("simple out");
                     }
                     lazy_static! {
-                        static ref SIMPLE_OUT_ERROR_RE : Regex = Regex::new(r"\dE").unwrap();
+                        static ref SIMPLE_OUT_ERROR_RE : Regex = Regex::new(r"^\dE").unwrap();
                     }
                     let is_error =  SIMPLE_OUT_ERROR_RE.is_match(batter_event);
                     runner_dests.set(RunnerInitialPosition::Batter, if is_error { RunnerFinalPosition::FirstBase } else { RunnerFinalPosition::Out }).unwrap();
@@ -912,7 +908,7 @@ impl PlayLineInfo<'_> {
     }
 }
 
-fn parse_file<P>(filename: P) -> Result<()>
+fn parse_file<P>(filename: P, verbosity: Verbosity) -> Result<()>
 where P: AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
@@ -920,7 +916,9 @@ where P: AsRef<Path> {
     let mut in_game = false;
     let mut num_games = 0;
     let mut cur_id = "".to_owned();
-    let verbosity = Verbosity::Normal;
+    if verbosity.is_at_least(Verbosity::Normal) {
+        println!("{:?}", filename.as_ref());
+    }
     let file = File::open(filename)?;
     for line in io::BufReader::new(file).lines() {
         let line = line?;
@@ -978,9 +976,22 @@ where P: AsRef<Path> {
 
 // TODO - parallel
 
+#[derive(FromArgs)]
+/// Options
+struct Options {
+    #[argh(positional)]
+    file_pattern: String
+}
+
 fn main() -> Result<()> {
     println!("Hello, world!");
-    parse_file(r"C:\Users\greg\Documents\baseballstats\data\1957BAL.EVA")
+    let options : Options = argh::from_env();
+    println!("{}", options.file_pattern);
+    for entry in glob(&options.file_pattern).expect("Failed to read glob pattern") {
+        //parse_file(r"C:\Users\greg\Documents\baseballstats\data\1958BAL.EVA");
+        parse_file(entry?, Verbosity::Normal)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1380,6 +1391,17 @@ mod tests {
             expected_situation.runners = [false, false, false];
             expected_situation.outs = 0;
             expected_situation.is_home = true;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_forceout_batter_out_but_error_on_throw() -> Result<()> {
+            // game DET196305050, bottom of the 4th inning
+            let (mut situation, play_line) = setup_with_inning(1, true, [false, true, true], "5(B)5E2.2-3;3-H(NR)(UR)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 2;
+            expected_situation.cur_score_diff = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
