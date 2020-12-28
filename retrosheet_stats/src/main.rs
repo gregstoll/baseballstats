@@ -1,6 +1,6 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
-use std::{convert::TryInto};
+use std::{convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
 use anyhow::{anyhow, Result};
 
 //TODO - remove this
@@ -12,8 +12,6 @@ use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
 use regex::Regex;
 
 mod data {
-    //TODO - remove this
-    #![allow(dead_code)]
     use std::{collections::HashMap, convert::TryFrom};
     use anyhow::anyhow;
 
@@ -49,12 +47,12 @@ mod data {
             }
         }
 
-        pub fn runner_index(self: &Self) -> usize {
+        pub fn runner_index(self: &Self) -> anyhow::Result<usize> {
             match *self {
-                RunnerInitialPosition::Batter => panic!("Can't call runner_index() on Batter"),
-                RunnerInitialPosition::FirstBase => 0,
-                RunnerInitialPosition::SecondBase => 1,
-                RunnerInitialPosition::ThirdBase => 2
+                RunnerInitialPosition::Batter => Err(anyhow!("Can't call runner_index() on Batter")),
+                RunnerInitialPosition::FirstBase => Ok(0),
+                RunnerInitialPosition::SecondBase => Ok(1),
+                RunnerInitialPosition::ThirdBase => Ok(2)
             }
         }
     }
@@ -222,8 +220,6 @@ mod data {
 
 }
 
-//TODO - remove this
-#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 enum Verbosity {
     Quiet = 0,
@@ -248,9 +244,6 @@ struct GameSituation {
 }
 
 impl GameSituation {
-    //TODO - remove this
-    #![allow(dead_code)]
-
     fn new() -> GameSituation {
         GameSituation {
             cur_score_diff: 0,
@@ -295,11 +288,12 @@ impl GameSituation {
         }
     }
 
-    pub fn parse_play(self: &mut GameSituation, line: &str, verbosity: Verbosity) -> Result<()> {
+    pub fn parse_play(self: &GameSituation, line: &str, verbosity: Verbosity) -> Result<GameSituation> {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
         let play_line_info = PlayLineInfo::new_from_line(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
         let mut runners_default_stay_still = false;
+        let mut default_batter_base: Option<RunnerFinalPosition> = None;
         // TODO - use smallvec or something?
         let mut out_at_bases: Vec<RunnerFinalPosition> = Vec::new();
         //TODO - verbosity log statements
@@ -331,7 +325,7 @@ impl GameSituation {
                 static ref SIMPLE_HIT_2_RE : Regex = Regex::new(r"^([SDTH])\s*$").unwrap();
             }
             let simple_hit_match = SIMPLE_HIT_RE.captures(batter_event);
-            let simple_hit_2_match = SIMPLE_HIT_RE.captures(batter_event);
+            let simple_hit_2_match = SIMPLE_HIT_2_RE.captures(batter_event);
             let captures = simple_hit_match.or(simple_hit_2_match);
             if let Some(inner_captures) = captures {
                 let type_of_hit = inner_captures.get(1).unwrap().as_str();
@@ -590,7 +584,7 @@ impl GameSituation {
                         runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
                     }
                     else {
-                        // TODO - used to use default_batter_base here, I think this is equivalent
+                        default_batter_base = Some(RunnerFinalPosition::FirstBase);
                         if batter_event.contains("/FO") {
                             // Force out - this means the thing in parentheses
                             // is the runner who is out.
@@ -762,28 +756,38 @@ impl GameSituation {
         }
 
         // Deal with runner_dests
-        // TODO - move this into a method
-        self.runners = [false, false, false];
+        // TODO - move this whole thing into a method?
+        if let Some(default_batter_base) = default_batter_base {
+            //TODO - perf?
+            if runner_dests.get(RunnerInitialPosition::Batter).unwrap() == RunnerFinalPosition::Undetermined {
+                runner_dests.set(RunnerInitialPosition::Batter, default_batter_base).unwrap();
+            }
+        }
+        let mut new_situation = self.clone();
+        new_situation.runners = [false, false, false];
         let mut undetermined_runner = None;
+        let mut duplicate_runner = None;
         // TODO - better way to iterate over this
         for key in runner_dests.keys() {
             let dest = runner_dests.get(key).unwrap();
             match dest {
                 RunnerFinalPosition::Out => {
-                    self.outs += 1;
+                    new_situation.outs += 1;
                 },
                 RunnerFinalPosition::HomePlate => {
-                    self.cur_score_diff += 1;
+                    new_situation.cur_score_diff += 1;
                 },
                 RunnerFinalPosition::Undetermined => {
-                    if runners_default_stay_still {
-                        if *self.runners.get(key.runner_index()).unwrap() {
-                            if verbosity.is_at_least(Verbosity::Normal) {
-                                println!("ERROR - already a runner at base {}!", key.runner_index());
-                            }
-                            return Err(anyhow!("ERROR - duplicate runner at base {}", key.runner_index()));
+                    // if key is Batter, we're in trouble below regardless
+                    // (unless we have 3 outs, but we can't check that yet)
+                    if key == RunnerInitialPosition::Batter {
+
+                    }
+                    if runners_default_stay_still && key != RunnerInitialPosition::Batter {
+                        if *new_situation.runners.get(key.runner_index()?).unwrap() {
+                            duplicate_runner = Some(key.runner_index()?);
                         }
-                        *(self.runners.get_mut(key.runner_index()).unwrap()) = true;
+                        *(new_situation.runners.get_mut(key.runner_index()?).unwrap()) = true;
                     }
                     else {
                         undetermined_runner = Some(key);
@@ -795,21 +799,29 @@ impl GameSituation {
                     }
                 },
                 RunnerFinalPosition::FirstBase | RunnerFinalPosition::SecondBase | RunnerFinalPosition::ThirdBase => {
-                    if *self.runners.get(dest.runner_index()).unwrap() {
+                    if *new_situation.runners.get(dest.runner_index()).unwrap() {
                         if verbosity.is_at_least(Verbosity::Normal) {
                             println!("ERROR - already a runner at base {}!", dest.runner_index());
                         }
                         return Err(anyhow!("ERROR - duplicate runner at base {}", dest.runner_index()));
                     }
-                    *(self.runners.get_mut(dest.runner_index()).unwrap()) = true;
+                    *(new_situation.runners.get_mut(dest.runner_index()).unwrap()) = true;
                 }
             }
         }
-        if undetermined_runner.is_some() && self.outs < 3 {
-            return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner))
+        if new_situation.outs < 3 {
+            if undetermined_runner.is_some() {
+                return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner))
+            }
+            if duplicate_runner.is_some() {
+                if verbosity.is_at_least(Verbosity::Normal) {
+                    println!("ERROR - already a runner at base {}!", duplicate_runner.unwrap());
+                }
+                return Err(anyhow!("ERROR - duplicate runner at base {}", duplicate_runner.unwrap()));
+            }
         }
-        self.next_inning_if_three_outs();
-        Ok(())
+        new_situation.next_inning_if_three_outs();
+        Ok(new_situation)
     }
 
     fn handle_sb_event(sb_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
@@ -903,11 +915,75 @@ impl PlayLineInfo<'_> {
     }
 }
 
+fn parse_file<P>(filename: P) -> Result<()>
+where P: AsRef<Path> {
+    let mut cur_game_situation = GameSituation::new();
+    let mut all_game_situations : Vec<GameSituation> = Vec::new();
+    let mut play_lines : Vec<String> = Vec::new();
+    let mut in_game = false;
+    let mut num_games = 0;
+    let mut cur_id = "".to_owned();
+    let verbosity = Verbosity::Normal;
+    let file = File::open(filename)?;
+    for line in io::BufReader::new(file).lines() {
+        let line = line?;
+        if !in_game {
+            if line.starts_with("id,") {
+                // TODO more stuff
+                // TODO avoid this clone
+                cur_id = line.clone()[3..].to_owned();
+                in_game = true;
+                cur_game_situation = GameSituation::new();
+                all_game_situations.clear();
+                all_game_situations.push(cur_game_situation);
+                play_lines.clear();
+                num_games = num_games + 1;
+            }
+        }
+        else {
+            if line.starts_with("id,") {
+                // TODO more stuff
+                // TODO avoid this clone
+                cur_id = line.clone()[3..].to_owned();
+                cur_game_situation = GameSituation::new();
+                all_game_situations.clear();
+                all_game_situations.push(cur_game_situation);
+                play_lines.clear();
+                num_games = num_games + 1;
+            }
+            else if line.starts_with("play,") {
+                // TODO verbosity
+                let new_situation = cur_game_situation.parse_play(&line, verbosity);
+                if let Err(error) = new_situation {
+                    if verbosity.is_at_least(Verbosity::Normal) {
+                        println!("Error in game {} at line {}: {}, initial situation {:?}", cur_id, line, error, cur_game_situation);
+                    }
+                    // TODO knownBadGames
+                    in_game = false;
+                }
+                else if let Ok(new_situation) = new_situation {
+                    if cur_id == "BAL195704270" {
+                        println!("After line {}, situation is {:?}", line, new_situation);
+                    }
+                    if all_game_situations.last() != Some(&new_situation) {
+                        all_game_situations.push(new_situation);
+                        //TODO - avoid this clone
+                        play_lines.push(line.clone());
+                    }
+                    cur_game_situation = new_situation;
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
 
 // TODO - parallel
 
-fn main() {
+fn main() -> Result<()> {
     println!("Hello, world!");
+    parse_file(r"C:\Users\greg\Documents\baseballstats\data\1957BAL.EVA")
 }
 
 #[cfg(test)]
@@ -1145,9 +1221,9 @@ mod tests {
             (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
         }
 
-        fn assert_result(expected_situation: &GameSituation, initial_situation: &mut GameSituation, play_line: &str) -> Result<()> {
-            initial_situation.parse_play(&play_line, Verbosity::Normal)?;
-            assert_eq!(expected_situation, initial_situation);
+        fn assert_result(expected_situation: &GameSituation, initial_situation: &GameSituation, play_line: &str) -> Result<()> {
+            let new_situation = initial_situation.parse_play(&play_line, Verbosity::Normal)?;
+            assert_eq!(expected_situation, &new_situation);
             Ok(())
         }
 
@@ -1267,6 +1343,39 @@ mod tests {
         }
 
         #[test]
+        fn test_groundout_end_of_inning() -> Result<()> {
+            // game BAL195704160, end of bottom of the 6th inning
+            let (mut situation, play_line) = setup_with_inning(2, true, [true, true, true], "64(1)/FO");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 0;
+            expected_situation.is_home = false;
+            expected_situation.inning = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_groundout_batter_is_out() -> Result<()> {
+            // game BAL195704270, top of the 5th inning
+            let (mut situation, play_line) = setup_with_inning(1, false, [true, false, false], "14(1)/FO");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_forceout_duplicate_runners_but_three_outs() -> Result<()> {
+            // game BAL195706220, bottom of the 8th inning
+            let (mut situation, play_line) = setup_with_inning(2, false, [true, true, false], "35(2)/FO");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 0;
+            expected_situation.is_home = true;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+ 
+        #[test]
         fn test_explicit_sacrifice() -> Result<()> {
             let (mut situation, play_line) = setup([true, false, false], "23/SH.1-2");
             let mut expected_situation = situation.clone();
@@ -1345,6 +1454,14 @@ mod tests {
         #[test]
         fn test_single() -> Result<()> {
             let (mut situation, play_line) = setup([false, false, false], "S7");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners[0] = true;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_single_no_fielder() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, false], "S");
             let mut expected_situation = situation.clone();
             expected_situation.runners[0] = true;
             assert_result(&expected_situation, &mut situation, &play_line)
@@ -1736,7 +1853,5 @@ mod tests {
             expected_situation.outs = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
-
-
     }
 }
