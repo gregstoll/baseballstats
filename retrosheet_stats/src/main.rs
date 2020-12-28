@@ -187,6 +187,13 @@ mod data {
             }
         }
 
+        pub fn set_batter_still_at_bat_if_not_set(self: &mut Self) {
+            let batter_value = self.dests.get_mut(&RunnerInitialPosition::Batter).unwrap();
+            if batter_value == &RunnerFinalPosition::Undetermined {
+                *batter_value = RunnerFinalPosition::StillAtBat;
+            }
+        }
+
         pub fn len(self: &Self) -> usize {
             self.dests.len()
         }
@@ -391,7 +398,7 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("NP") {
                     // No play
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat).unwrap();
+                    runner_dests.set_batter_still_at_bat_if_not_set();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -399,7 +406,7 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("PB") || batter_event.starts_with("WP") {
                     // Passed ball or wild pitch
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat).unwrap();
+                    runner_dests.set_batter_still_at_bat_if_not_set();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -483,7 +490,7 @@ impl GameSituation {
             if !done_parsing_event {
                 if batter_event.starts_with("FLE") {
                     // error on fly foul ball. Nothing happens.
-                    runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::StillAtBat).unwrap();
+                    runner_dests.set_batter_still_at_bat_if_not_set();
                     runners_default_stay_still = true;
                     done_parsing_event = true;
                 }
@@ -618,11 +625,68 @@ impl GameSituation {
                     done_parsing_event = true;
                 }
             }
+            if !done_parsing_event {
+                if batter_event.starts_with("BK") {
+                    // Balk
+                    runner_dests.set_batter_still_at_bat_if_not_set();
+                    // Advance runners
+                    // actually, this should be explicit, game NYA196209092
+                    // has a balk where the runner doesn't advance from
+                    // second??
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("CS") {
+                    // Caught stealing
+                    GameSituation::handle_cs_or_pocs_event(batter_event, &mut runner_dests)?;
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("SB") {
+                    // stolen base (could be multiple)
+                    GameSituation::handle_sb_event(batter_event, &mut runner_dests)?;
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("DI") {
+                    // defensive indifference, runners resolved later
+                    runner_dests.set_batter_still_at_bat_if_not_set();
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("OA") {
+                    // runner advances somehow (resolved later)
+                    runner_dests.set_batter_still_at_bat_if_not_set();
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                if batter_event.starts_with("POCS") {
+                    // Pick-off (and caught stealing)
+                    GameSituation::handle_cs_or_pocs_event(batter_event, &mut runner_dests)?;
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
+            if !done_parsing_event {
+                // note that we already handled POCS
+                if batter_event.starts_with("PO") {
+                    // Pick-off
+                    GameSituation::handle_po_event(batter_event, &mut runner_dests)?;
+                    runners_default_stay_still = true;
+                    done_parsing_event = true;
+                }
+            }
 
-
-
-
-            // TODO - much more
             if !done_parsing_event {
                 return Err(anyhow!("ERROR - unrecognized event {} (line is {})", batter_event, line));
             }
@@ -759,6 +823,7 @@ impl GameSituation {
             }
             let start: RunnerInitialPosition = (dest.base_number() - 1).to_string().chars().next().unwrap().try_into()?;
             runner_dests.set(start, dest)?;
+            runner_dests.set_batter_still_at_bat_if_not_set();
         }
         Ok(())
     }
@@ -783,6 +848,7 @@ impl GameSituation {
         else {
             runner_dests.set(start, RunnerFinalPosition::Out)?;
         }
+        runner_dests.set_batter_still_at_bat_if_not_set();
         Ok(())
     }
 
@@ -802,6 +868,7 @@ impl GameSituation {
             }
             runner_dests.set(start, RunnerFinalPosition::Out)?;
         }
+        runner_dests.set_batter_still_at_bat_if_not_set();
         Ok(())
     }
 }
@@ -1200,6 +1267,15 @@ mod tests {
         }
 
         #[test]
+        fn test_explicit_sacrifice() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "23/SH.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
         fn test_doubleplay() -> Result<()> {
             let (mut situation, play_line) = setup([true, false, false], "64(1)3/GDP/G6");
             let mut expected_situation = situation.clone();
@@ -1225,8 +1301,6 @@ mod tests {
             expected_situation.outs = 2;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
-
-
 
         #[test]
         fn test_catchers_interference() -> Result<()> {
@@ -1456,40 +1530,6 @@ mod tests {
         }
 
         #[test]
-        fn test_strikeout_pickoff_other_runner_advance() -> Result<()> {
-            let (mut situation, play_line) = setup([true, true, false], "K+PO1.2-3");
-            let mut expected_situation = situation.clone();
-            expected_situation.runners = [false, false, true];
-            expected_situation.outs = 2;
-            assert_result(&expected_situation, &mut situation, &play_line)
-        }
-
-        #[test]
-        fn test_strikeout_pickoff_error() -> Result<()> {
-            let (mut situation, play_line) = setup([false, true, false], "K+PO2(E3).2-3");
-            let mut expected_situation = situation.clone();
-            expected_situation.runners = [false, false, true];
-            expected_situation.outs = 1;
-            assert_result(&expected_situation, &mut situation, &play_line)
-        }
-
-        #[test]
-        fn test_wild_pitch() -> Result<()> {
-            let (mut situation, play_line) = setup([true, true, false], "WP.2-3;1-2");
-            let mut expected_situation = situation.clone();
-            expected_situation.runners = [false, true, true];
-            assert_result(&expected_situation, &mut situation, &play_line)
-        }
-
-        #[test]
-        fn test_passed_ball() -> Result<()> {
-            let (mut situation, play_line) = setup([true, true, false], "PB.2-3");
-            let mut expected_situation = situation.clone();
-            expected_situation.runners = [true, false, true];
-            assert_result(&expected_situation, &mut situation, &play_line)
-        }
-
-        #[test]
         fn test_no_play() -> Result<()> {
             let (mut situation, play_line) = setup([false, false, false], "NP");
             let expected_situation = situation.clone();
@@ -1520,6 +1560,172 @@ mod tests {
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
+        #[test]
+        fn test_strikeout_pickoff_other_runner_advance() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "K+PO1.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 2;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_strikeout_pickoff_error() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "K+PO2(E3).2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_balk() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, true], "BK.3-H;1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_caught_stealing() -> Result<()> {
+            let (mut situation, play_line) = setup([false, false, true], "CSH(12)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_caught_stealing_advance() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "CS2(24).2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_caught_stealing_error() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "CS2(2E4).1-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_defensive_indifference() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "DI.1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_other_advance() -> Result<()> {
+            // "Thompson out trying to advance after ball eluded catcher"
+            let (mut situation, play_line) = setup([false, true, false], "OA.2X3(25)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_wild_pitch() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "WP.2-3;1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_passed_ball() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "PB.2-3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_pickoff() -> Result<()> {
+            let (mut situation, play_line) = setup([false, true, false], "PO2(14)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_pickoff_error() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "PO1(E3).1-2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_pickoff_caught_stealing() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "POCS2(14)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, false, false];
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_stolen_base() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, false], "SB2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_stolen_base_multiple() -> Result<()> {
+            let (mut situation, play_line) = setup([true, true, false], "SB2;SB3");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, true];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_stolen_base_multiple_home() -> Result<()> {
+            let (mut situation, play_line) = setup([true, false, true], "SBH;SB2");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [false, true, false];
+            expected_situation.cur_score_diff = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_weird_error_running() -> Result<()> {
+            // game KCA200607040, bottom of the 3rd
+            let (mut situation, play_line) = setup([true, true, true], "S7/L.3-H;2-H;1XH(7432/TH)(E7)");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            expected_situation.cur_score_diff = 2;
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_error_running() -> Result<()> {
+            // game KCA200607210, bottom of the 3rd
+            let (mut situation, play_line) = setup([true, false, false], "FC1.1X2(6E4);B-1");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, true, false];
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_putout_runner_at_wrong_base() -> Result<()> {
+            // game DET196405140, bottom of the 4th
+            let (mut situation, play_line) = setup([true, false, false], "36(1)/BF.B-1");
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
 
         #[test]
         fn test_walk_plus_putout_caught_stealing() -> Result<()> {
@@ -1530,5 +1736,7 @@ mod tests {
             expected_situation.outs = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
+
+
     }
 }
