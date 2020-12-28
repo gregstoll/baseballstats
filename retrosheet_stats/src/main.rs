@@ -122,15 +122,12 @@ mod data {
         pub fn new_from_runners(runners: &[bool;3]) -> RunnerDests {
             let mut dests = HashMap::new();
             if runners[0] {
-                // TODO - this is a change from python, used to be StillAtBat (-1)
                 dests.insert(RunnerInitialPosition::FirstBase, RunnerFinalPosition::Undetermined);
             }
             if runners[1] {
-                // TODO - this is a change from python, used to be StillAtBat (-1)
                 dests.insert(RunnerInitialPosition::SecondBase, RunnerFinalPosition::Undetermined);
             }
             if runners[2] {
-                // TODO - this is a change from python, used to be StillAtBat (-1)
                 dests.insert(RunnerInitialPosition::ThirdBase, RunnerFinalPosition::Undetermined);
             }
             dests.insert(RunnerInitialPosition::Batter, RunnerFinalPosition::Undetermined);
@@ -138,7 +135,7 @@ mod data {
         }
 
         pub fn batter_to_first(self: &mut Self) {
-            self.dests.insert(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase);
+            self.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
             if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::FirstBase) {
                 *entry = RunnerFinalPosition::SecondBase;
                 if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::SecondBase) {
@@ -168,10 +165,6 @@ mod data {
             if batter_value == &RunnerFinalPosition::Undetermined {
                 *batter_value = RunnerFinalPosition::StillAtBat;
             }
-        }
-
-        pub fn len(self: &Self) -> usize {
-            self.dests.len()
         }
 
         pub fn get(self: &Self, key: RunnerInitialPosition) -> Option<RunnerFinalPosition> {
@@ -1152,7 +1145,7 @@ mod tests {
             let mut dests = RunnerDests::new_from_runners(&runners);
             dests.batter_to_first();
             let expected = expectedIter.map(|x| *x).collect::<HashMap<_,_>>();
-            assert_eq!(expected.len(), dests.len(), "{:?}", runners);
+            assert_eq!(expected.len(), dests.keys().count(), "{:?}", runners);
             for (key, expectedValue) in expected {
                 assert_eq!(Some(expectedValue), dests.get(key), "{:?} {:?}", runners, key);
             }
