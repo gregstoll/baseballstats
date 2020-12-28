@@ -1,11 +1,15 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
+extern crate encoding;
 use std::{convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
 use regex::Regex;
 use glob::glob;
+use encoding::{Encoding, DecoderTrap};
+use encoding::all::ISO_8859_1;
+
 
 mod data {
     use std::{collections::HashMap, convert::TryFrom};
@@ -916,12 +920,17 @@ where P: AsRef<Path> {
     let mut in_game = false;
     let mut num_games = 0;
     let mut cur_id = "".to_owned();
-    if verbosity.is_at_least(Verbosity::Normal) {
-        println!("{:?}", filename.as_ref());
-    }
+    //if verbosity.is_at_least(Verbosity::Normal) {
+    //    println!("{:?}", filename.as_ref());
+    //}
+    // files use ISO-8859-1 encoding (i.e. "latin1"), not utf-8
+    // https://stackoverflow.com/questions/45788866/how-to-read-a-gbk-encoded-file-into-a-string
     let file = File::open(filename)?;
-    for line in io::BufReader::new(file).lines() {
-        let line = line?;
+    let reader = io::BufReader::new(file);
+    let lines = reader.split(b'\n').map(|l| l.unwrap());
+    for line in lines {
+        let line = ISO_8859_1.decode(&line, DecoderTrap::Strict).unwrap();
+        let line = line.trim();
         if !in_game {
             if line.starts_with("id,") {
                 // TODO more stuff
@@ -947,11 +956,10 @@ where P: AsRef<Path> {
                 num_games = num_games + 1;
             }
             else if line.starts_with("play,") {
-                // TODO verbosity
                 let new_situation = cur_game_situation.parse_play(&line, verbosity);
                 if let Err(error) = new_situation {
                     if verbosity.is_at_least(Verbosity::Normal) {
-                        println!("Error in game {} at line {}: {}, initial situation {:?}", cur_id, line, error, cur_game_situation);
+                        println!("Error in game {} at line \"{}\"  error is {}  initial situation {:?}", cur_id, line, error, cur_game_situation);
                     }
                     // TODO knownBadGames
                     in_game = false;
@@ -963,7 +971,7 @@ where P: AsRef<Path> {
                     if all_game_situations.last() != Some(&new_situation) {
                         all_game_situations.push(new_situation);
                         //TODO - avoid this clone
-                        play_lines.push(line.clone());
+                        play_lines.push(line.to_owned());
                     }
                     cur_game_situation = new_situation;
                 }
