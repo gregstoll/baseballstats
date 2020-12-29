@@ -5,7 +5,7 @@ use std::{convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use glob::glob;
 use encoding::{Encoding, DecoderTrap};
 use encoding::all::ISO_8859_1;
@@ -216,6 +216,12 @@ mod data {
     }
 }
 
+fn build_regex(s: &str) -> Regex {
+    //TODO?
+    //RegexBuilder::new(s).unicode(false).build().unwrap()
+    RegexBuilder::new(s).build().unwrap()
+}
+
 #[derive(Clone, Copy, Debug)]
 enum Verbosity {
     Quiet = 0,
@@ -317,8 +323,8 @@ impl GameSituation {
             let batter_event = batter_event.trim();
             let mut done_parsing_event = false;
             lazy_static! {
-                static ref SIMPLE_HIT_RE : Regex = Regex::new(r"^([SDTH])(?:\d|/)").unwrap();
-                static ref SIMPLE_HIT_2_RE : Regex = Regex::new(r"^([SDTH])\s*$").unwrap();
+                static ref SIMPLE_HIT_RE : Regex = build_regex(r"^([SDTH])(?:\d|/)");
+                static ref SIMPLE_HIT_2_RE : Regex = build_regex(r"^([SDTH])\s*$");
             }
             let simple_hit_match = SIMPLE_HIT_RE.captures(batter_event);
             let simple_hit_2_match = SIMPLE_HIT_2_RE.captures(batter_event);
@@ -495,7 +501,7 @@ impl GameSituation {
                 if batter_event.contains("DP") || batter_event.contains("TP") {
                     // Double or triple play
                     lazy_static! {
-                        static ref DOUBLE_PLAY_RE : Regex = Regex::new(r"^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?").unwrap();
+                        static ref DOUBLE_PLAY_RE : Regex = build_regex(r"^\d+\((\d|B)\)(?:\d*\((\d|B)\))?(?:\d*\((\d|B)\))?");
                     }
                     let double_play_captures = DOUBLE_PLAY_RE.captures(batter_event);
                     if let Some(double_play_captures) = double_play_captures {
@@ -526,7 +532,7 @@ impl GameSituation {
             }
             if !done_parsing_event {
                 lazy_static! {
-                    static ref WEIRD_DOUBLE_PLAY_RE : Regex = Regex::new(r"^\d+(/.*?)*/.?[DT]P").unwrap();
+                    static ref WEIRD_DOUBLE_PLAY_RE : Regex = build_regex(r"^\d+(/.*?)*/.?[DT]P");
                 }
                 if WEIRD_DOUBLE_PLAY_RE.is_match(batter_event) {
                     // This is a double play. The specifics of who's out will
@@ -541,7 +547,7 @@ impl GameSituation {
             }
             if !done_parsing_event {
                 lazy_static! {
-                    static ref SIMPLE_OUT_RE : Regex = Regex::new(r"^\d\D").unwrap();
+                    static ref SIMPLE_OUT_RE : Regex = build_regex(r"^\d\D");
                 }
                 let very_simple_out = 
                     if batter_event.len() == 1 {
@@ -555,7 +561,7 @@ impl GameSituation {
                         println!("simple out");
                     }
                     lazy_static! {
-                        static ref SIMPLE_OUT_ERROR_RE : Regex = Regex::new(r"^\dE").unwrap();
+                        static ref SIMPLE_OUT_ERROR_RE : Regex = build_regex(r"^\dE");
                     }
                     let is_error =  SIMPLE_OUT_ERROR_RE.is_match(batter_event);
                     runner_dests.set(RunnerInitialPosition::Batter, if is_error { RunnerFinalPosition::FirstBase } else { RunnerFinalPosition::Out }).unwrap();
@@ -566,14 +572,14 @@ impl GameSituation {
             }
             if !done_parsing_event {
                 lazy_static! {
-                    static ref PUT_OUT_RE : Regex = Regex::new(r"^\d*(\d).*?(?:\((.)\))?").unwrap();
+                    static ref PUT_OUT_RE : Regex = build_regex(r"^\d*(\d).*?(?:\((.)\))?");
                 }
                 if let Some(put_out_captures) = PUT_OUT_RE.captures(batter_event) {
                     if verbosity.is_at_least(Verbosity::Verbose) {
                         println!("Got a putout");
                     }
                     lazy_static! {
-                        static ref PUT_OUT_ERROR_RE : Regex = Regex::new(r"\d?E\d").unwrap();
+                        static ref PUT_OUT_ERROR_RE : Regex = build_regex(r"\d?E\d");
                     }
                     if PUT_OUT_ERROR_RE.is_match(batter_event) {
                         // Error on the play - batter goes to first unless explicit
@@ -706,14 +712,14 @@ impl GameSituation {
                     },
                     'X' => {
                         lazy_static! {
-                            static ref RUNNER_OUT_ERROR_RE : Regex = Regex::new(r"^...(?:\([^)]*?\))*\(\d*E.*\)").unwrap();
+                            static ref RUNNER_OUT_ERROR_RE : Regex = build_regex(r"^...(?:\([^)]*?\))*\(\d*E.*\)");
                         }
                         if RUNNER_OUT_ERROR_RE.is_match(runner_item) {
                             // So this is probably an error.  See if the intervening
                             // parentheses indicate an out
                             lazy_static! {
-                                static ref RUNNER_OUT_ERROR_ACTUAL_OUT_1_RE : Regex = Regex::new(r"^....*?\(\d*(/TH)?\).*?\(\d*E.*\)").unwrap();
-                                static ref RUNNER_OUT_ERROR_ACTUAL_OUT_2_RE : Regex = Regex::new(r"^....*?\(\d*E.*\)\(\d*\)").unwrap();
+                                static ref RUNNER_OUT_ERROR_ACTUAL_OUT_1_RE : Regex = build_regex(r"^....*?\(\d*(/TH)?\).*?\(\d*E.*\)");
+                                static ref RUNNER_OUT_ERROR_ACTUAL_OUT_2_RE : Regex = build_regex(r"^....*?\(\d*E.*\)\(\d*\)");
                             }
                             if RUNNER_OUT_ERROR_ACTUAL_OUT_1_RE.is_match(runner_item) || RUNNER_OUT_ERROR_ACTUAL_OUT_2_RE.is_match(runner_item) {
                                 // Yup, this is really an out.
@@ -842,7 +848,7 @@ impl GameSituation {
     fn handle_cs_or_pocs_event(cs_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
         assert!(cs_event.starts_with("CS") || cs_event.starts_with("POCS"));
         lazy_static! {
-            static ref CS_ERROR_RE : Regex = Regex::new(r"^(?:PO)?CS.\([^)]*?E.*?\)").unwrap();
+            static ref CS_ERROR_RE : Regex = build_regex(r"^(?:PO)?CS.\([^)]*?E.*?\)");
         }
         let dest_position = if cs_event.starts_with("CS") { 2 } else { 4 };
         let dest: RunnerFinalPosition = cs_event.chars().nth(dest_position)
@@ -866,7 +872,7 @@ impl GameSituation {
     fn handle_po_event(po_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
         assert!(po_event.starts_with("PO"));
         lazy_static! {
-            static ref PO_ERROR_RE : Regex = Regex::new(r"^PO.\([^)]*?E.*?\)").unwrap();
+            static ref PO_ERROR_RE : Regex = build_regex(r"^PO.\([^)]*?E.*?\)");
         }
         if PO_ERROR_RE.is_match(po_event) {
             // Error, so no out
@@ -896,8 +902,7 @@ struct PlayLineInfo<'a> {
 impl PlayLineInfo<'_> {
     fn new_from_line<'a>(line: &'a str) -> PlayLineInfo<'a> {
         lazy_static! {
-            // TODO perf - opt out of unicode?
-            static ref PLAY_RE : Regex = Regex::new(r"^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$").unwrap();
+            static ref PLAY_RE : Regex = build_regex(r"^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$");
         }
         let play_match = PLAY_RE.captures(line).unwrap();
         // remove characters we don't care about
