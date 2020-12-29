@@ -736,7 +736,13 @@ impl GameSituation {
             }
         }
 
-        // TODO - move into a method?
+        Self::process_out_at_base(&out_at_bases, &mut runner_dests, verbosity)?;
+
+        // Deal with runner_dests
+        return self.resolve_runners_and_outs(&mut runner_dests, &default_batter_base, runners_default_stay_still);
+    }
+
+    fn process_out_at_base(out_at_bases: &Vec<RunnerFinalPosition>, runner_dests: &mut RunnerDests, verbosity: Verbosity) -> Result<()> {
         for out_at_base in out_at_bases {
             // Find the closest unresolved runner behind that base
             let possible_runners =
@@ -750,20 +756,22 @@ impl GameSituation {
             }
             runner_dests.set(closest_runner, RunnerFinalPosition::Out).unwrap();
         }
+        Ok(())
+    }
 
-        // Deal with runner_dests
-        // TODO - move this whole thing into a method?
+    fn resolve_runners_and_outs(self: &Self,
+        runner_dests: &mut RunnerDests,
+        default_batter_base: &Option<RunnerFinalPosition>,
+        runners_default_stay_still: bool) -> Result<GameSituation> {
         if let Some(default_batter_base) = default_batter_base {
-            //TODO - perf?
             if runner_dests.get(RunnerInitialPosition::Batter).unwrap() == RunnerFinalPosition::Undetermined {
-                runner_dests.set(RunnerInitialPosition::Batter, default_batter_base).unwrap();
+                runner_dests.set(RunnerInitialPosition::Batter, *default_batter_base).unwrap();
             }
         }
         let mut new_situation = self.clone();
         new_situation.runners = [false, false, false];
         let mut undetermined_runner = None;
         let mut duplicate_runner = None;
-        // TODO - better way to iterate over this
         for key in runner_dests.keys() {
             let dest = runner_dests.get(key).unwrap();
             match dest {
@@ -776,9 +784,6 @@ impl GameSituation {
                 RunnerFinalPosition::Undetermined => {
                     // if key is Batter, we're in trouble below regardless
                     // (unless we have 3 outs, but we can't check that yet)
-                    if key == RunnerInitialPosition::Batter {
-
-                    }
                     if runners_default_stay_still && key != RunnerInitialPosition::Batter {
                         if *new_situation.runners.get(key.runner_index()?).unwrap() {
                             duplicate_runner = Some(key.runner_index()?);
@@ -815,6 +820,7 @@ impl GameSituation {
         }
         new_situation.next_inning_if_three_outs();
         Ok(new_situation)
+
     }
 
     fn handle_sb_event(sb_event: &str, runner_dests: &mut RunnerDests) -> Result<()> {
