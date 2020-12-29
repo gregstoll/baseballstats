@@ -12,15 +12,15 @@ use encoding::all::ISO_8859_1;
 
 
 mod data {
-    use std::{collections::HashMap, convert::TryFrom};
+    use std::{convert::{TryFrom, TryInto}};
     use anyhow::anyhow;
 
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub enum RunnerInitialPosition {
-        Batter,
-        FirstBase,
-        SecondBase,
-        ThirdBase
+        Batter = 0,
+        FirstBase = 1,
+        SecondBase = 2,
+        ThirdBase = 3
     }
 
     impl TryFrom<char> for RunnerInitialPosition {
@@ -33,6 +33,17 @@ mod data {
                 '2' => Ok(RunnerInitialPosition::SecondBase),
                 '3' => Ok(RunnerInitialPosition::ThirdBase),
                 _ => Err(anyhow!("Unrecognized char for RunnerInitialPosition"))
+            }
+        }
+    }
+
+    impl TryFrom<u8> for RunnerInitialPosition {
+        type Error = anyhow::Error;
+
+        fn try_from(value: u8) -> Result<Self, Self::Error> {
+            match value {
+                0..=3 => Ok(unsafe { std::mem::transmute(value as u8)}),
+                _ => Err(anyhow!("invalid RunnerInitialPosition value"))
             }
         }
     }
@@ -114,81 +125,95 @@ mod data {
 
     pub struct RunnerDests {
         // Putting this struct in a module so its implementation is hidden.
-        // TODO - Probably want to move this to a simple array with 4 entries
-        dests: HashMap<RunnerInitialPosition, RunnerFinalPosition>
+        dests: [Option<RunnerFinalPosition>;4],
     }
 
     impl RunnerDests {
         pub fn new_from_runners(runners: &[bool;3]) -> RunnerDests {
-            let mut dests = HashMap::new();
+            let mut dests = [None, None, None, None];
             if runners[0] {
-                dests.insert(RunnerInitialPosition::FirstBase, RunnerFinalPosition::Undetermined);
+                dests[RunnerInitialPosition::FirstBase as usize] = Some(RunnerFinalPosition::Undetermined);
             }
             if runners[1] {
-                dests.insert(RunnerInitialPosition::SecondBase, RunnerFinalPosition::Undetermined);
+                dests[RunnerInitialPosition::SecondBase as usize] = Some(RunnerFinalPosition::Undetermined);
             }
             if runners[2] {
-                dests.insert(RunnerInitialPosition::ThirdBase, RunnerFinalPosition::Undetermined);
+                dests[RunnerInitialPosition::ThirdBase as usize] = Some(RunnerFinalPosition::Undetermined);
             }
-            dests.insert(RunnerInitialPosition::Batter, RunnerFinalPosition::Undetermined);
+            dests[RunnerInitialPosition::Batter as usize] = Some(RunnerFinalPosition::Undetermined);
             RunnerDests { dests }
         }
 
         pub fn batter_to_first(self: &mut Self) {
             self.set(RunnerInitialPosition::Batter, RunnerFinalPosition::FirstBase).unwrap();
-            if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::FirstBase) {
-                *entry = RunnerFinalPosition::SecondBase;
-                if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::SecondBase) {
-                    *entry = RunnerFinalPosition::ThirdBase;
-                    if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::ThirdBase) {
-                        *entry = RunnerFinalPosition::HomePlate;
+            if self.dests[RunnerInitialPosition::FirstBase as usize] != None {
+                self.dests[RunnerInitialPosition::FirstBase as usize] = Some(RunnerFinalPosition::SecondBase);
+                if self.dests[RunnerInitialPosition::SecondBase as usize] != None {
+                    self.dests[RunnerInitialPosition::SecondBase as usize] = Some(RunnerFinalPosition::ThirdBase);
+                    if self.dests[RunnerInitialPosition::ThirdBase as usize] != None {
+                        self.dests[RunnerInitialPosition::ThirdBase as usize] = Some(RunnerFinalPosition::HomePlate);
                     }
                 }
                 else {
-                    if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::ThirdBase) {
-                        *entry = RunnerFinalPosition::ThirdBase;
+                    if self.dests[RunnerInitialPosition::ThirdBase as usize] != None {
+                        self.dests[RunnerInitialPosition::ThirdBase as usize] = Some(RunnerFinalPosition::ThirdBase);
                     }
                 }
             }
             else {
-                if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::SecondBase) {
-                    *entry = RunnerFinalPosition::SecondBase;
+                if self.dests[RunnerInitialPosition::SecondBase as usize] != None {
+                    self.dests[RunnerInitialPosition::SecondBase as usize] = Some(RunnerFinalPosition::SecondBase);
                 }
-                if let Some(entry) = self.dests.get_mut(&RunnerInitialPosition::ThirdBase) {
-                    *entry = RunnerFinalPosition::ThirdBase;
+                if self.dests[RunnerInitialPosition::ThirdBase as usize] != None {
+                    self.dests[RunnerInitialPosition::ThirdBase as usize] = Some(RunnerFinalPosition::ThirdBase);
                 }
             }
         }
 
         pub fn set_batter_still_at_bat_if_not_set(self: &mut Self) {
-            let batter_value = self.dests.get_mut(&RunnerInitialPosition::Batter).unwrap();
-            if batter_value == &RunnerFinalPosition::Undetermined {
-                *batter_value = RunnerFinalPosition::StillAtBat;
+            if self.dests[RunnerInitialPosition::Batter as usize] == Some(RunnerFinalPosition::Undetermined) {
+                self.dests[RunnerInitialPosition::Batter as usize] = Some(RunnerFinalPosition::StillAtBat);
             }
         }
 
         pub fn get(self: &Self, key: RunnerInitialPosition) -> Option<RunnerFinalPosition> {
-            self.dests.get(&key).map(|x| *x)
+            self.dests[key as usize]
         }
 
         pub fn keys(self: &Self) -> impl Iterator<Item=RunnerInitialPosition> + '_ {
-            self.dests.keys().map(|x| *x).into_iter()
+            let mut cur_position = 0;
+            return std::iter::from_fn(move || {
+                if cur_position == 4 {
+                    return None;
+                }
+                while self.dests[cur_position].is_none() {
+                    cur_position += 1;
+                    if cur_position == 4 {
+                        return None;
+                    }
+                }
+                cur_position += 1;
+                return Some((cur_position as u8 - 1).try_into().unwrap());
+            });
         }
 
         pub fn set_all<F>(self: &mut Self, func: F)
             where F: Fn(RunnerInitialPosition) -> RunnerFinalPosition {
-            for (&key, value) in self.dests.iter_mut() {
-                *value = func(key);
+            for i in 0..4 {
+                if self.dests[i].is_some() {
+                    self.dests[i] = Some(func((i as u8).try_into().unwrap()));
+                }
             }
         }
 
         pub fn set(self: &mut Self, key: RunnerInitialPosition, value: RunnerFinalPosition) -> anyhow::Result<()> {
-            // This is an error if the key doesn't already exist, it means
-            // a runner came into existence that wasn't there at the beginning
-            self.dests.insert(key, value).map(|_| ()).ok_or(anyhow!("Added runner {:?}", key))
+            if self.dests[key as usize].is_none() {
+                return Err(anyhow!("Added runner {:?}", key));
+            }
+            self.dests[key as usize] = Some(value);
+            Ok(())
         }
     }
-
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -779,12 +804,12 @@ impl GameSituation {
         }
         if new_situation.outs < 3 {
             if undetermined_runner.is_some() {
-                return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner))
+                return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner.unwrap()))
             }
             if duplicate_runner.is_some() {
-                if verbosity.is_at_least(Verbosity::Normal) {
+                /*if verbosity.is_at_least(Verbosity::Normal) {
                     println!("ERROR - already a runner at base {}!", duplicate_runner.unwrap());
-                }
+                }*/
                 return Err(anyhow!("ERROR - duplicate runner at base {}", duplicate_runner.unwrap()));
             }
         }
