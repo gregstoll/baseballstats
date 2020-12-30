@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
+use std::{collections::HashMap, convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -235,7 +235,7 @@ impl Verbosity {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 struct GameSituation {
     // Whether runners are on first, second, third bases
     runners: [bool;3],
@@ -919,7 +919,7 @@ impl PlayLineInfo<'_> {
     }
 }
 
-fn parse_file<P>(filename: P, verbosity: Verbosity) -> Result<()>
+fn parse_file<P>(filename: P, verbosity: Verbosity, reports: &mut Vec<Box<dyn Report>>) -> Result<()>
 where P: AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
@@ -953,6 +953,16 @@ where P: AsRef<Path> {
         }
         else {
             if line.starts_with("id,") {
+                // Don't include the last situation in the list of keys, because it's one after the last inning probably
+                if Some(&cur_game_situation) == all_game_situations.last() {
+                    all_game_situations.remove(all_game_situations.len() - 1);
+                }
+                for report in &mut *reports {
+                    report.processed_game(&cur_id,
+                         &cur_game_situation,
+                         &all_game_situations,
+                         &play_lines);
+                }
                 // TODO more stuff
                 // TODO avoid this clone
                 cur_id = line.clone()[3..].to_owned();
@@ -991,6 +1001,58 @@ where P: AsRef<Path> {
 
 // TODO - parallel
 
+trait Report {
+    fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], play_lines: &[String]);
+    fn clear_stats(self: &mut Self) { }
+    //fn merge_into(self: &Self, other: &mut Self) { panic!("Report must override merge_into if it supports parallel!")}
+    fn supports_parallel_processing(self: &Self) -> bool { false } // TODO
+    fn done_with_year(self: &mut Self, year: usize);
+    fn done_with_all(self: &mut Self);
+}
+
+// TODO - StatsReport trait?
+struct StatsWinExpectancyReport {
+    // value is (num_wins, num_situation)
+    stats: HashMap<GameSituation, (u32, u32)>
+}
+impl StatsWinExpectancyReport {
+    fn report_file_name() -> &'static str { "stats.new" }
+    fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+impl Report for StatsWinExpectancyReport {
+    fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        // Check the last situation to see who won
+        let home_won = final_game_situation.is_home_winning();
+        if home_won.is_none() {
+            // This game must have been tied when it stopped.  Don't count
+            // these stats.
+            return;
+        }
+        let home_won = home_won.unwrap();
+        for situation_key in situation_keys {
+            let is_win = if home_won { situation_key.is_home } else { !situation_key.is_home };
+            // TODO - refactor
+            let entry = self.stats.entry(situation_key.clone()).or_insert((0, 0));
+            if is_win {
+                entry.0 += 1;
+            }
+            entry.1 += 1;
+        }
+    }
+
+    fn done_with_year(self: &mut Self, year: usize) {
+        todo!()
+    }
+
+    fn done_with_all(self: &mut Self) {
+        println!("Done with all, got {} keys", self.stats.len());
+    }
+}
+
 #[derive(FromArgs)]
 /// Options
 struct Options {
@@ -998,13 +1060,19 @@ struct Options {
     file_pattern: String
 }
 
+
 fn main() -> Result<()> {
     println!("Hello, world!");
     let options : Options = argh::from_env();
     println!("{}", options.file_pattern);
+    let report = Box::new(StatsWinExpectancyReport::new());
+    let mut reports = vec!(report as Box<dyn Report>);
     for entry in glob(&options.file_pattern).expect("Failed to read glob pattern") {
         //parse_file(r"C:\Users\greg\Documents\baseballstats\data\1958BAL.EVA");
-        parse_file(entry?, Verbosity::Normal)?;
+        parse_file(entry?, Verbosity::Normal, &mut reports);
+    }
+    for mut report in reports {
+        report.done_with_all();
     }
     Ok(())
 }
