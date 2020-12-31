@@ -1069,8 +1069,10 @@ impl Report for StatsWinExpectancyReport {
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         let mut output = File::create(Self::report_file_name()).unwrap();
         for entry in contents {
-            // TODO - write this right
-            writeln!(output, "{:?} ({}, {})", entry.0, entry.1.0, entry.1.1).unwrap();
+            // TODO - refactor?
+            writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
+                entry.0.inning, entry.0.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
+                entry.1.0, entry.1.1).unwrap();
         }
     }
 }
