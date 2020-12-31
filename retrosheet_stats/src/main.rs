@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{collections::HashMap, convert::TryInto, fs::File, io::{self, BufRead}, path::Path};
+use std::{collections::HashMap, convert::TryInto, fs::File, io::{self, BufRead}, path::Path, io::Write};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -235,14 +235,14 @@ impl Verbosity {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct GameSituation {
     // Whether runners are on first, second, third bases
-    runners: [bool;3],
     inning: u8,
-    cur_score_diff: i8,
-    outs: u8, // TODO - should this be an enum?
     is_home: bool,
+    outs: u8, // TODO - should this be an enum?
+    runners: [bool;3],
+    cur_score_diff: i8,
 }
 
 impl GameSituation {
@@ -974,26 +974,40 @@ where P: AsRef<Path> {
             }
             else if line.starts_with("play,") {
                 let new_situation = cur_game_situation.parse_play(&line, verbosity);
-                if let Err(error) = new_situation {
-                    if verbosity.is_at_least(Verbosity::Normal) {
-                        println!("Error in game {} at line \"{}\"  error is {}  initial situation {:?}", cur_id, line, error, cur_game_situation);
+                match new_situation {
+                    Err(error) => {
+                        if verbosity.is_at_least(Verbosity::Normal) {
+                            println!("Error in game {} at line \"{}\"  error is {}  initial situation {:?}", cur_id, line, error, cur_game_situation);
+                        }
+                        // TODO knownBadGames
+                        in_game = false;
                     }
-                    // TODO knownBadGames
-                    in_game = false;
-                }
-                else if let Ok(new_situation) = new_situation {
-                    //if cur_id == "BAL195704270" {
-                    //    println!("After line {}, situation is {:?}", line, new_situation);
-                    //}
-                    if all_game_situations.last() != Some(&new_situation) {
-                        all_game_situations.push(new_situation);
-                        //TODO - avoid this clone
-                        play_lines.push(line.to_owned());
+                    Ok(new_situation) => {
+                        //if cur_id == "BAL195704270" {
+                        //    println!("After line {}, situation is {:?}", line, new_situation);
+                        //}
+                        if all_game_situations.last() != Some(&new_situation) {
+                            all_game_situations.push(new_situation);
+                            //TODO - avoid this clone
+                            play_lines.push(line.to_owned());
+                        }
+                        cur_game_situation = new_situation;
                     }
-                    cur_game_situation = new_situation;
                 }
             }
         }
+    }
+    // TODO - refactor this
+    // TODO - handle empty files I guess
+    // Don't include the last situation in the list of keys, because it's one after the last inning probably
+    if Some(&cur_game_situation) == all_game_situations.last() {
+        all_game_situations.remove(all_game_situations.len() - 1);
+    }
+    for report in &mut *reports {
+        report.processed_game(&cur_id,
+                &cur_game_situation,
+                &all_game_situations,
+                &play_lines);
     }
 
     Ok(())
@@ -1027,6 +1041,7 @@ impl Report for StatsWinExpectancyReport {
         situation_keys: &[GameSituation], _play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
+        //println!("{}", game_id);
         if home_won.is_none() {
             // This game must have been tied when it stopped.  Don't count
             // these stats.
@@ -1050,6 +1065,13 @@ impl Report for StatsWinExpectancyReport {
 
     fn done_with_all(self: &mut Self) {
         println!("Done with all, got {} keys", self.stats.len());
+        let mut contents: Vec<_> = self.stats.iter().collect();
+        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
+        let mut output = File::create(Self::report_file_name()).unwrap();
+        for entry in contents {
+            // TODO - write this right
+            writeln!(output, "{:?} ({}, {})", entry.0, entry.1.0, entry.1.1).unwrap();
+        }
     }
 }
 
