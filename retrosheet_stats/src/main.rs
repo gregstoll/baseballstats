@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{collections::HashMap, convert::TryInto, fs::File, io::{self, BufRead}, path::Path, io::Write};
+use std::{collections::HashMap, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::Write, path::{Path, PathBuf}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -236,11 +236,17 @@ impl Verbosity {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+struct Inning {
+    inning: u8,
+    is_home: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct GameSituation {
-    // Whether runners are on first, second, third bases
     inning: u8,
     is_home: bool,
     outs: u8, // TODO - should this be an enum?
+    // Whether runners are on first, second, third bases
     runners: [bool;3],
     cur_score_diff: i8,
 }
@@ -920,13 +926,16 @@ impl PlayLineInfo<'_> {
 }
 
 fn parse_file<P>(filename: P, verbosity: Verbosity, reports: &mut Vec<Box<dyn Report>>) -> Result<()>
-where P: AsRef<Path> {
+where P: Debug + AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
     let mut play_lines : Vec<String> = Vec::new();
     let mut in_game = false;
     let mut num_games = 0;
     let mut cur_id = "".to_owned();
+    if verbosity.is_at_least(Verbosity::Normal) {
+        println!("{:?}", filename);
+    }
     //if verbosity.is_at_least(Verbosity::Normal) {
     //    println!("{:?}", filename.as_ref());
     //}
@@ -1024,19 +1033,22 @@ trait Report {
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
 }
+// TODO - move more logic here
+trait StatsReport : Report {
+    fn report_file_name() -> &'static str;
+}
 
-// TODO - StatsReport trait?
 struct StatsWinExpectancyReport {
     // value is (num_wins, num_situation)
     stats: HashMap<GameSituation, (u32, u32)>
 }
 impl StatsWinExpectancyReport {
-    fn report_file_name() -> &'static str { "stats.new" }
     fn new() -> Self {
         Self { stats: HashMap::new() }
     }
 }
 impl Report for StatsWinExpectancyReport {
+    fn clear_stats(&mut self) { self.stats.clear(); }
     fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
         situation_keys: &[GameSituation], _play_lines: &[String]) {
         // Check the last situation to see who won
@@ -1060,7 +1072,16 @@ impl Report for StatsWinExpectancyReport {
     }
 
     fn done_with_year(self: &mut Self, year: usize) {
-        todo!()
+        let mut path: PathBuf = ["statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
+        let mut output = File::create(Self::report_file_name()).unwrap();
+        let mut contents: Vec<_> = self.stats.iter().collect();
+        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
+        for entry in contents {
+            // TODO - refactor?
+            writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
+                entry.0.inning, entry.0.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
+                entry.1.0, entry.1.1).unwrap();
+        }
     }
 
     fn done_with_all(self: &mut Self) {
@@ -1076,6 +1097,24 @@ impl Report for StatsWinExpectancyReport {
         }
     }
 }
+
+impl StatsReport for StatsWinExpectancyReport {
+    fn report_file_name() -> &'static str { "stats" }
+}
+
+struct StatsRunExpectancyPerInningReport {
+    // key is inning
+    // value is times that index of runs were gained
+    // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
+    // 7 times 1 run was scored, and 4 times 2 runs were scored
+    stats: HashMap<(u8, bool), Vec<u32>>
+}
+impl StatsRunExpectancyPerInningReport {
+    fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+// TODO - implement stuff
 
 #[derive(FromArgs)]
 /// Options
