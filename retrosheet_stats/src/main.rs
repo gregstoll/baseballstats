@@ -237,14 +237,24 @@ impl Verbosity {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct Inning {
-    inning: u8,
+    number: u8,
     is_home: bool,
+}
+
+impl Inning {
+    fn next_inning(&self) -> Inning {
+        if self.is_home {
+            Inning { number: self.number + 1, is_home: false }
+        }
+        else {
+            Inning { number: self.number, is_home: true }
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct GameSituation {
-    inning: u8,
-    is_home: bool,
+    inning: Inning,
     outs: u8, // TODO - should this be an enum?
     // Whether runners are on first, second, third bases
     runners: [bool;3],
@@ -255,8 +265,7 @@ impl GameSituation {
     fn new() -> GameSituation {
         GameSituation {
             cur_score_diff: 0,
-            inning: 1,
-            is_home: false,
+            inning: Inning {number: 1, is_home: false},
             outs: 0,
             runners: [false, false, false]
         }
@@ -265,13 +274,7 @@ impl GameSituation {
     // Advances to the next inning if there are 3 outs
     fn next_inning_if_three_outs(self: &mut Self) {
         if self.outs >= 3 {
-            if self.is_home {
-                self.is_home = false;
-                self.inning += 1;
-            }
-            else {
-                self.is_home = true;
-            }
+            self.inning = self.inning.next_inning();
             self.outs = 0;
             self.runners[0] = false;
             self.runners[1] = false;
@@ -287,7 +290,7 @@ impl GameSituation {
             None
         }
         else {
-            if self.is_home {
+            if self.inning.is_home {
                 Some(self.cur_score_diff > 0)
             }
             else {
@@ -311,10 +314,7 @@ impl GameSituation {
         }
 
         if self.inning != play_line_info.inning {
-            return Err(anyhow!("Mismatched inning - expected {} from GameSituation, got {} from play_line_info", self.inning, play_line_info.inning));
-        }
-        if self.is_home != play_line_info.is_home {
-            return Err(anyhow!("Mismatched is_home - expected {} from GameSituation, got {} from play_line_info", self.is_home, play_line_info.is_home));
+            return Err(anyhow!("Mismatched inning - expected {:?} from GameSituation, got {:?} from play_line_info", self.inning, play_line_info.inning));
         }
 
         let play_string = &play_line_info.play_str;
@@ -897,8 +897,7 @@ impl GameSituation {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PlayLineInfo<'a> {
-    inning: u8,
-    is_home: bool,
+    inning: Inning,
     player_id: &'a str,
     count_when_play_happened: &'a str,
     pitches_str: &'a str,
@@ -915,8 +914,8 @@ impl PlayLineInfo<'_> {
         let play_str = play_match.get(6).unwrap().as_str().chars()
             .filter(|&x| x != '!' && x != '#' && x != '?').collect();
         return PlayLineInfo {
-            inning: play_match.get(1).unwrap().as_str().parse::<u8>().unwrap(),
-            is_home: play_match.get(2).unwrap().as_str() == "1",
+            inning: Inning { number: play_match.get(1).unwrap().as_str().parse::<u8>().unwrap(),
+                is_home: play_match.get(2).unwrap().as_str() == "1"},
             player_id: play_match.get(3).unwrap().as_str(),
             count_when_play_happened: play_match.get(4).unwrap().as_str(),
             pitches_str: play_match.get(5).unwrap().as_str(),
@@ -1061,7 +1060,7 @@ impl Report for StatsWinExpectancyReport {
         }
         let home_won = home_won.unwrap();
         for situation_key in situation_keys {
-            let is_win = if home_won { situation_key.is_home } else { !situation_key.is_home };
+            let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
             // TODO - refactor
             let entry = self.stats.entry(situation_key.clone()).or_insert((0, 0));
             if is_win {
@@ -1079,7 +1078,7 @@ impl Report for StatsWinExpectancyReport {
         for entry in contents {
             // TODO - refactor?
             writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
-                entry.0.inning, entry.0.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
+                entry.0.inning.number, entry.0.inning.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
                 entry.1.0, entry.1.1).unwrap();
         }
     }
@@ -1092,7 +1091,7 @@ impl Report for StatsWinExpectancyReport {
         for entry in contents {
             // TODO - refactor?
             writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
-                entry.0.inning, entry.0.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
+                entry.0.inning.number, entry.0.inning.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
                 entry.1.0, entry.1.1).unwrap();
         }
     }
@@ -1151,8 +1150,7 @@ mod tests {
     fn test_next_inning_if_three_outs__zero_outs() {
         let orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: 1,
-            is_home: false,
+            inning: Inning { number: 1, is_home: false},
             outs: 0,
             runners: [false, true, false]
         };
@@ -1165,8 +1163,7 @@ mod tests {
     fn test_next_inning_if_three_outs__one_out() {
         let orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: 1,
-            is_home: false,
+            inning: Inning { number: 1, is_home: false},
             outs: 1,
             runners: [false, true, false]
         };
@@ -1179,8 +1176,7 @@ mod tests {
     fn test_next_inning_if_three_outs__two_outs() {
         let orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: 1,
-            is_home: false,
+            inning: Inning { number: 1, is_home: false},
             outs: 2,
             runners: [false, true, false]
         };
@@ -1193,16 +1189,14 @@ mod tests {
     fn test_next_inning_if_three_outs__three_outs_home() {
         let mut orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: 1,
-            is_home: true,
+            inning: Inning { number: 1, is_home: true},
             outs: 3,
             runners: [false, true, false]
         };
         orig_inning.next_inning_if_three_outs();
         assert_eq!(GameSituation {
             cur_score_diff: -2,
-            inning: 2,
-            is_home: false,
+            inning: Inning { number: 2, is_home: false},
             outs: 0,
             runners: [false, false, false]
         }, orig_inning);
@@ -1212,16 +1206,14 @@ mod tests {
     fn test_next_inning_if_three_outs__three_outs_visitor() {
         let mut orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: 1,
-            is_home: false,
+            inning: Inning { number: 1, is_home: false},
             outs: 3,
             runners: [false, true, false]
         };
         orig_inning.next_inning_if_three_outs();
         assert_eq!(GameSituation {
             cur_score_diff: -2,
-            inning: 1,
-            is_home: true,
+            inning: Inning { number: 1, is_home: true},
             outs: 0,
             runners: [false, false, false]
         }, orig_inning);
@@ -1230,7 +1222,7 @@ mod tests {
     #[test]
     fn test_is_home_winning__home_inning_tied() {
         let mut game = GameSituation::new();
-        game.is_home = true;
+        game.inning.is_home = true;
         game.cur_score_diff = 0;
         assert_eq!(None, game.is_home_winning());
     }
@@ -1238,7 +1230,7 @@ mod tests {
     #[test]
     fn test_is_home_winning__visitor_inning_tied() {
         let mut game = GameSituation::new();
-        game.is_home = false;
+        game.inning.is_home = false;
         game.cur_score_diff = 0;
         assert_eq!(None, game.is_home_winning());
     }
@@ -1246,7 +1238,7 @@ mod tests {
     #[test]
     fn test_is_home_winning__home_inning_home_ahead() {
         let mut game = GameSituation::new();
-        game.is_home = true;
+        game.inning.is_home = true;
         game.cur_score_diff = 2;
         assert_eq!(Some(true), game.is_home_winning());
     }
@@ -1254,7 +1246,7 @@ mod tests {
     #[test]
     fn test_is_home_winning__home_inning_visitor_ahead() {
         let mut game = GameSituation::new();
-        game.is_home = true;
+        game.inning.is_home = true;
         game.cur_score_diff = -2;
         assert_eq!(Some(false), game.is_home_winning());
     }
@@ -1262,7 +1254,7 @@ mod tests {
     #[test]
     fn test_is_home_winning__visitor_inning_home_ahead() {
         let mut game = GameSituation::new();
-        game.is_home = false;
+        game.inning.is_home = false;
         game.cur_score_diff = -2;
         assert_eq!(Some(true), game.is_home_winning());
     }
@@ -1270,7 +1262,7 @@ mod tests {
     #[test]
     fn test_is_home_winning__visitor_inning_visitor_ahead() {
         let mut game = GameSituation::new();
-        game.is_home = false;
+        game.inning.is_home = false;
         game.cur_score_diff = 2;
         assert_eq!(Some(false), game.is_home_winning());
     }
@@ -1324,8 +1316,7 @@ mod tests {
         let play_line_info_str = "play,4,1,corrc001,22,BSBFFX,HR/78/F";
         let play_line_info = PlayLineInfo::new_from_line(play_line_info_str);
         let expected = PlayLineInfo {
-            inning: 4,
-            is_home: true,
+            inning: Inning { number: 4, is_home: true}, 
             player_id: "corrc001",
             count_when_play_happened: "22",
             pitches_str: "BSBFFX",
@@ -1354,25 +1345,23 @@ mod tests {
         fn setup_with_inning(outs: u8, is_home: bool, runners: [bool;3], play_string: &str) -> (GameSituation, String) {
             let situation = GameSituation {
                 runners,
-                inning: 1,
+                inning: Inning { number: 1, is_home },
                 cur_score_diff: 0,
                 outs,
-                is_home
             };
 
-            (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
+            (situation, format!("play,1,{},,,,{}", if situation.inning.is_home { 1 } else { 0 }, play_string))
         }
 
         fn setup(runners: [bool;3], play_string: &str) -> (GameSituation, String) {
             let situation = GameSituation {
                 runners,
-                inning: 1,
+                inning: Inning { number: 1, is_home: false },
                 cur_score_diff: 0,
                 outs: 0,
-                is_home: false
             };
 
-            (situation, format!("play,1,{},,,,{}", if situation.is_home { 1 } else { 0 }, play_string))
+            (situation, format!("play,1,{},,,,{}", if situation.inning.is_home { 1 } else { 0 }, play_string))
         }
 
         fn assert_result(expected_situation: &GameSituation, initial_situation: &GameSituation, play_line: &str) -> Result<()> {
@@ -1404,7 +1393,7 @@ mod tests {
             situation.outs = 2;
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, false];
-            expected_situation.is_home = true;
+            expected_situation.inning.is_home = true;
             expected_situation.outs = 0;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
@@ -1414,8 +1403,7 @@ mod tests {
             let (mut situation, play_line) = setup_with_inning(2, true, [false, true, false], "8");
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, false];
-            expected_situation.is_home = false;
-            expected_situation.inning = 2;
+            expected_situation.inning = Inning { number: 2, is_home: false };
             expected_situation.outs = 0;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
@@ -1503,8 +1491,7 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, false];
             expected_situation.outs = 0;
-            expected_situation.is_home = false;
-            expected_situation.inning = 2;
+            expected_situation.inning = Inning { number: 2, is_home: false};
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
@@ -1525,7 +1512,7 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, false];
             expected_situation.outs = 0;
-            expected_situation.is_home = true;
+            expected_situation.inning.is_home = true;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
@@ -1536,7 +1523,7 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [false, false, false];
             expected_situation.outs = 0;
-            expected_situation.is_home = true;
+            expected_situation.inning.is_home = true;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
 
