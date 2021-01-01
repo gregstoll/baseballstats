@@ -10,6 +10,7 @@ use glob::glob;
 use encoding::{Encoding, DecoderTrap};
 use encoding::all::ISO_8859_1;
 use smallvec::{smallvec, SmallVec};
+use smol_str::SmolStr;
 
 
 mod data {
@@ -321,7 +322,6 @@ impl GameSituation {
         }
 
         let play_string = &play_line_info.play_str;
-        // TODO perf - is this collect() necessary?
         let play_array: SmallVec<[&str;2]> = play_string.split('.').collect();
         if play_array.len() > 2 {
             return Err(anyhow!("play_array is too long after splitting on '.': \"{}\"", play_string));
@@ -904,7 +904,7 @@ struct PlayLineInfo<'a> {
     player_id: &'a str,
     count_when_play_happened: &'a str,
     pitches_str: &'a str,
-    play_str: String
+    play_str: SmolStr
 }
 
 impl PlayLineInfo<'_> {
@@ -914,7 +914,7 @@ impl PlayLineInfo<'_> {
         }
         let play_match = PLAY_RE.captures(line).unwrap();
         // remove characters we don't care about
-        let play_str = play_match.get(6).unwrap().as_str().chars()
+        let play_str: SmolStr = play_match.get(6).unwrap().as_str().chars()
             .filter(|&x| x != '!' && x != '#' && x != '?').collect();
         return PlayLineInfo {
             inning: Inning { number: play_match.get(1).unwrap().as_str().parse::<u8>().unwrap(),
@@ -1413,7 +1413,7 @@ mod tests {
             player_id: "corrc001",
             count_when_play_happened: "22",
             pitches_str: "BSBFFX",
-            play_str: "HR/78/F".to_owned()
+            play_str: SmolStr::new("HR/78/F")
         };
         assert_eq!(expected, play_line_info);
     }
