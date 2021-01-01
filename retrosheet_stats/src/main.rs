@@ -9,6 +9,7 @@ use regex::{Regex, RegexBuilder};
 use glob::glob;
 use encoding::{Encoding, DecoderTrap};
 use encoding::all::ISO_8859_1;
+use smallvec::{smallvec, SmallVec};
 
 
 mod data {
@@ -308,8 +309,7 @@ impl GameSituation {
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
         let mut runners_default_stay_still = false;
         let mut default_batter_base: Option<RunnerFinalPosition> = None;
-        // TODO - use smallvec or something?
-        let mut out_at_bases: Vec<RunnerFinalPosition> = Vec::new();
+        let mut out_at_bases: SmallVec<[RunnerFinalPosition;4]> = smallvec![];
         //TODO - verbosity log statements
         if verbosity.is_at_least(Verbosity::Verbose) {
             println!("Game situation is {:?}", self);
@@ -322,7 +322,7 @@ impl GameSituation {
 
         let play_string = &play_line_info.play_str;
         // TODO perf - is this collect() necessary?
-        let play_array: Vec<&str> = play_string.split('.').collect();
+        let play_array: SmallVec<[&str;2]> = play_string.split('.').collect();
         if play_array.len() > 2 {
             return Err(anyhow!("play_array is too long after splitting on '.': \"{}\"", play_string));
         }
@@ -701,7 +701,7 @@ impl GameSituation {
         if play_array.len() > 1 {
             let runner_array = play_array[1].split(';').into_iter().map(|x| x.trim());
             for runner_item in runner_array {
-                let runner_chars = runner_item.chars().collect::<Vec<_>>();
+                let runner_chars = runner_item.chars().collect::<SmallVec<[char;10]>>();
                 if runner_chars.len() != 3 {
                     if '(' != runner_chars[3] {
                         return Err(anyhow!("Expected '(' as fourth character in runner_chars \"{}\"", runner_item));
@@ -757,7 +757,7 @@ impl GameSituation {
         return self.resolve_runners_and_outs(&mut runner_dests, &default_batter_base, runners_default_stay_still);
     }
 
-    fn process_out_at_base(out_at_bases: &Vec<RunnerFinalPosition>, runner_dests: &mut RunnerDests, verbosity: Verbosity) -> Result<()> {
+    fn process_out_at_base(out_at_bases: &[RunnerFinalPosition], runner_dests: &mut RunnerDests, verbosity: Verbosity) -> Result<()> {
         for out_at_base in out_at_bases {
             // Find the closest unresolved runner behind that base
             let possible_runners =
