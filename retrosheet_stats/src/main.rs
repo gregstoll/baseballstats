@@ -242,6 +242,9 @@ struct Inning {
 }
 
 impl Inning {
+    fn new() -> Inning {
+        Inning { number: 1, is_home: false }
+    }
     fn next_inning(&self) -> Inning {
         if self.is_home {
             Inning { number: self.number + 1, is_home: false }
@@ -265,7 +268,7 @@ impl GameSituation {
     fn new() -> GameSituation {
         GameSituation {
             cur_score_diff: 0,
-            inning: Inning {number: 1, is_home: false},
+            inning: Inning::new(),
             outs: 0,
             runners: [false, false, false]
         }
@@ -1052,7 +1055,6 @@ impl Report for StatsWinExpectancyReport {
         situation_keys: &[GameSituation], _play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
-        //println!("{}", game_id);
         if home_won.is_none() {
             // This game must have been tied when it stopped.  Don't count
             // these stats.
@@ -1071,7 +1073,8 @@ impl Report for StatsWinExpectancyReport {
     }
 
     fn done_with_year(self: &mut Self, year: usize) {
-        let mut path: PathBuf = ["statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
+        //TODO - this path stuff isn't right
+        let path: PathBuf = ["statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
         let mut output = File::create(Self::report_file_name()).unwrap();
         let mut contents: Vec<_> = self.stats.iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
@@ -1101,19 +1104,109 @@ impl StatsReport for StatsWinExpectancyReport {
     fn report_file_name() -> &'static str { "stats" }
 }
 
+
 struct StatsRunExpectancyPerInningReport {
-    // key is inning
+    // key is (outs, runners)
     // value is times that index of runs were gained
     // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
     // 7 times 1 run was scored, and 4 times 2 runs were scored
-    stats: HashMap<(u8, bool), Vec<u32>>
+    stats: HashMap<(u8, [bool;3]), Vec<u32>>
 }
 impl StatsRunExpectancyPerInningReport {
     fn new() -> Self {
         Self { stats: HashMap::new() }
     }
+    fn format_runs_vec(runs_vec: &[u32]) -> String {
+        // https://stackoverflow.com/a/30325430/118417
+        let mut comma_separated = "[".to_owned();
+
+        if runs_vec.len() > 0 {
+            for num in &runs_vec[..runs_vec.len() - 1] {
+                comma_separated.push_str(&num.to_string());
+                comma_separated.push_str(", ");
+            }
+            comma_separated.push_str(&(runs_vec.last().unwrap()).to_string());
+        }
+        comma_separated.push_str("]");
+        comma_separated
+    }
 }
-// TODO - implement stuff
+impl Report for StatsRunExpectancyPerInningReport {
+    fn clear_stats(&mut self) { self.stats.clear(); }
+    fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
+        let mut cur_inning = Inning::new();
+        let mut start_situation = 0;
+        for (index, situation_key) in situation_keys.iter().enumerate() {
+            if situation_key.inning != cur_inning {
+                assert_ne!(start_situation, index);
+                // add stuff
+                if let Some(_) = innings_to_keys.insert(cur_inning, &situation_keys[start_situation..index]) {
+                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", _game_id, cur_inning, situation_key.inning);
+                }
+                cur_inning = situation_key.inning;
+                start_situation = index;
+            }
+        }
+        if start_situation < situation_keys.len() {
+            innings_to_keys.insert(cur_inning, &situation_keys[start_situation..]);
+        }
+        for (inning, &situations) in innings_to_keys.iter() {
+            let starting_run_diff = situations.first().unwrap().cur_score_diff;
+            let ending_run_diff = 
+                if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
+                    -1 * next_situations[0].cur_score_diff
+                }
+                else {
+                    situations.last().unwrap().cur_score_diff
+                };
+            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+            // Add the statistics now
+            for situation in situations {
+                // Make sure we don't duplicate keys
+                // TODO - I think these might be duplicated? Should only add these once per inning
+                // (if they happen consecutively)
+                let key_to_use = (situation.outs, situation.runners);
+                let runs_gained = (ending_run_diff - situation.cur_score_diff) as usize;
+                let run_diff_vec = self.stats.entry(key_to_use).or_default();
+                if run_diff_vec.len() < runs_gained + 1 {
+                    run_diff_vec.resize(runs_gained + 1, 0);
+                }
+                *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+            }
+        }
+    }
+
+    fn done_with_year(self: &mut Self, year: usize) {
+        todo!()
+        /*let mut path: PathBuf = ["statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
+        let mut output = File::create(Self::report_file_name()).unwrap();
+        let mut contents: Vec<_> = self.stats.iter().collect();
+        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
+        for entry in contents {
+            // TODO - refactor?
+            writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
+                entry.0.inning.number, entry.0.inning.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
+                entry.1.0, entry.1.1).unwrap();
+        }*/
+    }
+
+    fn done_with_all(self: &mut Self) {
+        let mut contents: Vec<_> = self.stats.iter().collect();
+        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
+        let mut output = File::create(Self::report_file_name()).unwrap();
+        for entry in contents {
+            // TODO - refactor?
+            writeln!(output, "({}, ({}, {}, {})): {}",
+                entry.0.0, entry.0.1[0] as i32, entry.0.1[1] as i32, entry.0.1[2] as i32,
+                Self::format_runs_vec(entry.1.as_slice())).unwrap();
+        }
+    }
+}
+impl StatsReport for StatsRunExpectancyPerInningReport {
+    fn report_file_name() -> &'static str { "runsperinningstats" }
+}
 
 #[derive(FromArgs)]
 /// Options
@@ -1124,14 +1217,14 @@ struct Options {
 
 
 fn main() -> Result<()> {
-    println!("Hello, world!");
     let options : Options = argh::from_env();
     println!("{}", options.file_pattern);
-    let report = Box::new(StatsWinExpectancyReport::new());
-    let mut reports = vec!(report as Box<dyn Report>);
+    let mut reports: Vec<Box<dyn Report>> = vec!(
+        Box::new(StatsWinExpectancyReport::new()),
+        Box::new(StatsRunExpectancyPerInningReport::new()));
     for entry in glob(&options.file_pattern).expect("Failed to read glob pattern") {
         //parse_file(r"C:\Users\greg\Documents\baseballstats\data\1958BAL.EVA");
-        parse_file(entry?, Verbosity::Normal, &mut reports);
+        parse_file(entry?, Verbosity::Normal, &mut reports)?;
     }
     for mut report in reports {
         report.done_with_all();
@@ -1150,7 +1243,7 @@ mod tests {
     fn test_next_inning_if_three_outs__zero_outs() {
         let orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: Inning { number: 1, is_home: false},
+            inning: Inning::new(),
             outs: 0,
             runners: [false, true, false]
         };
@@ -1163,7 +1256,7 @@ mod tests {
     fn test_next_inning_if_three_outs__one_out() {
         let orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: Inning { number: 1, is_home: false},
+            inning: Inning::new(),
             outs: 1,
             runners: [false, true, false]
         };
@@ -1176,7 +1269,7 @@ mod tests {
     fn test_next_inning_if_three_outs__two_outs() {
         let orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: Inning { number: 1, is_home: false},
+            inning: Inning::new(),
             outs: 2,
             runners: [false, true, false]
         };
@@ -1206,7 +1299,7 @@ mod tests {
     fn test_next_inning_if_three_outs__three_outs_visitor() {
         let mut orig_inning = GameSituation {
             cur_score_diff: 2,
-            inning: Inning { number: 1, is_home: false},
+            inning: Inning::new(),
             outs: 3,
             runners: [false, true, false]
         };
@@ -1356,7 +1449,7 @@ mod tests {
         fn setup(runners: [bool;3], play_string: &str) -> (GameSituation, String) {
             let situation = GameSituation {
                 runners,
-                inning: Inning { number: 1, is_home: false },
+                inning: Inning::new(),
                 cur_score_diff: 0,
                 outs: 0,
             };
