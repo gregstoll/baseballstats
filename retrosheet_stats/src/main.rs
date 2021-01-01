@@ -119,7 +119,7 @@ mod data {
                 // second baseman and shortstop both map to second base
                 4 | 6 => Some(RunnerFinalPosition::SecondBase),
                 5 => Some(RunnerFinalPosition::ThirdBase),
-                // TODO - add catcher?
+                // I guess we don't need the catcher position here...
                 _ => None
             }
         }
@@ -260,7 +260,7 @@ impl Inning {
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct GameSituation {
     inning: Inning,
-    outs: u8, // TODO - should this be an enum?
+    outs: u8,
     // Whether runners are on first, second, third bases
     runners: [bool;3],
     cur_score_diff: i8,
@@ -311,7 +311,6 @@ impl GameSituation {
         let mut runners_default_stay_still = false;
         let mut default_batter_base: Option<RunnerFinalPosition> = None;
         let mut out_at_bases: SmallVec<[RunnerFinalPosition;4]> = smallvec![];
-        //TODO - verbosity log statements
         if verbosity.is_at_least(Verbosity::Verbose) {
             println!("Game situation is {:?}", self);
             println!("{}", line);
@@ -938,6 +937,29 @@ where P: Debug + AsRef<Path> {
     if verbosity.is_at_least(Verbosity::Normal) {
         println!("{:?}", filename);
     }
+    fn start_new_game_from_line(line: &str, cur_id: &mut String, cur_game_situation: &mut GameSituation,
+        all_game_situations: &mut Vec<GameSituation>, play_lines: &mut Vec<String>, num_games: &mut i32) {
+        *cur_id = line[3..].to_owned();
+        *cur_game_situation = GameSituation::new();
+        all_game_situations.clear();
+        all_game_situations.push(*cur_game_situation);
+        play_lines.clear();
+        *num_games = *num_games + 1;
+    }
+    fn finish_game(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
+        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>) {
+        // Don't include the last situation in the list of keys, because it's one after the last inning probably
+        if Some(cur_game_situation) == all_game_situations.last() {
+            all_game_situations.remove(all_game_situations.len() - 1);
+        }
+        for report in &mut *reports {
+            report.processed_game(&cur_id,
+                    &cur_game_situation,
+                    &all_game_situations,
+                    &play_lines);
+        }
+    }
+
     //if verbosity.is_at_least(Verbosity::Normal) {
     //    println!("{:?}", filename.as_ref());
     //}
@@ -951,35 +973,18 @@ where P: Debug + AsRef<Path> {
         let line = line.trim();
         if !in_game {
             if line.starts_with("id,") {
-                // TODO more stuff
-                cur_id = line[3..].to_owned();
                 in_game = true;
-                cur_game_situation = GameSituation::new();
-                all_game_situations.clear();
-                all_game_situations.push(cur_game_situation);
-                play_lines.clear();
-                num_games = num_games + 1;
+                start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
+                    &mut all_game_situations, &mut play_lines, &mut num_games);
             }
         }
         else {
             if line.starts_with("id,") {
-                // Don't include the last situation in the list of keys, because it's one after the last inning probably
-                if Some(&cur_game_situation) == all_game_situations.last() {
-                    all_game_situations.remove(all_game_situations.len() - 1);
-                }
-                for report in &mut *reports {
-                    report.processed_game(&cur_id,
-                         &cur_game_situation,
-                         &all_game_situations,
-                         &play_lines);
-                }
-                // TODO more stuff
-                cur_id = line[3..].to_owned();
-                cur_game_situation = GameSituation::new();
-                all_game_situations.clear();
-                all_game_situations.push(cur_game_situation);
-                play_lines.clear();
-                num_games = num_games + 1;
+                finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
+                    &mut play_lines, reports);
+
+                start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
+                    &mut all_game_situations, &mut play_lines, &mut num_games);
             }
             else if line.starts_with("play,") {
                 let new_situation = cur_game_situation.parse_play(&line, verbosity);
@@ -1006,19 +1011,11 @@ where P: Debug + AsRef<Path> {
             }
         }
     }
-    // TODO - refactor this
     // TODO - handle empty files I guess
-    // Don't include the last situation in the list of keys, because it's one after the last inning probably
-    if Some(&cur_game_situation) == all_game_situations.last() {
-        all_game_situations.remove(all_game_situations.len() - 1);
-    }
-    for report in &mut *reports {
-        report.processed_game(&cur_id,
-                &cur_game_situation,
-                &all_game_situations,
-                &play_lines);
-    }
+    finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
+        &mut play_lines, reports);
 
+    // TODO - return num_games or something
     Ok(())
 }
 
