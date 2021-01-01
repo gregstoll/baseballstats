@@ -952,8 +952,7 @@ where P: Debug + AsRef<Path> {
         if !in_game {
             if line.starts_with("id,") {
                 // TODO more stuff
-                // TODO avoid this clone
-                cur_id = line.clone()[3..].to_owned();
+                cur_id = line[3..].to_owned();
                 in_game = true;
                 cur_game_situation = GameSituation::new();
                 all_game_situations.clear();
@@ -975,8 +974,7 @@ where P: Debug + AsRef<Path> {
                          &play_lines);
                 }
                 // TODO more stuff
-                // TODO avoid this clone
-                cur_id = line.clone()[3..].to_owned();
+                cur_id = line[3..].to_owned();
                 cur_game_situation = GameSituation::new();
                 all_game_situations.clear();
                 all_game_situations.push(cur_game_situation);
@@ -1090,7 +1088,7 @@ impl Report for StatsWinExpectancyReport {
         println!("Done with all, got {} keys", self.stats.len());
         let mut contents: Vec<_> = self.stats.iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        let mut output = File::create(Self::report_file_name()).unwrap();
+        let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
         for entry in contents {
             // TODO - refactor?
             writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
@@ -1195,7 +1193,7 @@ impl Report for StatsRunExpectancyPerInningReport {
     fn done_with_all(self: &mut Self) {
         let mut contents: Vec<_> = self.stats.iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        let mut output = File::create(Self::report_file_name()).unwrap();
+        let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
         for entry in contents {
             // TODO - refactor?
             writeln!(output, "({}, ({}, {}, {})): {}",
