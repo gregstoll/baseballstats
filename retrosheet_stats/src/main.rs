@@ -926,7 +926,7 @@ impl PlayLineInfo<'_> {
     }
 }
 
-fn parse_file<P>(filename: P, verbosity: Verbosity, reports: &mut Vec<Box<dyn Report>>) -> Result<()>
+fn parse_file<P>(filename: P, verbosity: Verbosity, reports: &mut Vec<Box<dyn Report>>) -> Result<u32>
 where P: Debug + AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
@@ -938,16 +938,15 @@ where P: Debug + AsRef<Path> {
         println!("{:?}", filename);
     }
     fn start_new_game_from_line(line: &str, cur_id: &mut String, cur_game_situation: &mut GameSituation,
-        all_game_situations: &mut Vec<GameSituation>, play_lines: &mut Vec<String>, num_games: &mut i32) {
+        all_game_situations: &mut Vec<GameSituation>, play_lines: &mut Vec<String>) {
         *cur_id = line[3..].to_owned();
         *cur_game_situation = GameSituation::new();
         all_game_situations.clear();
         all_game_situations.push(*cur_game_situation);
         play_lines.clear();
-        *num_games = *num_games + 1;
     }
     fn finish_game(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
-        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>) {
+        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32) {
         // Don't include the last situation in the list of keys, because it's one after the last inning probably
         if Some(cur_game_situation) == all_game_situations.last() {
             all_game_situations.remove(all_game_situations.len() - 1);
@@ -958,6 +957,7 @@ where P: Debug + AsRef<Path> {
                     &all_game_situations,
                     &play_lines);
         }
+        *num_games = *num_games + 1;
     }
 
     //if verbosity.is_at_least(Verbosity::Normal) {
@@ -975,16 +975,16 @@ where P: Debug + AsRef<Path> {
             if line.starts_with("id,") {
                 in_game = true;
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut num_games);
+                    &mut all_game_situations, &mut play_lines);
             }
         }
         else {
             if line.starts_with("id,") {
                 finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-                    &mut play_lines, reports);
+                    &mut play_lines, reports, &mut num_games);
 
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut num_games);
+                    &mut all_game_situations, &mut play_lines);
             }
             else if line.starts_with("play,") {
                 let new_situation = cur_game_situation.parse_play(&line, verbosity);
@@ -1013,10 +1013,9 @@ where P: Debug + AsRef<Path> {
     }
     // TODO - handle empty files I guess
     finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-        &mut play_lines, reports);
+        &mut play_lines, reports, &mut num_games);
 
-    // TODO - return num_games or something
-    Ok(())
+    Ok(num_games)
 }
 
 // TODO - parallel
@@ -1233,10 +1232,12 @@ fn main() -> Result<()> {
     let mut reports: Vec<Box<dyn Report>> = vec!(
         Box::new(StatsWinExpectancyReport::new()),
         Box::new(StatsRunExpectancyPerInningReport::new()));
+    let mut num_games = 0;
     for entry in glob(&options.file_pattern).expect("Failed to read glob pattern") {
         //parse_file(r"C:\Users\greg\Documents\baseballstats\data\1958BAL.EVA");
-        parse_file(entry?, Verbosity::Normal, &mut reports)?;
+        num_games += parse_file(entry?, Verbosity::Normal, &mut reports)?;
     }
+    println!("Parsed {} games", num_games);
     for mut report in reports {
         report.done_with_all();
     }
