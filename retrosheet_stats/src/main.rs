@@ -1031,8 +1031,27 @@ trait Report {
     fn done_with_all(self: &mut Self);
 }
 // TODO - move more logic here
-trait StatsReport : Report {
+trait StatsReport<'a> : Report {
+    type Key : PartialOrd;
+    type Value;
+    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value>;
+    fn write_key(&self, file: &mut File, key: &Self::Key);
+    fn write_value(&self, file: &mut File, value: &Self::Value);
     fn report_file_name() -> &'static str;
+
+    // TODO - is there a way to make this the default implementation of
+    // Report::done_with_all() implementers?
+    fn done_with_all(self: &'a mut Self) {
+        let mut contents: Vec<_> = self.get_stats().iter().collect();
+        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
+        let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
+        for entry in contents {
+            self.write_key(&mut output, entry.0);
+            write!(output, ": ").unwrap();
+            self.write_value(&mut output, entry.1);
+            writeln!(output, "").unwrap();
+        }
+    }
 }
 
 struct StatsWinExpectancyReport {
@@ -1043,6 +1062,20 @@ impl StatsWinExpectancyReport {
     fn new() -> Self {
         Self { stats: HashMap::new() }
     }
+}
+
+impl<'a> StatsReport<'a> for StatsWinExpectancyReport {
+    type Key = GameSituation;
+    type Value = (u32, u32);
+    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key(&self, file: &mut File, key: &Self::Key) {
+        write!(file, "({}, {}, {}, ({}, {}, {}), {})",
+            key.inning.number, key.inning.is_home as i32, key.outs, key.runners[0] as i32, key.runners[1] as i32, key.runners[2] as i32, key.cur_score_diff).unwrap();
+    }
+    fn write_value(&self, file: &mut File, value: &Self::Value) {
+        write!(file, "({}, {})", value.0, value.1).unwrap();
+    }
+    fn report_file_name() -> &'static str { "stats" }
 }
 impl Report for StatsWinExpectancyReport {
     fn clear_stats(&mut self) { self.stats.clear(); }
@@ -1081,24 +1114,8 @@ impl Report for StatsWinExpectancyReport {
         }
     }
 
-    fn done_with_all(self: &mut Self) {
-        println!("Done with all, got {} keys", self.stats.len());
-        let mut contents: Vec<_> = self.stats.iter().collect();
-        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
-        for entry in contents {
-            // TODO - refactor?
-            writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
-                entry.0.inning.number, entry.0.inning.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
-                entry.1.0, entry.1.1).unwrap();
-        }
-    }
+    fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
 }
-
-impl StatsReport for StatsWinExpectancyReport {
-    fn report_file_name() -> &'static str { "stats" }
-}
-
 
 struct StatsRunExpectancyPerInningReport {
     // key is (outs, runners)
@@ -1186,20 +1203,19 @@ impl Report for StatsRunExpectancyPerInningReport {
                 entry.1.0, entry.1.1).unwrap();
         }*/
     }
-
-    fn done_with_all(self: &mut Self) {
-        let mut contents: Vec<_> = self.stats.iter().collect();
-        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
-        for entry in contents {
-            // TODO - refactor?
-            writeln!(output, "({}, ({}, {}, {})): {}",
-                entry.0.0, entry.0.1[0] as i32, entry.0.1[1] as i32, entry.0.1[2] as i32,
-                Self::format_runs_vec(entry.1.as_slice())).unwrap();
-        }
-    }
+    fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
 }
-impl StatsReport for StatsRunExpectancyPerInningReport {
+impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
+    type Key = (u8, [bool;3]);
+    type Value = Vec<u32>;
+    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key(&self, file: &mut File, key: &Self::Key) {
+        write!(file, "({}, ({}, {}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32).unwrap();
+    }
+    fn write_value(&self, file: &mut File, key: &Self::Value) {
+        write!(file, "{}", Self::format_runs_vec(key)).unwrap();
+    }
+
     fn report_file_name() -> &'static str { "runsperinningstats" }
 }
 
