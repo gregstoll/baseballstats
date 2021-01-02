@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{collections::HashMap, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::Write, path::{Path, PathBuf}};
+use std::{collections::HashMap, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -1034,8 +1034,8 @@ trait StatsReport<'a> : Report {
     type Key : PartialOrd;
     type Value;
     fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value>;
-    fn write_key(&self, file: &mut File, key: &Self::Key);
-    fn write_value(&self, file: &mut File, value: &Self::Value);
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key);
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value);
     fn report_file_name() -> &'static str;
 
     // TODO - is there a way to make this the default implementation of
@@ -1050,6 +1050,20 @@ trait StatsReport<'a> : Report {
             self.write_value(&mut output, entry.1);
             writeln!(output, "").unwrap();
         }
+    }
+
+    fn done_with_year(self: &'a mut Self, year: usize) {
+        let path: PathBuf = ["..", "statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
+        let mut contents: Vec<_> = self.get_stats().iter().collect();
+        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
+        let mut output = BufWriter::new(File::create(path).unwrap());
+        for entry in contents {
+            self.write_key(&mut output, entry.0);
+            write!(output, ": ").unwrap();
+            self.write_value(&mut output, entry.1);
+            writeln!(output, "").unwrap();
+        }
+        output.flush().unwrap();
     }
 }
 
@@ -1067,11 +1081,11 @@ impl<'a> StatsReport<'a> for StatsWinExpectancyReport {
     type Key = GameSituation;
     type Value = (u32, u32);
     fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
-    fn write_key(&self, file: &mut File, key: &Self::Key) {
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, {}, {}, ({}, {}, {}), {})",
             key.inning.number, key.inning.is_home as i32, key.outs, key.runners[0] as i32, key.runners[1] as i32, key.runners[2] as i32, key.cur_score_diff).unwrap();
     }
-    fn write_value(&self, file: &mut File, value: &Self::Value) {
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "({}, {})", value.0, value.1).unwrap();
     }
     fn report_file_name() -> &'static str { "stats" }
@@ -1099,19 +1113,7 @@ impl Report for StatsWinExpectancyReport {
         }
     }
 
-    fn done_with_year(self: &mut Self, year: usize) {
-        //TODO - this path stuff isn't right
-        let path: PathBuf = ["statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
-        let mut output = File::create(Self::report_file_name()).unwrap();
-        let mut contents: Vec<_> = self.stats.iter().collect();
-        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        for entry in contents {
-            // TODO - refactor?
-            writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
-                entry.0.inning.number, entry.0.inning.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
-                entry.1.0, entry.1.1).unwrap();
-        }
-    }
+    fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
 
     fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
 }
@@ -1189,29 +1191,18 @@ impl Report for StatsRunExpectancyPerInningReport {
         }
     }
 
-    fn done_with_year(self: &mut Self, year: usize) {
-        todo!()
-        /*let mut path: PathBuf = ["statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
-        let mut output = File::create(Self::report_file_name()).unwrap();
-        let mut contents: Vec<_> = self.stats.iter().collect();
-        contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        for entry in contents {
-            // TODO - refactor?
-            writeln!(output, "({}, {}, {}, ({}, {}, {}), {}): ({}, {})",
-                entry.0.inning.number, entry.0.inning.is_home as i32, entry.0.outs, entry.0.runners[0] as i32, entry.0.runners[1] as i32, entry.0.runners[2] as i32, entry.0.cur_score_diff,
-                entry.1.0, entry.1.1).unwrap();
-        }*/
-    }
+    fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
+
     fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
 }
 impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
     type Key = (u8, [bool;3]);
     type Value = Vec<u32>;
     fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
-    fn write_key(&self, file: &mut File, key: &Self::Key) {
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, ({}, {}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32).unwrap();
     }
-    fn write_value(&self, file: &mut File, key: &Self::Value) {
+    fn write_value<T:Write>(&self, file: &mut T, key: &Self::Value) {
         write!(file, "{}", Self::format_runs_vec(key)).unwrap();
     }
 
@@ -1224,11 +1215,12 @@ struct Options {
     /// quiet output
     #[argh(switch, short='q')]
     quiet: bool,
-
     /// verbose output
     #[argh(switch, short='v')]
     verbose: bool,
-
+    /// generate data on a per-year basis
+    #[argh(switch, short='y')]
+    by_year: bool,
     #[argh(positional)]
     file_pattern: String
 }
@@ -1258,13 +1250,36 @@ fn main() -> Result<()> {
         Box::new(StatsRunExpectancyPerInningReport::new()));
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
-    for entry in glob(&options.file_pattern).expect("Failed to read glob pattern") {
-        //parse_file(r"C:\Users\greg\Documents\baseballstats\data\1958BAL.EVA");
-        num_games += parse_file(entry?, verbosity, &mut reports)?;
+    if options.by_year {
+        let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
+        for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
+            let path = path?;
+            let year: usize = path.file_name().unwrap().to_str().unwrap()[0..4].parse().unwrap();
+            let year_list = years_to_files.entry(year).or_default();
+            year_list.push(path);
+        }
+        let mut years: Vec<_> = years_to_files.keys().collect();
+        years.sort();
+        for year in years {
+            for report in &mut reports {
+                report.clear_stats();
+            }
+            for path in years_to_files.get(year).unwrap() {
+                num_games += parse_file(path, verbosity, &mut reports)?;
+            }
+            for report in &mut reports {
+                report.done_with_year(*year);
+            }
+        }
     }
-    println!("Parsed {} games", num_games);
-    for mut report in reports {
-        report.done_with_all();
+    else {
+        for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
+            num_games += parse_file(path?, verbosity, &mut reports)?;
+        }
+        println!("Parsed {} games", num_games);
+        for mut report in reports {
+            report.done_with_all();
+        }
     }
     Ok(())
 }
