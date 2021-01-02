@@ -1221,21 +1221,46 @@ impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
 #[derive(FromArgs)]
 /// Options
 struct Options {
+    /// quiet output
+    #[argh(switch, short='q')]
+    quiet: bool,
+
+    /// verbose output
+    #[argh(switch, short='v')]
+    verbose: bool,
+
     #[argh(positional)]
     file_pattern: String
+}
+
+impl Options {
+    pub fn get_verbosity(&self) -> Result<Verbosity> {
+        if self.quiet && self.verbose {
+            return Err(anyhow!("can't specify quiet and verbose!"));
+        }
+        if self.verbose {
+            Ok(Verbosity::Verbose)
+        }
+        else if self.quiet {
+            Ok(Verbosity::Quiet)
+        }
+        else {
+            Ok(Verbosity::Normal)
+        }
+    }
 }
 
 
 fn main() -> Result<()> {
     let options : Options = argh::from_env();
-    println!("{}", options.file_pattern);
     let mut reports: Vec<Box<dyn Report>> = vec!(
         Box::new(StatsWinExpectancyReport::new()),
         Box::new(StatsRunExpectancyPerInningReport::new()));
     let mut num_games = 0;
+    let verbosity = options.get_verbosity()?;
     for entry in glob(&options.file_pattern).expect("Failed to read glob pattern") {
         //parse_file(r"C:\Users\greg\Documents\baseballstats\data\1958BAL.EVA");
-        num_games += parse_file(entry?, Verbosity::Normal, &mut reports)?;
+        num_games += parse_file(entry?, verbosity, &mut reports)?;
     }
     println!("Parsed {} games", num_games);
     for mut report in reports {
