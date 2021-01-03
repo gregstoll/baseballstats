@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{collections::HashMap, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
+use std::{any::Any, collections::HashMap, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -11,6 +11,7 @@ use encoding::{Encoding, DecoderTrap};
 use encoding::all::ISO_8859_1;
 use smallvec::{smallvec, SmallVec};
 use smol_str::SmolStr;
+use rayon::prelude::*;
 
 
 mod data {
@@ -1011,24 +1012,27 @@ where P: Debug + AsRef<Path> {
             }
         }
     }
-    // TODO - handle empty files I guess
-    finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-        &mut play_lines, reports, &mut num_games);
+    if all_game_situations.len() > 0 {
+        finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
+            &mut play_lines, reports, &mut num_games);
+    }
 
     Ok(num_games)
 }
 
 // TODO - parallel
 
-trait Report {
+trait Report : Any + Send + Sync {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situation_keys: &[GameSituation], play_lines: &[String]);
-    fn clear_stats(self: &mut Self) { }
-    //fn merge_into(self: &Self, other: &mut Self) { panic!("Report must override merge_into if it supports parallel!")}
-    fn supports_parallel_processing(self: &Self) -> bool { false } // TODO
+    fn clear_stats(self: &mut Self);
+    /// "other" parameter must be of the same type
+    fn merge_into(self: &Self, _other: &mut dyn Any) { panic!("Report must override merge_into if it supports parallel!")}
+    fn supports_parallel_processing(self: &Self) -> bool { true }
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
 }
+
 // TODO - move more logic here
 trait StatsReport<'a> : Report {
     type Key : PartialOrd;
@@ -1116,6 +1120,15 @@ impl Report for StatsWinExpectancyReport {
     fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
 
     fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<StatsWinExpectancyReport>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_insert((0, 0));
+            other_entry.0 += entry.1.0;
+            other_entry.1 += entry.1.1;
+        }
+    }
 }
 
 struct StatsRunExpectancyPerInningReport {
@@ -1194,6 +1207,19 @@ impl Report for StatsRunExpectancyPerInningReport {
     fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
 
     fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<StatsRunExpectancyPerInningReport>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            if other_entry.len() < entry.1.len() {
+                other_entry.resize(entry.1.len(), 0);
+            }
+            for i in 0..entry.1.len() {
+                other_entry[i] += entry.1[i];
+            }
+        }
+    }
 }
 impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
     type Key = (u8, [bool;3]);
@@ -1250,6 +1276,7 @@ fn main() -> Result<()> {
         Box::new(StatsRunExpectancyPerInningReport::new()));
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
+    let do_parallel = true;
     if options.by_year {
         let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
         for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
@@ -1273,12 +1300,60 @@ fn main() -> Result<()> {
         }
     }
     else {
-        for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
-            num_games += parse_file(path?, verbosity, &mut reports)?;
+        if do_parallel {
+            // TODO - don't unwrap() inside the map
+            let paths: Vec<_> = glob(&options.file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
+            // TODO - ugh
+            /*let mut new_reports: Vec<Box<dyn Report>> = vec!(
+                Box::new(StatsWinExpectancyReport::new()),
+                Box::new(StatsRunExpectancyPerInningReport::new()));*/
+            let final_reports = paths
+                .par_iter()
+                .map(|path| {
+                    // TODO - do this programatically
+                    // TODO - only one of these per thread?
+                    let mut local_reports: Vec<Box<dyn Report>> = vec!(
+                        Box::new(StatsWinExpectancyReport::new()),
+                        Box::new(StatsRunExpectancyPerInningReport::new()));
+                    parse_file(path, verbosity, &mut local_reports).unwrap();
+                    local_reports
+                })
+                .fold(|| {
+                    //TODO yikes
+                    let new_reports: Vec<Box<dyn Report>> = vec!(
+                        Box::new(StatsWinExpectancyReport::new()),
+                        Box::new(StatsRunExpectancyPerInningReport::new()));
+                    new_reports
+                }, |mut start, new| {
+                    for i in 0..start.len() {
+                        new[i].merge_into(&mut start[i]);
+                    }
+                    start
+                })
+                .reduce(|| {
+                    //TODO more yikes
+                    let new_reports: Vec<Box<dyn Report>> = vec!(
+                        Box::new(StatsWinExpectancyReport::new()),
+                        Box::new(StatsRunExpectancyPerInningReport::new()));
+                    new_reports
+                }, |mut start, new| {
+                    for i in 0..start.len() {
+                        new[i].merge_into(&mut start[i]);
+                    }
+                    start
+                });
+            for mut report in final_reports {
+                report.done_with_all();
+            }
         }
-        println!("Parsed {} games", num_games);
-        for mut report in reports {
-            report.done_with_all();
+        else {
+            for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
+                num_games += parse_file(path?, verbosity, &mut reports)?;
+            }
+            println!("Parsed {} games", num_games);
+            for mut report in reports {
+                report.done_with_all();
+            }
         }
     }
     Ok(())
