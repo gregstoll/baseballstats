@@ -1031,12 +1031,12 @@ trait Report : Any + Send + Sync {
     fn supports_parallel_processing(self: &Self) -> bool { true }
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
+    fn make_new(&self) -> Box<dyn Report>;
     fn name(&self) -> &'static str;
     // https://stackoverflow.com/questions/33687447/how-to-get-a-reference-to-a-concrete-type-from-a-trait-object
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-// TODO - move more logic here
 trait StatsReport<'a> : Report {
     type Key : PartialOrd;
     type Value;
@@ -1136,6 +1136,8 @@ impl Report for StatsWinExpectancyReport {
     fn name(&self) -> &'static str { "StatsWinExpectancyReport" }
 
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
+
+    fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
 }
 
 struct StatsRunExpectancyPerInningReport {
@@ -1230,6 +1232,7 @@ impl Report for StatsRunExpectancyPerInningReport {
 
     fn name(&self) -> &'static str { "StatsWinExpectancyReport" }
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
 }
 impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
     type Key = (u8, [bool;3]);
@@ -1314,39 +1317,25 @@ fn main() -> Result<()> {
         if do_parallel {
             // TODO - don't unwrap() inside the map
             let paths: Vec<_> = glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
-            // TODO - ugh
-            /*let mut new_reports: Vec<Box<dyn Report>> = vec!(
-                Box::new(StatsWinExpectancyReport::new()),
-                Box::new(StatsRunExpectancyPerInningReport::new()));*/
             let final_reports = paths
                 .par_iter()
                 .map(|path| {
-                    // TODO - do this programatically
                     // TODO - only one of these per thread?
-                    let mut local_reports: Vec<Box<dyn Report>> = vec!(
-                        Box::new(StatsWinExpectancyReport::new()),
-                        Box::new(StatsRunExpectancyPerInningReport::new()));
+                    let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     parse_file(path, verbosity, &mut local_reports).unwrap();
                     local_reports
                 })
                 .fold(|| {
-                    //TODO yikes
-                    let new_reports: Vec<Box<dyn Report>> = vec!(
-                        Box::new(StatsWinExpectancyReport::new()),
-                        Box::new(StatsRunExpectancyPerInningReport::new()));
+                    let new_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     new_reports
                 }, |mut start, new| {
                     for i in 0..start.len() {
-                        //println!("i: {} new {} start {}", i, new[i].name(), start[i].name());
                         new[i].merge_into(start[i].as_any_mut());
                     }
                     start
                 })
                 .reduce(|| {
-                    //TODO more yikes
-                    let new_reports: Vec<Box<dyn Report>> = vec!(
-                        Box::new(StatsWinExpectancyReport::new()),
-                        Box::new(StatsRunExpectancyPerInningReport::new()));
+                    let new_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     new_reports
                 }, |mut start, new| {
                     for i in 0..start.len() {
