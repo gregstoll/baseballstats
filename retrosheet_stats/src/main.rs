@@ -1031,6 +1031,9 @@ trait Report : Any + Send + Sync {
     fn supports_parallel_processing(self: &Self) -> bool { true }
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
+    fn name(&self) -> &'static str;
+    // https://stackoverflow.com/questions/33687447/how-to-get-a-reference-to-a-concrete-type-from-a-trait-object
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
 // TODO - move more logic here
@@ -1129,6 +1132,10 @@ impl Report for StatsWinExpectancyReport {
             other_entry.1 += entry.1.1;
         }
     }
+
+    fn name(&self) -> &'static str { "StatsWinExpectancyReport" }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 
 struct StatsRunExpectancyPerInningReport {
@@ -1220,6 +1227,9 @@ impl Report for StatsRunExpectancyPerInningReport {
             }
         }
     }
+
+    fn name(&self) -> &'static str { "StatsWinExpectancyReport" }
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
     type Key = (u8, [bool;3]);
@@ -1248,7 +1258,7 @@ struct Options {
     #[argh(switch, short='y')]
     by_year: bool,
     #[argh(positional)]
-    file_pattern: String
+    file_pattern: Option<String>
 }
 
 impl Options {
@@ -1277,9 +1287,10 @@ fn main() -> Result<()> {
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
     let do_parallel = true;
+    let file_pattern = options.file_pattern.or(Some("..\\data\\*".to_owned())).unwrap();
     if options.by_year {
         let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
-        for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
+        for path in glob(&file_pattern).expect("Failed to read glob pattern") {
             let path = path?;
             let year: usize = path.file_name().unwrap().to_str().unwrap()[0..4].parse().unwrap();
             let year_list = years_to_files.entry(year).or_default();
@@ -1302,7 +1313,7 @@ fn main() -> Result<()> {
     else {
         if do_parallel {
             // TODO - don't unwrap() inside the map
-            let paths: Vec<_> = glob(&options.file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
+            let paths: Vec<_> = glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
             // TODO - ugh
             /*let mut new_reports: Vec<Box<dyn Report>> = vec!(
                 Box::new(StatsWinExpectancyReport::new()),
@@ -1326,7 +1337,8 @@ fn main() -> Result<()> {
                     new_reports
                 }, |mut start, new| {
                     for i in 0..start.len() {
-                        new[i].merge_into(&mut start[i]);
+                        //println!("i: {} new {} start {}", i, new[i].name(), start[i].name());
+                        new[i].merge_into(start[i].as_any_mut());
                     }
                     start
                 })
@@ -1338,7 +1350,7 @@ fn main() -> Result<()> {
                     new_reports
                 }, |mut start, new| {
                     for i in 0..start.len() {
-                        new[i].merge_into(&mut start[i]);
+                        new[i].merge_into(start[i].as_any_mut());
                     }
                     start
                 });
@@ -1347,7 +1359,7 @@ fn main() -> Result<()> {
             }
         }
         else {
-            for path in glob(&options.file_pattern).expect("Failed to read glob pattern") {
+            for path in glob(&file_pattern).expect("Failed to read glob pattern") {
                 num_games += parse_file(path?, verbosity, &mut reports)?;
             }
             println!("Parsed {} games", num_games);
