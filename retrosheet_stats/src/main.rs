@@ -220,7 +220,7 @@ mod data {
 }
 
 fn build_regex(s: &str) -> Regex {
-    //TODO?
+    // PERF - This doesn't work, I guess we do need some Unicode for \w characters in Regexes?
     //RegexBuilder::new(s).unicode(false).build().unwrap()
     RegexBuilder::new(s).build().unwrap()
 }
