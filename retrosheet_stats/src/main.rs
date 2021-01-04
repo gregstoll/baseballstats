@@ -1322,6 +1322,11 @@ struct Options {
     /// generate data on a per-year basis
     #[argh(switch, short='y')]
     by_year: bool,
+    /// which reports to run.  Defaults to Stats.
+    /// Run with an invalid report (like "abc") to see the
+    /// valid options.
+    #[argh(option, short='r')]
+    reports: Option<String>,
     #[argh(positional)]
     file_pattern: Option<String>
 }
@@ -1352,18 +1357,43 @@ fn is_known_bad_game(game_id: &str) -> bool {
     return KNOWN_BAD_GAMES.contains(game_id);
 }
 
+fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
+    lazy_static! {
+        // First one in the list is also the default
+        static ref REPORTS : &'static [(&'static str, fn() -> Vec<Box<dyn Report>>)] = &[
+            ("Stats", (|| vec![
+                Box::new(StatsWinExpectancyReport::new()),
+                Box::new(StatsRunExpectancyPerInningReport::new())])
+            ),
+            ("HomeTeamDownSixWithTwoOutsInNinthReport", (|| vec![
+                Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new())])
+            ),
+        ];
+    }
+    match report_id {
+        None => Ok(REPORTS[0].1()),
+        Some(report_key) => {
+            for (key, function) in REPORTS.iter() {
+                if key == report_key {
+                    return Ok(function());
+                }
+            }
+            // TODO - show usage here
+            Err(anyhow!("invalid key {}", report_key))
+        }
+    }
+}
+
 fn main() -> Result<()> {
     let options : Options = argh::from_env();
-    let mut reports: Vec<Box<dyn Report>> = vec!(
-        Box::new(StatsWinExpectancyReport::new()),
-        Box::new(StatsRunExpectancyPerInningReport::new()));
-        //Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new()));
+    let mut reports: Vec<Box<dyn Report>> = get_reports(&options.reports)?;
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
     let do_parallel = true;
     let file_pattern = options.file_pattern.or(Some("..\\data\\*".to_owned())).unwrap();
     if options.by_year {
         let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
+        // TODO - fix globbing on Windows
         for path in glob(&file_pattern).expect("Failed to read glob pattern") {
             let path = path?;
             let year: usize = path.file_name().unwrap().to_str().unwrap()[0..4].parse().unwrap();
