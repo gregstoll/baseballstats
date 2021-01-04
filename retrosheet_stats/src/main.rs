@@ -1027,6 +1027,7 @@ trait Report : Any + Send + Sync {
     fn clear_stats(self: &mut Self);
     /// "other" parameter must be of the same type
     fn merge_into(self: &Self, _other: &mut dyn Any) { panic!("Report must override merge_into if it supports parallel!")}
+    // TODO - make main loop detect this
     fn supports_parallel_processing(self: &Self) -> bool { true }
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
@@ -1124,7 +1125,7 @@ impl Report for StatsWinExpectancyReport {
     fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
 
     fn merge_into(self: &Self, other: &mut dyn Any) { 
-        let other = other.downcast_mut::<StatsWinExpectancyReport>().unwrap();
+        let other = other.downcast_mut::<Self>().unwrap();
         for entry in self.stats.iter() {
             let other_entry = other.stats.entry(*entry.0).or_insert((0, 0));
             other_entry.0 += entry.1.0;
@@ -1217,7 +1218,7 @@ impl Report for StatsRunExpectancyPerInningReport {
     fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
 
     fn merge_into(self: &Self, other: &mut dyn Any) { 
-        let other = other.downcast_mut::<StatsRunExpectancyPerInningReport>().unwrap();
+        let other = other.downcast_mut::<Self>().unwrap();
         for entry in self.stats.iter() {
             let other_entry = other.stats.entry(*entry.0).or_default();
             if other_entry.len() < entry.1.len() {
@@ -1245,6 +1246,68 @@ impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
     }
 
     fn report_file_name() -> &'static str { "runsperinningstats" }
+}
+
+// Finds games where the home team won after being down by 6 runs in the bottom of the ninth
+// with two outs and nobody on base
+struct HomeTeamDownSixWithTwoOutsInNinthReport {
+    game_ids: Vec<String>
+}
+impl HomeTeamDownSixWithTwoOutsInNinthReport {
+    fn new() -> Self {
+        Self { game_ids: Vec::new() }
+    }
+}
+impl Report for HomeTeamDownSixWithTwoOutsInNinthReport {
+    fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        // Check the last situation to see who won
+        let home_won = final_game_situation.is_home_winning();
+        if let Some(true) = home_won {
+            if situation_keys.contains(&GameSituation {
+                inning: Inning { number: 9, is_home: true },
+                outs: 2,
+                runners: [false, false, false],
+                cur_score_diff: -6
+            }) {
+                self.game_ids.push(game_id.to_owned());
+            }
+        }
+    }
+
+    fn clear_stats(self: &mut Self) {
+        self.game_ids.clear();
+    }
+
+    fn done_with_year(self: &mut Self, _year: usize) {
+        panic!("{} doesn't support by year", self.name());
+    }
+
+    fn done_with_all(self: &mut Self) {
+        self.game_ids.sort();
+        for game_id in self.game_ids.iter() {
+            println!("GOT IT with id {}", game_id);
+        }
+    }
+
+    fn make_new(&self) -> Box<dyn Report> {
+        Box::new(Self::new())
+    }
+
+    fn name(&self) -> &'static str {
+        "HomeTeamDownSixWithTwoOutsInNinthReport"
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for id in self.game_ids.iter() {
+            other.game_ids.push(id.to_owned());
+        }
+    }
 }
 
 #[derive(FromArgs)]
@@ -1294,6 +1357,7 @@ fn main() -> Result<()> {
     let mut reports: Vec<Box<dyn Report>> = vec!(
         Box::new(StatsWinExpectancyReport::new()),
         Box::new(StatsRunExpectancyPerInningReport::new()));
+        //Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new()));
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
     let do_parallel = true;
