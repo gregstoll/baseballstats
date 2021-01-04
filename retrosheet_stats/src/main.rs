@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, sync::{Arc, atomic::{AtomicU32, Ordering}}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -1315,7 +1315,6 @@ fn main() -> Result<()> {
                 .map(|&year| {
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     let mut local_num_games = 0;
-                    // TODO - report num_games
                     for path in years_to_files.get(year).unwrap() {
                         local_num_games += parse_file(path, verbosity, &mut local_reports).unwrap();
                     }
@@ -1344,14 +1343,16 @@ fn main() -> Result<()> {
     else {
         if do_parallel {
             // TODO - don't unwrap() inside the map
+            let local_num_games: Arc<AtomicU32> = Arc::new(AtomicU32::new(0));
             let paths: Vec<_> = glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
             let final_reports = paths
                 .par_iter()
                 .map(|path| {
                     // TODO - only one of these per thread?
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    // TODO - report num_games
-                    parse_file(path, verbosity, &mut local_reports).unwrap();
+                    // PERF - there might be a lot of atomic contention on local_num_games here,
+                    //  could split this up more
+                    local_num_games.fetch_add(parse_file(path, verbosity, &mut local_reports).unwrap(), Ordering::Relaxed);
                     local_reports
                 })
                 .fold(|| {
@@ -1372,6 +1373,8 @@ fn main() -> Result<()> {
                     }
                     start
                 });
+            num_games = local_num_games.load(Ordering::Relaxed);
+            println!("Parsed {} games", num_games);
             for mut report in final_reports {
                 report.done_with_all();
             }
