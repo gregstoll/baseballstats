@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, sync::{Arc, atomic::{AtomicU32, Ordering}}};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -1343,7 +1343,6 @@ fn main() -> Result<()> {
     else {
         if do_parallel {
             // TODO - don't unwrap() inside the map
-            let local_num_games: Arc<AtomicU32> = Arc::new(AtomicU32::new(0));
             let paths: Vec<_> = glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
             let final_reports = paths
                 .par_iter()
@@ -1352,28 +1351,29 @@ fn main() -> Result<()> {
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     // PERF - there might be a lot of atomic contention on local_num_games here,
                     //  could split this up more
-                    local_num_games.fetch_add(parse_file(path, verbosity, &mut local_reports).unwrap(), Ordering::Relaxed);
-                    local_reports
+                    let local_num_games = parse_file(path, verbosity, &mut local_reports).unwrap();
+                    (local_reports, local_num_games)
                 })
                 .fold(|| {
                     let new_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    new_reports
+                    (new_reports, 0)
                 }, |mut start, new| {
-                    for i in 0..start.len() {
-                        new[i].merge_into(start[i].as_any_mut());
+                    for i in 0..start.0.len() {
+                        new.0[i].merge_into(start.0[i].as_any_mut());
                     }
-                    start
+                    (start.0, start.1 + new.1)
                 })
                 .reduce(|| {
                     let new_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    new_reports
+                    (new_reports, 0)
                 }, |mut start, new| {
-                    for i in 0..start.len() {
-                        new[i].merge_into(start[i].as_any_mut());
+                    for i in 0..start.0.len() {
+                        new.0[i].merge_into(start.0[i].as_any_mut());
                     }
-                    start
+                    (start.0, start.1 + new.1)
                 });
-            num_games = local_num_games.load(Ordering::Relaxed);
+            let num_games = final_reports.1;
+            let final_reports = final_reports.0;
             println!("Parsed {} games", num_games);
             for mut report in final_reports {
                 report.done_with_all();
