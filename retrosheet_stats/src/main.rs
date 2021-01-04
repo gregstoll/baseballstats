@@ -1308,15 +1308,36 @@ fn main() -> Result<()> {
         }
         let mut years: Vec<_> = years_to_files.keys().collect();
         years.sort();
-        for year in years {
-            for report in &mut reports {
-                report.clear_stats();
-            }
-            for path in years_to_files.get(year).unwrap() {
-                num_games += parse_file(path, verbosity, &mut reports)?;
-            }
-            for report in &mut reports {
-                report.done_with_year(*year);
+        if do_parallel {
+            // Just do one thread per year here, close enough to optimal
+            num_games = years
+                .par_iter()
+                .map(|&year| {
+                    let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
+                    let mut local_num_games = 0;
+                    // TODO - report num_games
+                    for path in years_to_files.get(year).unwrap() {
+                        local_num_games += parse_file(path, verbosity, &mut local_reports).unwrap();
+                    }
+                    for report in &mut local_reports {
+                        report.done_with_year(*year);
+                    }
+                    local_num_games
+                })
+                .sum();
+            println!("Parsed {} games", num_games);
+        }
+        else {
+            for year in years {
+                for report in &mut reports {
+                    report.clear_stats();
+                }
+                for path in years_to_files.get(year).unwrap() {
+                    num_games += parse_file(path, verbosity, &mut reports)?;
+                }
+                for report in &mut reports {
+                    report.done_with_year(*year);
+                }
             }
         }
     }
@@ -1329,6 +1350,7 @@ fn main() -> Result<()> {
                 .map(|path| {
                     // TODO - only one of these per thread?
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
+                    // TODO - report num_games
                     parse_file(path, verbosity, &mut local_reports).unwrap();
                     local_reports
                 })
