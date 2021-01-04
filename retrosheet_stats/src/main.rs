@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -991,10 +991,9 @@ where P: Debug + AsRef<Path> {
                 let new_situation = cur_game_situation.parse_play(&line, verbosity);
                 match new_situation {
                     Err(error) => {
-                        if verbosity.is_at_least(Verbosity::Normal) {
-                            println!("Error in game {} at line \"{}\"  error is {}  initial situation {:?}", cur_id, line, error, cur_game_situation);
+                        if !is_known_bad_game(&cur_id) {
+                            panic!("Error in game {} at line \"{}\"  error is {}  initial situation {:?}", cur_id, line, error, cur_game_situation);
                         }
-                        // TODO knownBadGames
                         in_game = false;
                     }
                     Ok(new_situation) => {
@@ -1281,6 +1280,14 @@ impl Options {
     }
 }
 
+fn is_known_bad_game(game_id: &str) -> bool {
+    lazy_static! {
+        static ref KNOWN_BAD_GAMES: HashSet<&'static str> =
+            ["WS2196605270", "MIL197107272", "MON197108040", "NYN198105090", "SEA200709261", "MIL201304190", "BAL201906250"]
+            .iter().cloned().collect();
+    }
+    return KNOWN_BAD_GAMES.contains(game_id);
+}
 
 fn main() -> Result<()> {
     let options : Options = argh::from_env();
