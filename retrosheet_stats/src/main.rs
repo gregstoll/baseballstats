@@ -1061,6 +1061,7 @@ fn get_ball_strike_counts_from_pitches(pitches: &str, verbosity: Verbosity) -> S
     }
     let mut counts: SmallVec<[BallsStrikes;8]> = smallvec![BallsStrikes::new()];
     for pitch in pitches.chars() {
+        let pitch = pitch.to_ascii_uppercase();
         // For performance, check in rough order of frequency
         if STRIKE_CHARS.contains(&pitch) {
             counts.push(counts.last().unwrap().add_strike());
