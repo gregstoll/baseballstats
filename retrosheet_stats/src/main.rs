@@ -1078,8 +1078,8 @@ fn get_ball_strike_counts_from_pitches(pitches: &str, verbosity: Verbosity) -> S
                 if verbosity.is_at_least(Verbosity::Verbose) {
                     println!("Unknown pitch {} in {}, skipping", pitch, pitches);
                 }
-                return smallvec![BallsStrikes::new()];
             }
+            return smallvec![BallsStrikes::new()];
         }
     }
     counts
@@ -1840,6 +1840,50 @@ mod tests {
             test_ball_strikes("IPVB", &[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]);
         }
 
+        #[test]
+        fn test_all_strikes_with_ignore_chars() {
+            test_ball_strikes("+*.123>CNS>.*2K", &[(0, 0), (0, 1), (0, 2), (0, 3)]);
+        }
+
+        #[test]
+        fn test_balls_and_strikes() {
+            test_ball_strikes("LBMBBO", &[(0, 0), (0, 1), (1, 1), (1, 2), (2, 2), (3, 2), (3, 3)]);
+        }
+
+        #[test]
+        fn test_hit_first_pitch() {
+            test_ball_strikes("X", &[(0, 0)]);
+        }
+
+        #[test]
+        fn test_hit_later_pitch() {
+            test_ball_strikes("QTX", &[(0, 0), (0, 1), (0, 2)]);
+        }
+
+        #[test]
+        fn test_unknown_pitch_return_nothing() {
+            test_ball_strikes("SBSUBBB", &[(0, 0)]);
+        }
+
+        #[test]
+        fn test_foul_zero_strikes() {
+            test_ball_strikes("BFY", &[(0, 0), (1, 0), (1, 1)]);
+        }
+
+        #[test]
+        fn test_foul_one_strike() {
+            test_ball_strikes("BSFX", &[(0, 0), (1, 0), (1, 1), (1, 2)]);
+        }
+
+        #[test]
+        fn test_multiple_fouls_two_strikes() {
+            test_ball_strikes("SBSFBFFX", &[(0, 0), (0, 1), (1, 1), (1, 2), (2, 2)]);
+        }
+
+        #[test]
+        fn test_lots_of_fouls() {
+            test_ball_strikes("BFFBFFBX", &[(0, 0), (1, 0), (1, 1), (1, 2), (2, 2), (3, 2)]);
+        }
     }
 
     mod parse_play_tests {
