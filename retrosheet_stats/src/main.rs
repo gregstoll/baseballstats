@@ -934,6 +934,7 @@ struct PlayLineInfo<'a> {
 }
 
 impl PlayLineInfo<'_> {
+    // TODO - make this a proper From thing
     fn new_from_line<'a>(line: &'a str) -> PlayLineInfo<'a> {
         lazy_static! {
             static ref PLAY_RE : Regex = build_regex(r"^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$");
@@ -1075,7 +1076,7 @@ fn get_ball_strike_counts_from_pitches(pitches: &str, verbosity: Verbosity) -> S
         else if !IGNORE_CHARS.contains(&pitch) {
             // This is some character we don't recognize
             if pitch != 'U' {
-                if verbosity.is_at_least(Verbosity::Verbose) {
+                if verbosity.is_at_least(Verbosity::Normal) {
                     println!("Unknown pitch {} in {}, skipping", pitch, pitches);
                 }
             }
@@ -1226,12 +1227,12 @@ impl<'a> StatsReport<'a> for StatsWinExpectancyWithBallsStrikesReport {
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "({}, {})", value.0, value.1).unwrap();
     }
-    fn report_file_name() -> &'static str { "stats" }
+    fn report_file_name() -> &'static str { "statswithballsstrikes" }
 }
 impl Report for StatsWinExpectancyWithBallsStrikesReport {
     fn clear_stats(&mut self) { self.stats.clear(); }
     fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        situation_keys: &[GameSituation], play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -1240,15 +1241,21 @@ impl Report for StatsWinExpectancyWithBallsStrikesReport {
             return;
         }
         let home_won = home_won.unwrap();
-        for situation_key in situation_keys {
+        for (i, situation_key) in situation_keys.iter().enumerate() {
             let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
-            // TODOTODO finish
-            let entry = self.stats.entry((situation_key.clone(), BallsStrikes::new()))
-                .or_insert((0, 0));
-            if is_win {
-                entry.0 += 1;
+            //TODO verbosity
+            let pitches = PlayLineInfo::new_from_line(&play_lines[i]).pitches_str;
+            let counts = get_ball_strike_counts_from_pitches(pitches, Verbosity::Quiet);
+            for count in counts {
+                if count.balls < 4 && count.strikes < 3 {
+                    let entry = self.stats.entry((situation_key.clone(), count))
+                        .or_insert((0, 0));
+                    if is_win {
+                        entry.0 += 1;
+                    }
+                    entry.1 += 1;
+                }
             }
-            entry.1 += 1;
         }
     }
 
@@ -1496,6 +1503,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ("Stats", (|| vec![
                 Box::new(StatsWinExpectancyReport::new()),
                 Box::new(StatsRunExpectancyPerInningReport::new())])
+            ),
+            ("StatsWithBallsStrikes", (|| vec![
+                Box::new(StatsWinExpectancyWithBallsStrikesReport::new())])
             ),
             ("HomeTeamDownSixWithTwoOutsInNinthReport", (|| vec![
                 Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new())])
