@@ -267,6 +267,32 @@ struct GameSituation {
     cur_score_diff: i8,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
+struct BallsStrikes {
+    balls: u8,
+    strikes: u8
+}
+impl BallsStrikes {
+    fn new() -> Self {
+        Self {
+            balls: 0,
+            strikes: 0
+        }
+    }
+    fn add_ball(&self) -> BallsStrikes {
+        Self {
+            balls: self.balls + 1,
+            strikes: self.strikes
+        }
+    }
+    fn add_strike(&self) -> BallsStrikes {
+        Self {
+            balls: self.balls,
+            strikes: self.strikes + 1
+        }
+    }
+}
+
 impl GameSituation {
     fn new() -> GameSituation {
         GameSituation {
@@ -1019,7 +1045,45 @@ where P: Debug + AsRef<Path> {
     Ok(num_games)
 }
 
-// TODO - parallel
+fn get_ball_strike_counts_from_pitches(pitches: &str, verbosity: Verbosity) -> SmallVec<[BallsStrikes;8]> {
+    lazy_static! {
+        // This is surprisingly complicated because there's a lot of extraneous stuff in here.
+        // Ignore irrelevant stuff as well as the final result of a pitch (if it goes in play)
+        static ref IGNORE_CHARS: HashSet<char> = "!#?+*.123>HNXY "
+            .chars().collect();
+        static ref BALL_CHARS: HashSet<char> = "BIPV"
+            .chars().collect();
+        static ref STRIKE_CHARS: HashSet<char> = "CKLMOQST"
+            .chars().collect();
+        static ref FOUL_BALL_CHARS: HashSet<char> = "FR"
+            .chars().collect();
+    }
+    let mut counts: SmallVec<[BallsStrikes;8]> = smallvec![BallsStrikes::new()];
+    for pitch in pitches.chars() {
+        // For performance, check in rough order of frequency
+        if STRIKE_CHARS.contains(&pitch) {
+            counts.push(counts.last().unwrap().add_strike());
+        }
+        else if BALL_CHARS.contains(&pitch) {
+            counts.push(counts.last().unwrap().add_ball());
+        }
+        else if FOUL_BALL_CHARS.contains(&pitch) {
+            if counts.last().unwrap().strikes != 2 {
+                counts.push(counts.last().unwrap().add_strike());
+            }
+        }
+        else if !IGNORE_CHARS.contains(&pitch) {
+            // This is some character we don't recognize
+            if pitch != 'U' {
+                if verbosity.is_at_least(Verbosity::Verbose) {
+                    println!("Unknown pitch {} in {}, skipping", pitch, pitches);
+                }
+                return smallvec![BallsStrikes::new()];
+            }
+        }
+    }
+    counts
+}
 
 trait Report : Any + Send + Sync {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
@@ -1138,6 +1202,74 @@ impl Report for StatsWinExpectancyReport {
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
 
     fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
+}
+
+struct StatsWinExpectancyWithBallsStrikesReport {
+    // value is (num_wins, num_situation)
+    stats: HashMap<(GameSituation, BallsStrikes), (u32, u32)>
+}
+impl StatsWinExpectancyWithBallsStrikesReport {
+    fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+
+impl<'a> StatsReport<'a> for StatsWinExpectancyWithBallsStrikesReport {
+    type Key = (GameSituation, BallsStrikes);
+    type Value = (u32, u32);
+    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, {}, {}, ({}, {}, {}), {}, ({}, {}))",
+            key.0.inning.number, key.0.inning.is_home as i32, key.0.outs, key.0.runners[0] as i32, key.0.runners[1] as i32, key.0.runners[2] as i32, key.0.cur_score_diff,
+            key.1.balls, key.1.strikes).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "({}, {})", value.0, value.1).unwrap();
+    }
+    fn report_file_name() -> &'static str { "stats" }
+}
+impl Report for StatsWinExpectancyWithBallsStrikesReport {
+    fn clear_stats(&mut self) { self.stats.clear(); }
+    fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        // Check the last situation to see who won
+        let home_won = final_game_situation.is_home_winning();
+        if home_won.is_none() {
+            // This game must have been tied when it stopped.  Don't count
+            // these stats.
+            return;
+        }
+        let home_won = home_won.unwrap();
+        for situation_key in situation_keys {
+            let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
+            // TODOTODO finish
+            let entry = self.stats.entry((situation_key.clone(), BallsStrikes::new()))
+                .or_insert((0, 0));
+            if is_win {
+                entry.0 += 1;
+            }
+            entry.1 += 1;
+        }
+    }
+
+    fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
+
+    fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_insert((0, 0));
+            other_entry.0 += entry.1.0;
+            other_entry.1 += entry.1.1;
+        }
+    }
+
+    fn name(&self) -> &'static str { "StatsWinExpectancyWithBallsStrikesReport" }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+
+    fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyWithBallsStrikesReport::new()) }
 }
 
 struct StatsRunExpectancyPerInningReport {
@@ -1378,8 +1510,12 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
                     return Ok(function());
                 }
             }
+            let mut error = format!("Invalid report \"{}\" - valid reports are:\n", report_key);
+            for (key, _) in REPORTS.iter() {
+                error.push_str(&format!("    {}\n", key));
+            }
             // TODO - show usage here
-            Err(anyhow!("invalid key {}", report_key))
+            Err(anyhow!(error))
         }
     }
 }
@@ -1683,6 +1819,27 @@ mod tests {
         assert_eq!(false, Verbosity::Quiet.is_at_least(Verbosity::Verbose));
         assert_eq!(false, Verbosity::Quiet.is_at_least(Verbosity::Normal));
         assert_eq!(true, Verbosity::Quiet.is_at_least(Verbosity::Quiet));
+    }
+
+    mod ball_strike_tests {
+        use super::*;
+
+        fn test_ball_strikes(pitches: &str, expected_ball_strikes: &[(u8, u8)]) {
+            let expected_counts: SmallVec<[BallsStrikes;8]> =
+                expected_ball_strikes.iter().map(|(b, s)| BallsStrikes { balls: *b, strikes: *s }).collect();
+            assert_eq!(expected_counts, get_ball_strike_counts_from_pitches(pitches, Verbosity::Quiet));
+        }
+
+        #[test]
+        fn test_empty_string() {
+            test_ball_strikes("", &[(0, 0)]);
+        }
+
+        #[test]
+        fn test_all_balls() {
+            test_ball_strikes("IPVB", &[(0, 0), (1, 0), (2, 0), (3, 0), (4, 0)]);
+        }
+
     }
 
     mod parse_play_tests {
