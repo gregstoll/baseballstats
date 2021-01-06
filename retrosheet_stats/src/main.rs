@@ -1028,7 +1028,6 @@ where P: Debug + AsRef<Path> {
                         //}
                         if all_game_situations.last() != Some(&new_situation) {
                             all_game_situations.push(new_situation);
-                            //TODO - avoid this clone
                             play_lines.push(line.to_owned());
                         }
                         cur_game_situation = new_situation;
@@ -1536,6 +1535,14 @@ fn main() -> Result<()> {
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
     let do_parallel = true;
+    if do_parallel && reports.iter().any(|x| !x.supports_parallel_processing())
+        && verbosity.is_at_least(Verbosity::Normal) {
+        println!("Not running in parallel because the following reports don't support it: {}",
+            reports.iter()
+                .filter(|x| !x.supports_parallel_processing())
+                .map(|x| x.name())
+                .fold(String::new(), |s, arg| s + &arg + ", "));
+    }
     let file_pattern = options.file_pattern.or(Some("..\\data\\*".to_owned())).unwrap();
     if options.by_year {
         let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
