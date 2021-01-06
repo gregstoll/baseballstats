@@ -1447,6 +1447,123 @@ impl Report for HomeTeamDownSixWithTwoOutsInNinthReport {
     }
 }
 
+struct WalkOffWalkReport {
+    num_games: u32,
+    num_games_with_pitches: u32,
+    walk_off_walks: u32,
+    walk_off_walks_on_four_pitches: u32,
+    year_count: HashMap<u32, u32>,
+    walk_off_walks_on_four_pitches_lines: Vec<String>
+}
+impl WalkOffWalkReport {
+    fn new() -> Self {
+        Self {
+            num_games: 0,
+            num_games_with_pitches: 0,
+            walk_off_walks: 0,
+            walk_off_walks_on_four_pitches: 0,
+            year_count: HashMap::new(),
+            walk_off_walks_on_four_pitches_lines: Vec::new()
+        }
+    }
+}
+impl Report for WalkOffWalkReport {
+    fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], play_lines: &[String]) {
+        let year: u32 = game_id[3..7].parse().unwrap();
+        self.year_count.entry(year).or_insert(0);
+        let last_game_situation = situation_keys.last().unwrap();
+        let home_won = final_game_situation.is_home_winning();
+        if home_won.is_none() {
+            // This game must have been tied when it stopped.  Don't count
+            // these stats.
+            return
+        }
+        let home_won = home_won.unwrap();
+
+        self.num_games += 1;
+        let last_play_line = play_lines.last().unwrap();
+        let last_play_line_info: PlayLineInfo = last_play_line[..].into();
+        let pitches = last_play_line_info.pitches_str;
+        if pitches.chars().any(|c| c != '?') {
+            self.num_games_with_pitches += 1;
+        }
+        if !home_won {
+            // walk-offs mean the home team won
+            return;
+        }
+        if last_game_situation.inning.is_home &&
+           last_game_situation.outs <= 2 &&
+           last_game_situation.runners == [true, true, true] &&
+           last_game_situation.cur_score_diff == 0 {
+
+            // TODO - refactor to use main parsing?
+            let play_string = &last_play_line_info.play_str;
+            let play_array: SmallVec<[&str;2]> = play_string.split('.').collect();
+            if play_array.len() > 2 {
+                //return Err(anyhow!("play_array is too long after splitting on '.': \"{}\"", play_string));
+                return;
+            }
+            let batter_events = play_array[0].split(';');
+            for batter_event in batter_events {
+                let batter_event = batter_event.trim();
+                if (batter_event.starts_with("W") && !batter_event.starts_with("WP")) || batter_event.starts_with("I") {
+                    // walk
+                    self.walk_off_walks += 1;
+                    self.year_count.entry(year).and_modify(|x| *x += 1);
+                    let counts = get_ball_strike_counts_from_pitches(&pitches, Verbosity::Normal);
+                    let last_count = counts.last().unwrap();
+                    if last_count.balls == 4 && last_count.strikes == 0 {
+                        self.walk_off_walks_on_four_pitches += 1;
+                        self.walk_off_walks_on_four_pitches_lines.push(format!("{}: {}", game_id, last_play_line));
+                    }
+                }
+            }
+        }
+    }
+
+    fn clear_stats(self: &mut Self) { }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) {
+        let other = other.downcast_mut::<Self>().unwrap();
+        other.num_games += self.num_games;
+        other.num_games_with_pitches += self.num_games_with_pitches;
+        other.walk_off_walks += self.walk_off_walks;
+        other.walk_off_walks_on_four_pitches += self.walk_off_walks_on_four_pitches;
+        for (year, count) in &self.year_count {
+            *other.year_count.entry(*year).or_default() += count;
+        }
+    }
+
+    fn done_with_year(self: &mut Self, _year: usize) {
+        panic!("{} doesn't support year by year", self.name());
+    }
+
+    fn done_with_all(self: &mut Self) {
+        println!("num_games: {}", self.num_games);
+        println!("num_games_with_pitches: {}", self.num_games_with_pitches);
+        println!("walk off walks: {}", self.walk_off_walks);
+        println!("walk off walks on four pitches: {}", self.walk_off_walks_on_four_pitches);
+        let mut years = self.year_count.keys().collect::<Vec<_>>();
+        years.sort();
+        for year in years {
+            println!("  {}: {}", year, self.year_count[year]);
+        }
+    }
+
+    fn make_new(&self) -> Box<dyn Report> {
+        Box::new(Self::new())
+    }
+
+    fn name(&self) -> &'static str {
+        "WalkOffWalkReport"
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 #[derive(FromArgs)]
 /// Options
 struct Options {
@@ -1507,6 +1624,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ),
             ("HomeTeamDownSixWithTwoOutsInNinthReport", (|| vec![
                 Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new())])
+            ),
+            ("WalkOffWalk", (|| vec![
+                Box::new(WalkOffWalkReport::new())])
             ),
         ];
     }
