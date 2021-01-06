@@ -333,7 +333,7 @@ impl GameSituation {
 
     pub fn parse_play(self: &GameSituation, line: &str, verbosity: Verbosity) -> Result<GameSituation> {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
-        let play_line_info = PlayLineInfo::new_from_line(line);
+        let play_line_info = PlayLineInfo::from(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
         let mut runners_default_stay_still = false;
         let mut default_batter_base: Option<RunnerFinalPosition> = None;
@@ -933,9 +933,8 @@ struct PlayLineInfo<'a> {
     play_str: SmolStr
 }
 
-impl PlayLineInfo<'_> {
-    // TODO - make this a proper From thing
-    fn new_from_line<'a>(line: &'a str) -> PlayLineInfo<'a> {
+impl<'a> From<&'a str> for PlayLineInfo<'a> {
+    fn from(line: &'a str) -> Self {
         lazy_static! {
             static ref PLAY_RE : Regex = build_regex(r"^play,\s?(\d+),\s?([01]),(.*?),(.*?),(.*?),(.*)$");
         }
@@ -943,7 +942,7 @@ impl PlayLineInfo<'_> {
         // remove characters we don't care about
         let play_str: SmolStr = play_match.get(6).unwrap().as_str().chars()
             .filter(|&x| x != '!' && x != '#' && x != '?').collect();
-        return PlayLineInfo {
+        Self {
             inning: Inning { number: play_match.get(1).unwrap().as_str().parse::<u8>().unwrap(),
                 is_home: play_match.get(2).unwrap().as_str() == "1"},
             player_id: play_match.get(3).unwrap().as_str(),
@@ -1244,8 +1243,8 @@ impl Report for StatsWinExpectancyWithBallsStrikesReport {
         let home_won = home_won.unwrap();
         for (i, situation_key) in situation_keys.iter().enumerate() {
             let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
+            let pitches = PlayLineInfo::from(&play_lines[i][..]).pitches_str;
             //TODO verbosity
-            let pitches = PlayLineInfo::new_from_line(&play_lines[i]).pitches_str;
             let counts = get_ball_strike_counts_from_pitches(pitches, Verbosity::Quiet);
             for count in counts {
                 if count.balls < 4 && count.strikes < 3 {
@@ -1808,7 +1807,7 @@ mod tests {
     #[test]
     fn test_parse_play_line_info() {
         let play_line_info_str = "play,4,1,corrc001,22,BSBFFX,HR/78/F";
-        let play_line_info = PlayLineInfo::new_from_line(play_line_info_str);
+        let play_line_info = PlayLineInfo::from(play_line_info_str);
         let expected = PlayLineInfo {
             inning: Inning { number: 4, is_home: true}, 
             player_id: "corrc001",
