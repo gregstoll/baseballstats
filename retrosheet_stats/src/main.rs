@@ -1466,7 +1466,7 @@ struct Options {
     #[argh(option, short='r')]
     reports: Option<String>,
     #[argh(positional)]
-    file_pattern: Option<String>
+    file_patterns: Vec<String>
 }
 
 impl Options {
@@ -1530,7 +1530,7 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
 }
 
 fn main() -> Result<()> {
-    let options : Options = argh::from_env();
+    let mut options : Options = argh::from_env();
     let mut reports: Vec<Box<dyn Report>> = get_reports(&options.reports)?;
     let mut num_games = 0;
     let verbosity = options.get_verbosity()?;
@@ -1543,15 +1543,18 @@ fn main() -> Result<()> {
                 .map(|x| x.name())
                 .fold(String::new(), |s, arg| s + &arg + ", "));
     }
-    let file_pattern = options.file_pattern.or(Some("..\\data\\*".to_owned())).unwrap();
+    if options.file_patterns.is_empty() {
+        options.file_patterns.push(["..", "data", "*"].iter().collect::<PathBuf>().to_str().unwrap().to_string());
+    }
     if options.by_year {
         let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
-        // TODO - fix globbing on Windows
-        for path in glob(&file_pattern).expect("Failed to read glob pattern") {
-            let path = path?;
-            let year: usize = path.file_name().unwrap().to_str().unwrap()[0..4].parse().unwrap();
-            let year_list = years_to_files.entry(year).or_default();
-            year_list.push(path);
+        for pattern in options.file_patterns {
+            for path in glob(&pattern).expect("Failed to read glob pattern") {
+                let path = path?;
+                let year: usize = path.file_name().unwrap().to_str().unwrap()[0..4].parse().unwrap();
+                let year_list = years_to_files.entry(year).or_default();
+                year_list.push(path);
+            }
         }
         let mut years: Vec<_> = years_to_files.keys().collect();
         years.sort();
@@ -1590,7 +1593,10 @@ fn main() -> Result<()> {
     else {
         if do_parallel {
             // TODO - don't unwrap() inside the map
-            let paths: Vec<_> = glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
+            let paths: Vec<_> = options.file_patterns.iter()
+                .map(|pattern| glob(&pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()))
+                .flatten().into_iter().collect();
+                //glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
             let final_reports = paths
                 .par_iter()
                 .map(|path| {
@@ -1627,8 +1633,10 @@ fn main() -> Result<()> {
             }
         }
         else {
-            for path in glob(&file_pattern).expect("Failed to read glob pattern") {
-                num_games += parse_file(path?, verbosity, &mut reports)?;
+            for pattern in options.file_patterns {
+                for path in glob(&pattern).expect("Failed to read glob pattern") {
+                    num_games += parse_file(path?, verbosity, &mut reports)?;
+                }
             }
             println!("Parsed {} games", num_games);
             for mut report in reports {
