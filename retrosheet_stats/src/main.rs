@@ -1090,8 +1090,7 @@ trait Report : Any + Send + Sync {
         situation_keys: &[GameSituation], play_lines: &[String]);
     fn clear_stats(self: &mut Self);
     /// "other" parameter must be of the same type
-    fn merge_into(self: &Self, _other: &mut dyn Any) { panic!("Report must override merge_into if it supports parallel!")}
-    // TODO - make main loop detect this
+    fn merge_into(self: &Self, _other: &mut dyn Any);
     fn supports_parallel_processing(self: &Self) -> bool { true }
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
