@@ -1176,7 +1176,9 @@ impl Report for StatsWinExpectancyReport {
         let home_won = home_won.unwrap();
         for situation_key in situation_keys {
             let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
-            // TODO - refactor
+            // having to use situation_key.clone() here is unfortunate. But since we're doing this map-reduce
+            // style, my guess is that often the key will not be in the HashMap, and this avoids doing two lookups
+            // in the HashMap.
             let entry = self.stats.entry(situation_key.clone()).or_insert((0, 0));
             if is_win {
                 entry.0 += 1;
@@ -1757,7 +1759,6 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             for (key, _) in REPORTS.iter() {
                 error.push_str(&format!("    {}\n", key));
             }
-            // TODO - show usage here
             Err(anyhow!(error))
         }
     }
@@ -1836,18 +1837,15 @@ fn main() -> Result<()> {
     }
     else {
         if do_parallel {
-            // TODO - don't unwrap() inside the map
             let paths: Vec<_> = options.file_patterns.iter()
                 .map(|pattern| glob(&pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()))
                 .flatten().into_iter().collect();
-                //glob(&file_pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()).collect();
             let final_reports = paths
                 .par_iter()
                 .map(|path| {
-                    // TODO - only one of these per thread?
+                    // PERF - would be nice to only create one report per thread and re-use it,
+                    // but I can't find a way in rayon to do that.
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    // PERF - there might be a lot of atomic contention on local_num_games here,
-                    //  could split this up more
                     let local_num_games = parse_file(path, &mut local_reports).unwrap();
                     (local_reports, local_num_games)
                 })
