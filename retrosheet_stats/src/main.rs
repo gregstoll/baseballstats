@@ -336,14 +336,14 @@ impl GameSituation {
         }
     }
 
-    pub fn parse_play(self: &GameSituation, line: &str, verbosity: Verbosity) -> Result<GameSituation> {
+    pub fn parse_play(self: &GameSituation, line: &str) -> Result<GameSituation> {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
         let play_line_info = PlayLineInfo::from(line);
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
         let mut runners_default_stay_still = false;
         let mut default_batter_base: Option<RunnerFinalPosition> = None;
         let mut out_at_bases: SmallVec<[RunnerFinalPosition;4]> = smallvec![];
-        if verbosity.is_at_least(Verbosity::Verbose) {
+        if get_verbosity().is_at_least(Verbosity::Verbose) {
             println!("Game situation is {:?}", self);
             println!("{}", line);
         }
@@ -422,7 +422,7 @@ impl GameSituation {
                             // nothing happens
                         }
                         else {
-                            if verbosity.is_at_least(Verbosity::Normal) {
+                            if get_verbosity().is_at_least(Verbosity::Normal) {
                                 println!("ERROR - unrecognized K+ event {}", temp_event);
                             }
                             return Err(anyhow!("ERROR - unrecognized K+ event {}", temp_event));
@@ -473,7 +473,7 @@ impl GameSituation {
                             // already had a walk, so whatever the error is will be shown in the runners
                         }
                         else {
-                            if verbosity.is_at_least(Verbosity::Normal) {
+                            if get_verbosity().is_at_least(Verbosity::Normal) {
                                 println!("ERROR - unrecognized W+ event {}", temp_event);
                             }
                             return Err(anyhow!("ERROR - unrecognized W+ event {}", temp_event));
@@ -545,7 +545,7 @@ impl GameSituation {
                     }
                     let double_play_captures = DOUBLE_PLAY_RE.captures(batter_event);
                     if let Some(double_play_captures) = double_play_captures {
-                        if verbosity.is_at_least(Verbosity::Verbose) {
+                        if get_verbosity().is_at_least(Verbosity::Verbose) {
                             println!("double/triple play");
                         }
                         // The batter is out if the last character is a number, not ')'
@@ -577,7 +577,7 @@ impl GameSituation {
                 if WEIRD_DOUBLE_PLAY_RE.is_match(batter_event) {
                     // This is a double play. The specifics of who's out will
                     // come later.
-                    if verbosity.is_at_least(Verbosity::Verbose) {
+                    if get_verbosity().is_at_least(Verbosity::Verbose) {
                         println!("weird double/triple play");
                     }
                     runner_dests.set(RunnerInitialPosition::Batter, RunnerFinalPosition::Out).unwrap();
@@ -597,7 +597,7 @@ impl GameSituation {
                         false
                     };
                 if (SIMPLE_OUT_RE.is_match(batter_event) && !batter_event.contains("/FO")) || very_simple_out {
-                    if verbosity.is_at_least(Verbosity::Verbose) {
+                    if get_verbosity().is_at_least(Verbosity::Verbose) {
                         println!("simple out");
                     }
                     lazy_static! {
@@ -615,7 +615,7 @@ impl GameSituation {
                     static ref PUT_OUT_RE : Regex = build_regex(r"^\d*(\d).*?(?:\((.)\))?");
                 }
                 if let Some(put_out_captures) = PUT_OUT_RE.captures(batter_event) {
-                    if verbosity.is_at_least(Verbosity::Verbose) {
+                    if get_verbosity().is_at_least(Verbosity::Verbose) {
                         println!("Got a putout");
                     }
                     lazy_static! {
@@ -630,7 +630,7 @@ impl GameSituation {
                         if batter_event.contains("/FO") {
                             // Force out - this means the thing in parentheses
                             // is the runner who is out.
-                            if verbosity.is_at_least(Verbosity::Verbose) {
+                            if get_verbosity().is_at_least(Verbosity::Verbose) {
                                 println!("force out")
                             }
                             let out_from_base = put_out_captures.get(2).ok_or(anyhow!("force out didn't have which runner was out {}", batter_event))?.as_str();
@@ -782,13 +782,13 @@ impl GameSituation {
             }
         }
 
-        Self::process_out_at_base(&out_at_bases, &mut runner_dests, verbosity)?;
+        Self::process_out_at_base(&out_at_bases, &mut runner_dests)?;
 
         // Deal with runner_dests
         return self.resolve_runners_and_outs(&mut runner_dests, &default_batter_base, runners_default_stay_still);
     }
 
-    fn process_out_at_base(out_at_bases: &[RunnerFinalPosition], runner_dests: &mut RunnerDests, verbosity: Verbosity) -> Result<()> {
+    fn process_out_at_base(out_at_bases: &[RunnerFinalPosition], runner_dests: &mut RunnerDests) -> Result<()> {
         for out_at_base in out_at_bases {
             // Find the closest unresolved runner behind that base
             let possible_runners =
@@ -797,7 +797,7 @@ impl GameSituation {
                     .filter(|s| s.base_number() < out_at_base.base_number().unwrap())
                     .max_by(|x, y| x.base_number().cmp(&y.base_number()));
             let closest_runner = possible_runners.ok_or(anyhow!("Couldn't find closest runner to base {:?}", out_at_base))?;
-            if verbosity.is_at_least(Verbosity::Verbose) {
+            if get_verbosity().is_at_least(Verbosity::Verbose) {
                 println!("Picked runner {:?} for out_at_base {:?}", closest_runner, out_at_base);
             }
             runner_dests.set(closest_runner, RunnerFinalPosition::Out).unwrap();
@@ -858,7 +858,7 @@ impl GameSituation {
                 return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner.unwrap()))
             }
             if duplicate_runner.is_some() {
-                /*if verbosity.is_at_least(Verbosity::Normal) {
+                /*if get_verbosity().is_at_least(Verbosity::Normal) {
                     println!("ERROR - already a runner at base {}!", duplicate_runner.unwrap());
                 }*/
                 return Err(anyhow!("ERROR - duplicate runner at base {}", duplicate_runner.unwrap()));
@@ -958,7 +958,7 @@ impl<'a> From<&'a str> for PlayLineInfo<'a> {
     }
 }
 
-fn parse_file<P>(filename: P, verbosity: Verbosity, reports: &mut Vec<Box<dyn Report>>) -> Result<u32>
+fn parse_file<P>(filename: P, reports: &mut Vec<Box<dyn Report>>) -> Result<u32>
 where P: Debug + AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
@@ -966,7 +966,7 @@ where P: Debug + AsRef<Path> {
     let mut in_game = false;
     let mut num_games = 0;
     let mut cur_id = "".to_owned();
-    if verbosity.is_at_least(Verbosity::Normal) {
+    if get_verbosity().is_at_least(Verbosity::Normal) {
         println!("{:?}", filename);
     }
     fn start_new_game_from_line(line: &str, cur_id: &mut String, cur_game_situation: &mut GameSituation,
@@ -992,9 +992,6 @@ where P: Debug + AsRef<Path> {
         *num_games = *num_games + 1;
     }
 
-    //if verbosity.is_at_least(Verbosity::Normal) {
-    //    println!("{:?}", filename.as_ref());
-    //}
     // files use ISO-8859-1 encoding (i.e. "latin1"), not utf-8
     // https://stackoverflow.com/questions/45788866/how-to-read-a-gbk-encoded-file-into-a-string
     let file = File::open(filename)?;
@@ -1019,7 +1016,7 @@ where P: Debug + AsRef<Path> {
                     &mut all_game_situations, &mut play_lines);
             }
             else if line.starts_with("play,") {
-                let new_situation = cur_game_situation.parse_play(&line, verbosity);
+                let new_situation = cur_game_situation.parse_play(&line);
                 match new_situation {
                     Err(error) => {
                         if !is_known_bad_game(&cur_id) {
@@ -1049,7 +1046,7 @@ where P: Debug + AsRef<Path> {
     Ok(num_games)
 }
 
-fn get_ball_strike_counts_from_pitches(pitches: &str, verbosity: Verbosity) -> SmallVec<[BallsStrikes;8]> {
+fn get_ball_strike_counts_from_pitches(pitches: &str) -> SmallVec<[BallsStrikes;8]> {
     lazy_static! {
         // This is surprisingly complicated because there's a lot of extraneous stuff in here.
         // Ignore irrelevant stuff as well as the final result of a pitch (if it goes in play)
@@ -1080,7 +1077,7 @@ fn get_ball_strike_counts_from_pitches(pitches: &str, verbosity: Verbosity) -> S
         else if !IGNORE_CHARS.contains(&pitch) {
             // This is some character we don't recognize
             if pitch != 'U' {
-                if verbosity.is_at_least(Verbosity::Normal) {
+                if get_verbosity().is_at_least(Verbosity::Normal) {
                     println!("Unknown pitch {} in {}, skipping", pitch, pitches);
                 }
             }
@@ -1247,8 +1244,7 @@ impl Report for StatsWinExpectancyWithBallsStrikesReport {
         for (i, situation_key) in situation_keys.iter().enumerate() {
             let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
             let pitches = PlayLineInfo::from(&play_lines[i][..]).pitches_str;
-            //TODO verbosity
-            let counts = get_ball_strike_counts_from_pitches(pitches, Verbosity::Quiet);
+            let counts = get_ball_strike_counts_from_pitches(pitches);
             for count in counts {
                 if count.balls < 4 && count.strikes < 3 {
                     let entry = self.stats.entry((situation_key.clone(), count))
@@ -1516,7 +1512,7 @@ impl Report for WalkOffWalkReport {
                     // walk
                     self.walk_off_walks += 1;
                     self.year_count.entry(year).and_modify(|x| *x += 1);
-                    let counts = get_ball_strike_counts_from_pitches(&pitches, Verbosity::Normal);
+                    let counts = get_ball_strike_counts_from_pitches(&pitches);
                     let last_count = counts.last().unwrap();
                     if last_count.balls == 4 && last_count.strikes == 0 {
                         self.walk_off_walks_on_four_pitches += 1;
@@ -1621,7 +1617,7 @@ impl Report for CountsToWalksAndStrikeoutsReport {
             let year_count = self.year_count.entry(year).or_insert(0);
             *year_count += 1;
 
-            let all_counts = get_ball_strike_counts_from_pitches(pitches, Verbosity::Normal);
+            let all_counts = get_ball_strike_counts_from_pitches(pitches);
             let last_count = all_counts.last().unwrap();
             let is_walk = last_count.balls == 4;
             let is_strikeout = last_count.strikes == 3;
@@ -1767,14 +1763,24 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
     }
 }
 
+static mut VERBOSITY: Verbosity = Verbosity::Normal;
+fn get_verbosity() -> Verbosity {
+    // This is safe; we only set it before calling stuff
+    unsafe {
+        return VERBOSITY;
+    }
+}
+
 fn main() -> Result<()> {
     let mut options : Options = argh::from_env();
     let mut reports: Vec<Box<dyn Report>> = get_reports(&options.reports)?;
     let mut num_games = 0;
-    let verbosity = options.get_verbosity()?;
+    unsafe {
+        VERBOSITY = options.get_verbosity()?;
+    }
     let do_parallel = true;
     if do_parallel && reports.iter().any(|x| !x.supports_parallel_processing())
-        && verbosity.is_at_least(Verbosity::Normal) {
+        && get_verbosity().is_at_least(Verbosity::Normal) {
         println!("Not running in parallel because the following reports don't support it: {}",
             reports.iter()
                 .filter(|x| !x.supports_parallel_processing())
@@ -1804,7 +1810,7 @@ fn main() -> Result<()> {
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     let mut local_num_games = 0;
                     for path in years_to_files.get(year).unwrap() {
-                        local_num_games += parse_file(path, verbosity, &mut local_reports).unwrap();
+                        local_num_games += parse_file(path, &mut local_reports).unwrap();
                     }
                     for report in &mut local_reports {
                         report.done_with_year(*year);
@@ -1820,7 +1826,7 @@ fn main() -> Result<()> {
                     report.clear_stats();
                 }
                 for path in years_to_files.get(year).unwrap() {
-                    num_games += parse_file(path, verbosity, &mut reports)?;
+                    num_games += parse_file(path, &mut reports)?;
                 }
                 for report in &mut reports {
                     report.done_with_year(*year);
@@ -1842,7 +1848,7 @@ fn main() -> Result<()> {
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     // PERF - there might be a lot of atomic contention on local_num_games here,
                     //  could split this up more
-                    let local_num_games = parse_file(path, verbosity, &mut local_reports).unwrap();
+                    let local_num_games = parse_file(path, &mut local_reports).unwrap();
                     (local_reports, local_num_games)
                 })
                 .fold(|| {
@@ -1873,7 +1879,7 @@ fn main() -> Result<()> {
         else {
             for pattern in options.file_patterns {
                 for path in glob(&pattern).expect("Failed to read glob pattern") {
-                    num_games += parse_file(path?, verbosity, &mut reports)?;
+                    num_games += parse_file(path?, &mut reports)?;
                 }
             }
             println!("Parsed {} games", num_games);
@@ -2090,7 +2096,7 @@ mod tests {
         fn test_ball_strikes(pitches: &str, expected_ball_strikes: &[(u8, u8)]) {
             let expected_counts: SmallVec<[BallsStrikes;8]> =
                 expected_ball_strikes.iter().map(|(b, s)| BallsStrikes { balls: *b, strikes: *s }).collect();
-            assert_eq!(expected_counts, get_ball_strike_counts_from_pitches(pitches, Verbosity::Quiet));
+            assert_eq!(expected_counts, get_ball_strike_counts_from_pitches(pitches));
         }
 
         #[test]
@@ -2176,7 +2182,7 @@ mod tests {
         }
 
         fn assert_result(expected_situation: &GameSituation, initial_situation: &GameSituation, play_line: &str) -> Result<()> {
-            let new_situation = initial_situation.parse_play(&play_line, Verbosity::Normal)?;
+            let new_situation = initial_situation.parse_play(&play_line)?;
             assert_eq!(expected_situation, &new_situation);
             Ok(())
         }
