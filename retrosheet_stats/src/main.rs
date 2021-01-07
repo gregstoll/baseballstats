@@ -1,7 +1,7 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::Debug, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -290,6 +290,11 @@ impl BallsStrikes {
             balls: self.balls,
             strikes: self.strikes + 1
         }
+    }
+}
+impl Display for BallsStrikes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}-{}", self.balls, self.strikes))
     }
 }
 
@@ -1090,7 +1095,7 @@ trait Report : Any + Send + Sync {
         situation_keys: &[GameSituation], play_lines: &[String]);
     fn clear_stats(self: &mut Self);
     /// "other" parameter must be of the same type
-    fn merge_into(self: &Self, _other: &mut dyn Any);
+    fn merge_into(self: &Self, other: &mut dyn Any);
     fn supports_parallel_processing(self: &Self) -> bool { true }
     fn done_with_year(self: &mut Self, year: usize);
     fn done_with_all(self: &mut Self);
@@ -1564,6 +1569,117 @@ impl Report for WalkOffWalkReport {
     }
 }
 
+struct CountsToWalksAndStrikeoutsStats {
+    total: u32,
+    walks: u32,
+    strikeouts: u32
+}
+impl CountsToWalksAndStrikeoutsStats {
+    fn new() -> Self {
+        Self {
+            total: 0,
+            walks: 0,
+            strikeouts: 0
+        }
+    }
+}
+impl Display for CountsToWalksAndStrikeoutsStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let walk_percent = (100.0 * self.walks as f32) / self.total as f32;
+        let strikeout_percent = (100.0 * self.strikeouts as f32) / self.total as f32;
+        f.write_fmt(format_args!("total: {} walks: {} strikeouts: {} walk%: {:.2} strikeout%: {:.2}", self.total, self.walks, self.strikeouts, walk_percent, strikeout_percent))
+    }
+}
+
+struct CountsToWalksAndStrikeoutsReport {
+    num_games: u32,
+    count_stats: HashMap<BallsStrikes, CountsToWalksAndStrikeoutsStats>,
+    year_count: HashMap<u32, u32>
+}
+
+impl CountsToWalksAndStrikeoutsReport {
+    fn new() -> Self {
+        Self {
+            num_games: 0,
+            count_stats: HashMap::new(),
+            year_count: HashMap::new()
+        }
+    }
+}
+
+impl Report for CountsToWalksAndStrikeoutsReport {
+    fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
+        _situation_keys: &[GameSituation], play_lines: &[String]) {
+        self.num_games += 1;
+        let year: u32 = game_id[3..7].parse().unwrap();
+        for play_line in play_lines {
+            let info = PlayLineInfo::from(&play_line[..]);
+            let pitches = info.pitches_str;
+            if !pitches.chars().any(|c| c != '?') {
+                continue;
+            }
+            let year_count = self.year_count.entry(year).or_insert(0);
+            *year_count += 1;
+
+            let all_counts = get_ball_strike_counts_from_pitches(pitches, Verbosity::Normal);
+            let last_count = all_counts.last().unwrap();
+            let is_walk = last_count.balls == 4;
+            let is_strikeout = last_count.strikes == 3;
+            for count in all_counts {
+                let stats = self.count_stats.entry(count).or_insert(CountsToWalksAndStrikeoutsStats::new());
+                stats.total += 1;
+                if is_walk {
+                    stats.walks += 1;
+                }
+                else if is_strikeout {
+                    stats.strikeouts += 1;
+                }
+            }
+        }
+    }
+
+    fn clear_stats(self: &mut Self) { }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) {
+        let other = other.downcast_mut::<Self>().unwrap();
+        other.num_games = self.num_games;
+        for (key, value) in self.count_stats.iter() {
+            let stats = other.count_stats.entry(*key).or_insert(CountsToWalksAndStrikeoutsStats::new());
+            stats.total += value.total;
+            stats.walks += value.walks;
+            stats.strikeouts += value.strikeouts;
+        }
+        for (key, value) in self.year_count.iter() {
+            let other_entry = other.year_count.entry(*key).or_insert(0);
+            *other_entry += value;
+        }
+    }
+
+    fn done_with_year(self: &mut Self, _year: usize) { panic!("Doesn't support by year") }
+
+    fn done_with_all(self: &mut Self) {
+        println!("num_games: {}", self.num_games);
+        let mut counts: Vec<_> = self.count_stats.keys().collect();
+        counts.sort();
+        for count in counts {
+            if count.balls < 4 && count.strikes < 3 {
+                println!("{}: {}", count, self.count_stats[count]);
+            }
+        }
+        let mut years: Vec<_> = self.year_count.keys().collect();
+        years.sort();
+        for year in years {
+            println!("PAs in {}: {}", year, self.year_count[year]);
+        }
+    }
+
+    fn make_new(&self) -> Box<dyn Report> { Box::new(CountsToWalksAndStrikeoutsReport::new()) }
+
+    fn name(&self) -> &'static str { "CountsToWalksAndStrikeoutsReport" }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+}
+
 #[derive(FromArgs)]
 /// Options
 struct Options {
@@ -1627,6 +1743,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ),
             ("WalkOffWalk", (|| vec![
                 Box::new(WalkOffWalkReport::new())])
+            ),
+            ("CountsToWalksAndStrikeouts", (|| vec![
+                Box::new(CountsToWalksAndStrikeoutsReport::new())])
             ),
         ];
     }
