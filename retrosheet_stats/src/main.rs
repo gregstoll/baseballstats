@@ -1678,6 +1678,74 @@ impl Report for CountsToWalksAndStrikeoutsReport {
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 
+struct BasesLoadedNoOutsNoRunsReport {
+    num_situations: u32,
+    num_zero_runs: u32
+}
+impl BasesLoadedNoOutsNoRunsReport {
+    fn new() -> Self {
+        Self {
+            num_situations: 0,
+            num_zero_runs: 0
+        }
+    }
+}
+
+impl Report for BasesLoadedNoOutsNoRunsReport {
+    fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        let mut innings_to_situations: HashMap<Inning, Vec<&GameSituation>> = HashMap::new();
+        for situation in situation_keys {
+            let vec = innings_to_situations.entry(situation.inning).or_insert(vec![]);
+            vec.push(situation);
+        }
+        for (inning, situations) in innings_to_situations.iter() {
+            let next_inning = inning.next_inning();
+            let next_inning_situations = innings_to_situations.get(&next_inning);
+            let ending_run_diff = match next_inning_situations {
+                Some(next_inning_situations) => -1 * next_inning_situations.first().unwrap().cur_score_diff,
+                None => situations.last().unwrap().cur_score_diff
+            };
+            // Add the statistics now
+            for situation in situations {
+                if situation.runners == [true, true, true] && situation.outs == 0 {
+                    self.num_situations += 1;
+                    if ending_run_diff - situation.cur_score_diff == 0 {
+                        self.num_zero_runs += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    fn clear_stats(self: &mut Self) {
+        self.num_situations = 0;
+        self.num_zero_runs = 0;
+    }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) {
+        let other = other.downcast_mut::<Self>().unwrap();
+        other.num_situations += self.num_situations;
+        other.num_zero_runs += self.num_zero_runs;
+    }
+
+    fn done_with_year(self: &mut Self, year: usize) {
+        println!("{}|{}|{}|{:.2}", year, self.num_situations, self.num_zero_runs, 100.0 * (self.num_zero_runs as f32/ self.num_situations as f32));
+    }
+
+    fn done_with_all(self: &mut Self) {
+        println!("{}|{}|{:.2}", self.num_situations, self.num_zero_runs, 100.0 * (self.num_zero_runs as f32/ self.num_situations as f32));
+    }
+
+    fn make_new(&self) -> Box<dyn Report> {
+        Box::new(Self::new())
+    }
+
+    fn name(&self) -> &'static str { "BasesLoadedNoOutsNoRunsReport" }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+}
+
 #[derive(FromArgs)]
 /// Options
 struct Options {
@@ -1744,6 +1812,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ),
             ("CountsToWalksAndStrikeouts", (|| vec![
                 Box::new(CountsToWalksAndStrikeoutsReport::new())])
+            ),
+            ("BasesLoadedNoOutsNoRuns", (|| vec![
+                Box::new(BasesLoadedNoOutsNoRunsReport::new())])
             ),
         ];
     }
