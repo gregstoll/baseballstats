@@ -1089,7 +1089,7 @@ fn get_ball_strike_counts_from_pitches(pitches: &str) -> SmallVec<[BallsStrikes;
 
 trait Report : Any + Send + Sync {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], play_lines: &[String]);
+        situations: &[GameSituation], play_lines: &[String]);
     fn clear_stats(self: &mut Self);
     /// "other" parameter must be of the same type
     fn merge_into(self: &Self, other: &mut dyn Any);
@@ -1165,7 +1165,7 @@ impl<'a> StatsReport<'a> for StatsWinExpectancyReport {
 impl Report for StatsWinExpectancyReport {
     fn clear_stats(&mut self) { self.stats.clear(); }
     fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -1174,12 +1174,12 @@ impl Report for StatsWinExpectancyReport {
             return;
         }
         let home_won = home_won.unwrap();
-        for situation_key in situation_keys {
-            let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
-            // having to use situation_key.clone() here is unfortunate. But since we're doing this map-reduce
+        for situation in situations {
+            let is_win = if home_won { situation.inning.is_home } else { !situation.inning.is_home };
+            // having to use situation.clone() here is unfortunate. But since we're doing this map-reduce
             // style, my guess is that often the key will not be in the HashMap, and this avoids doing two lookups
             // in the HashMap.
-            let entry = self.stats.entry(situation_key.clone()).or_insert((0, 0));
+            let entry = self.stats.entry(situation.clone()).or_insert((0, 0));
             if is_win {
                 entry.0 += 1;
             }
@@ -1234,7 +1234,7 @@ impl<'a> StatsReport<'a> for StatsWinExpectancyWithBallsStrikesReport {
 impl Report for StatsWinExpectancyWithBallsStrikesReport {
     fn clear_stats(&mut self) { self.stats.clear(); }
     fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], play_lines: &[String]) {
+        situations: &[GameSituation], play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -1243,13 +1243,13 @@ impl Report for StatsWinExpectancyWithBallsStrikesReport {
             return;
         }
         let home_won = home_won.unwrap();
-        for (i, situation_key) in situation_keys.iter().enumerate() {
-            let is_win = if home_won { situation_key.inning.is_home } else { !situation_key.inning.is_home };
+        for (i, situation) in situations.iter().enumerate() {
+            let is_win = if home_won { situation.inning.is_home } else { !situation.inning.is_home };
             let pitches = PlayLineInfo::from(&play_lines[i][..]).pitches_str;
             let counts = get_ball_strike_counts_from_pitches(pitches);
             for count in counts {
                 if count.balls < 4 && count.strikes < 3 {
-                    let entry = self.stats.entry((situation_key.clone(), count))
+                    let entry = self.stats.entry((situation.clone(), count))
                         .or_insert((0, 0));
                     if is_win {
                         entry.0 += 1;
@@ -1309,23 +1309,23 @@ impl StatsRunExpectancyPerInningReport {
 impl Report for StatsRunExpectancyPerInningReport {
     fn clear_stats(&mut self) { self.stats.clear(); }
     fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String]) {
         let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
         let mut cur_inning = Inning::new();
         let mut start_situation = 0;
-        for (index, situation_key) in situation_keys.iter().enumerate() {
-            if situation_key.inning != cur_inning {
+        for (index, situation) in situations.iter().enumerate() {
+            if situation.inning != cur_inning {
                 assert_ne!(start_situation, index);
                 // add stuff
-                if let Some(_) = innings_to_keys.insert(cur_inning, &situation_keys[start_situation..index]) {
-                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", _game_id, cur_inning, situation_key.inning);
+                if let Some(_) = innings_to_keys.insert(cur_inning, &situations[start_situation..index]) {
+                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", _game_id, cur_inning, situation.inning);
                 }
-                cur_inning = situation_key.inning;
+                cur_inning = situation.inning;
                 start_situation = index;
             }
         }
-        if start_situation < situation_keys.len() {
-            innings_to_keys.insert(cur_inning, &situation_keys[start_situation..]);
+        if start_situation < situations.len() {
+            innings_to_keys.insert(cur_inning, &situations[start_situation..]);
         }
         for (inning, &situations) in innings_to_keys.iter() {
             let starting_run_diff = situations.first().unwrap().cur_score_diff;
@@ -1400,11 +1400,11 @@ impl HomeTeamDownSixWithTwoOutsInNinthReport {
 }
 impl Report for HomeTeamDownSixWithTwoOutsInNinthReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if let Some(true) = home_won {
-            if situation_keys.contains(&GameSituation {
+            if situations.contains(&GameSituation {
                 inning: Inning { number: 9, is_home: true },
                 outs: 2,
                 runners: [false, false, false],
@@ -1472,10 +1472,10 @@ impl WalkOffWalkReport {
 }
 impl Report for WalkOffWalkReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], play_lines: &[String]) {
+        situations: &[GameSituation], play_lines: &[String]) {
         let year: u32 = game_id[3..7].parse().unwrap();
         self.year_count.entry(year).or_insert(0);
-        let last_game_situation = situation_keys.last().unwrap();
+        let last_game_situation = situations.last().unwrap();
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
             // This game must have been tied when it stopped.  Don't count
@@ -1607,7 +1607,7 @@ impl CountsToWalksAndStrikeoutsReport {
 
 impl Report for CountsToWalksAndStrikeoutsReport {
     fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
-        _situation_keys: &[GameSituation], play_lines: &[String]) {
+        _situations: &[GameSituation], play_lines: &[String]) {
         self.num_games += 1;
         let year: u32 = game_id[3..7].parse().unwrap();
         for play_line in play_lines {
@@ -1693,9 +1693,9 @@ impl BasesLoadedNoOutsNoRunsReport {
 
 impl Report for BasesLoadedNoOutsNoRunsReport {
     fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        situation_keys: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String]) {
         let mut innings_to_situations: HashMap<Inning, Vec<&GameSituation>> = HashMap::new();
-        for situation in situation_keys {
+        for situation in situations {
             let vec = innings_to_situations.entry(situation.inning).or_insert(vec![]);
             vec.push(situation);
         }
