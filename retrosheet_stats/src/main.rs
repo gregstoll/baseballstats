@@ -411,7 +411,6 @@ impl GameSituation {
                         else if temp_event.starts_with("PO") {
                             GameSituation::handle_po_event(temp_event, &mut runner_dests)?;
                         }
-                        //TODO - pretty sure this isn't tested
                         else if temp_event.starts_with("PB") || temp_event.starts_with("WP") {
                             // nothing happens
                         }
@@ -744,7 +743,6 @@ impl GameSituation {
                     '-' => {
                         // This looks weird, but sometimes a runner can go to the
                         // same base (a little redundant, but OK)
-                        //TODO refactor
                         if initial_runner.base_number() > final_runner.base_number()? {
                             return Err(anyhow!(format!("Runner went backwards from {:?} to {:?} for play {}", initial_runner, final_runner, play_string)));
                         }
@@ -1340,8 +1338,6 @@ impl Report for StatsRunExpectancyPerInningReport {
             // Add the statistics now
             for situation in situations {
                 // Make sure we don't duplicate keys
-                // TODO - I think these might be duplicated? Should only add these once per inning
-                // (if they happen consecutively)
                 let key_to_use = (situation.outs, situation.runners);
                 let runs_gained = (ending_run_diff - situation.cur_score_diff) as usize;
                 let run_diff_vec = self.stats.entry(key_to_use).or_default();
