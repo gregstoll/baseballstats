@@ -16,6 +16,10 @@ smallvec = "1.6.0"
 smol_str = "0.1.17"
 rayon = "1.5.0"
 
+cgi = "0.6"
+json = "0.12"
+url = "2.1"
+
 [dependencies.regex]
 version = "1"
 default-features = false  # Turn off unicode support
