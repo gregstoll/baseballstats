@@ -43,24 +43,28 @@ fn get_probability_of_string(string_to_look_for: &str, start_year: u32, end_year
     return (wins, total)
 }
 
-fn get_leverage_of_string(string_to_look_for: &str) -> String {
+// f64 is more precision than we need, but it keeps the strings
+// looking nice
+fn get_leverage_of_string(string_to_look_for: &str) -> f64 {
     // make sure to find the next comma
     let string_to_look_for = format!("{},", string_to_look_for);
     let path : PathBuf = ["..", "statsyears", "leverage"].iter().collect();
     let lines = read_lines(path);
     if let Err(_) = lines {
         // Haven't been error handling up to this point, why start now?
-        return "0".to_string();
+        return 0 as f64;
     }
     for line in lines.unwrap() {
         if let Ok(line) = line {
             if line.starts_with(&string_to_look_for) {
                 let rest_of_line = &line[string_to_look_for.len()..];
-                return rest_of_line.to_string();
+                if let Ok(f) = rest_of_line.parse() {
+                    return f;
+                }
             }
         }
     }
-    return "0".to_string();
+    return 0 as f64;
 }
 
 fn process_query_string(query: &str) -> Result<json::JsonValue, String> {
@@ -74,7 +78,7 @@ fn process_query_string(query: &str) -> Result<json::JsonValue, String> {
 
     let string_to_look_for = format!("{},{}", state_string, balls_strikes_state);
     let (wins, total) = get_probability_of_string(&string_to_look_for, start_year, end_year);
-    // Leverage doesn't include balls and strikss
+    // Leverage doesn't include balls and strikes
     let leverage = get_leverage_of_string(state_string);
 
     let result = json::object! {"wins": wins, "total": total, "leverage": leverage};
@@ -128,6 +132,6 @@ mod tests {
         let result = process_query_string("stateString=\"H\",6,1,3,-1&ballsStrikesState=0,1&startYear=1957&endYear=2019&rand=0.9792518693455747").unwrap();
         assert_eq!("250", result["wins"].to_string());
         assert_eq!("529", result["total"].to_string());
-        assert_eq!("2.70", result["leverage"].to_string());
+        assert_eq!("2.7", result["leverage"].to_string());
     }
 }
