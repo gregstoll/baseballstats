@@ -5,6 +5,8 @@ extern crate url;
 use std::{collections::HashMap, fs::File, io::{self, BufRead}, path::{Path, PathBuf}};
 
 fn get_probability_of_string_for_year(string_to_look_for: &str, year: u32) -> (u32, u32) {
+    // make sure to find the next comma
+    let string_to_look_for = format!("{},", string_to_look_for);
     let filename = format!("statswithballsstrikescumulative.{}", year);
     let path : PathBuf = ["..", "statsyears", &filename].iter().collect();
     let lines = read_lines(path);
@@ -15,9 +17,8 @@ fn get_probability_of_string_for_year(string_to_look_for: &str, year: u32) -> (u
     }
     for line in lines.unwrap() {
         if let Ok(line) = line {
-            if line.starts_with(string_to_look_for) {
-                // omit the leading comma too
-                let rest_of_line = &line[string_to_look_for.len() + 1..];
+            if line.starts_with(&string_to_look_for) {
+                let rest_of_line = &line[string_to_look_for.len()..];
                 let parts = rest_of_line.split(',').collect::<Vec<_>>();
                 if parts.len() >= 2 {
                     let total_games = parts[0].parse::<u32>();
@@ -42,7 +43,25 @@ fn get_probability_of_string(string_to_look_for: &str, start_year: u32, end_year
     return (wins, total)
 }
 
-
+fn get_leverage_of_string(string_to_look_for: &str) -> String {
+    // make sure to find the next comma
+    let string_to_look_for = format!("{},", string_to_look_for);
+    let path : PathBuf = ["..", "statsyears", "leverage"].iter().collect();
+    let lines = read_lines(path);
+    if let Err(_) = lines {
+        // Haven't been error handling up to this point, why start now?
+        return "0".to_string();
+    }
+    for line in lines.unwrap() {
+        if let Ok(line) = line {
+            if line.starts_with(&string_to_look_for) {
+                let rest_of_line = &line[string_to_look_for.len()..];
+                return rest_of_line.to_string();
+            }
+        }
+    }
+    return "0".to_string();
+}
 
 fn process_query_string(query: &str) -> Result<json::JsonValue, String> {
     let query_parts: HashMap<String, String> = url::form_urlencoded::parse(query.as_bytes()).into_owned().collect();
@@ -55,8 +74,10 @@ fn process_query_string(query: &str) -> Result<json::JsonValue, String> {
 
     let string_to_look_for = format!("{},{}", state_string, balls_strikes_state);
     let (wins, total) = get_probability_of_string(&string_to_look_for, start_year, end_year);
+    // Leverage doesn't include balls and strikss
+    let leverage = get_leverage_of_string(state_string);
 
-    let result = json::object! {"wins": wins, "total": total};
+    let result = json::object! {"wins": wins, "total": total, "leverage": leverage};
     Ok(result)
 }
 
@@ -107,6 +128,6 @@ mod tests {
         let result = process_query_string("stateString=\"H\",6,1,3,-1&ballsStrikesState=0,1&startYear=1957&endYear=2019&rand=0.9792518693455747").unwrap();
         assert_eq!("250", result["wins"].to_string());
         assert_eq!("529", result["total"].to_string());
-        assert_eq!("2.7", result["leverage"].to_string());
+        assert_eq!("2.70", result["leverage"].to_string());
     }
 }
