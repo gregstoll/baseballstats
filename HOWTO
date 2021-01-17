@@ -1,8 +1,8 @@
 In the retrosheet_stats directory
-- call cargo run --release --bin retrosheet_stats
-- call cargo run --release --bin retrosheet_stats -- -r StatsWithBallsStrikes
-- call cargo run --release --bin retrosheet_stats -- -y
-- call cargo run --release --bin retrosheet_stats -- -y -r StatsWithBallsStrikes
+- call cargo run --release
+- call cargo run --release -- -r StatsWithBallsStrikes
+- call cargo run --release -- -y
+- call cargo run --release -- -y -r StatsWithBallsStrikes
 In this directory
 - call ./processcumulativestats.py statsyears
 - call ./processcumulativeballsstrikesstats.py statsyears

@@ -3,6 +3,7 @@ name = "retrosheet_stats"
 version = "0.1.0"
 authors = ["gregstoll <greg@gregstoll.com>"]
 edition = "2018"
+default-run = "retrosheet_stats"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
