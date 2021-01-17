@@ -1,1 +1,1 @@
-../getcumulativestats.py
+../get_cumulative_stats
