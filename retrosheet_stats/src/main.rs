@@ -1092,25 +1092,30 @@ trait Report : Any + Send + Sync {
     /// "other" parameter must be of the same type
     fn merge_into(self: &Self, other: &mut dyn Any);
     fn supports_parallel_processing(self: &Self) -> bool { true }
-    fn done_with_year(self: &mut Self, year: usize);
-    fn done_with_all(self: &mut Self);
+    fn done_with_year<'a>(self: &'a mut Self, year: usize);
+    fn done_with_all<'a>(self: &'a mut Self);
     fn make_new(&self) -> Box<dyn Report>;
     fn name(&self) -> &'static str;
     // https://stackoverflow.com/questions/33687447/how-to-get-a-reference-to-a-concrete-type-from-a-trait-object
     fn as_any_mut(&mut self) -> &mut dyn Any;
 }
 
-trait StatsReport<'a> : Report {
+trait StatsReport : Any + Send + Sync {
     type Key : PartialOrd;
     type Value;
-    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value>;
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value>;
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key);
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value);
     fn report_file_name() -> &'static str;
+    fn make_new_impl(&self) -> Box<dyn Report>;
+    fn name_impl(&self) -> &'static str;
+    fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], play_lines: &[String]);
+    fn clear_stats_impl(self: &mut Self);
+    /// "other" parameter must be of the same type
+    fn merge_into_impl(self: &Self, other: &mut dyn Any);
 
-    // TODO - is there a way to make this the default implementation of
-    // Report::done_with_all() implementers?
-    fn done_with_all(self: &'a mut Self) {
+    fn done_with_all_impl(self: &mut Self) {
         let mut contents: Vec<_> = self.get_stats().iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
@@ -1122,7 +1127,7 @@ trait StatsReport<'a> : Report {
         }
     }
 
-    fn done_with_year(self: &'a mut Self, year: usize) {
+    fn done_with_year_impl(self: &mut Self, year: usize) {
         let path: PathBuf = ["..", "statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
         let mut contents: Vec<_> = self.get_stats().iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
@@ -1137,6 +1142,40 @@ trait StatsReport<'a> : Report {
     }
 }
 
+impl<T> Report for T
+    where T: StatsReport {
+    fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], play_lines: &[String]) {
+        self.processed_game_impl(game_id, final_game_situation, situations, play_lines);
+    }
+
+    fn clear_stats(self: &mut Self) {
+        self.clear_stats_impl()
+    }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) {
+        self.merge_into_impl(other)
+    }
+
+    fn done_with_year(self: &mut Self, year: usize) {
+        self.done_with_year_impl(year);
+    }
+
+    fn done_with_all(self: &mut Self) {
+        self.done_with_all_impl();
+    }
+
+    fn make_new(&self) -> Box<dyn Report> {
+        self.make_new_impl()
+    }
+
+    fn name(&self) -> &'static str {
+        self.name_impl()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+}
+
 struct StatsWinExpectancyReport {
     // value is (num_wins, num_situation)
     stats: HashMap<GameSituation, (u32, u32)>
@@ -1147,22 +1186,11 @@ impl StatsWinExpectancyReport {
     }
 }
 
-impl<'a> StatsReport<'a> for StatsWinExpectancyReport {
+impl StatsReport for StatsWinExpectancyReport {
     type Key = GameSituation;
     type Value = (u32, u32);
-    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
-    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
-        write!(file, "({}, {}, {}, ({}, {}, {}), {})",
-            key.inning.number, key.inning.is_home as i32, key.outs, key.runners[0] as i32, key.runners[1] as i32, key.runners[2] as i32, key.cur_score_diff).unwrap();
-    }
-    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
-        write!(file, "({}, {})", value.0, value.1).unwrap();
-    }
-    fn report_file_name() -> &'static str { "stats" }
-}
-impl Report for StatsWinExpectancyReport {
-    fn clear_stats(&mut self) { self.stats.clear(); }
-    fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], _play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
@@ -1185,11 +1213,23 @@ impl Report for StatsWinExpectancyReport {
         }
     }
 
-    fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, {}, {}, ({}, {}, {}), {})",
+            key.inning.number, key.inning.is_home as i32, key.outs, key.runners[0] as i32, key.runners[1] as i32, key.runners[2] as i32, key.cur_score_diff).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "({}, {})", value.0, value.1).unwrap();
+    }
+    fn report_file_name() -> &'static str { "stats" }
 
-    fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
 
-    fn merge_into(self: &Self, other: &mut dyn Any) { 
+    fn name_impl(&self) -> &'static str { "StatsWinExpectancyReport" }
+
+    fn clear_stats_impl(self: &mut Self) { self.stats.clear(); }
+
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) {
         let other = other.downcast_mut::<Self>().unwrap();
         for entry in self.stats.iter() {
             let other_entry = other.stats.entry(*entry.0).or_insert((0, 0));
@@ -1197,12 +1237,6 @@ impl Report for StatsWinExpectancyReport {
             other_entry.1 += entry.1.1;
         }
     }
-
-    fn name(&self) -> &'static str { "StatsWinExpectancyReport" }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-
-    fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
 }
 
 struct StatsWinExpectancyWithBallsStrikesReport {
@@ -1215,23 +1249,11 @@ impl StatsWinExpectancyWithBallsStrikesReport {
     }
 }
 
-impl<'a> StatsReport<'a> for StatsWinExpectancyWithBallsStrikesReport {
+impl StatsReport for StatsWinExpectancyWithBallsStrikesReport {
     type Key = (GameSituation, BallsStrikes);
     type Value = (u32, u32);
-    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
-    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
-        write!(file, "({}, {}, {}, ({}, {}, {}), {}, ({}, {}))",
-            key.0.inning.number, key.0.inning.is_home as i32, key.0.outs, key.0.runners[0] as i32, key.0.runners[1] as i32, key.0.runners[2] as i32, key.0.cur_score_diff,
-            key.1.balls, key.1.strikes).unwrap();
-    }
-    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
-        write!(file, "({}, {})", value.0, value.1).unwrap();
-    }
-    fn report_file_name() -> &'static str { "statswithballsstrikes" }
-}
-impl Report for StatsWinExpectancyWithBallsStrikesReport {
-    fn clear_stats(&mut self) { self.stats.clear(); }
-    fn processed_game(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String]) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
@@ -1257,12 +1279,7 @@ impl Report for StatsWinExpectancyWithBallsStrikesReport {
             }
         }
     }
-
-    fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
-
-    fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
-
-    fn merge_into(self: &Self, other: &mut dyn Any) { 
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
         for entry in self.stats.iter() {
             let other_entry = other.stats.entry(*entry.0).or_insert((0, 0));
@@ -1271,11 +1288,20 @@ impl Report for StatsWinExpectancyWithBallsStrikesReport {
         }
     }
 
-    fn name(&self) -> &'static str { "StatsWinExpectancyWithBallsStrikesReport" }
+    fn name_impl(&self) -> &'static str { "StatsWinExpectancyWithBallsStrikesReport" }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyWithBallsStrikesReport::new()) }
 
-    fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyWithBallsStrikesReport::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, {}, {}, ({}, {}, {}), {}, ({}, {}))",
+            key.0.inning.number, key.0.inning.is_home as i32, key.0.outs, key.0.runners[0] as i32, key.0.runners[1] as i32, key.0.runners[2] as i32, key.0.cur_score_diff,
+            key.1.balls, key.1.strikes).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "({}, {})", value.0, value.1).unwrap();
+    }
+    fn report_file_name() -> &'static str { "statswithballsstrikes" }
 }
 
 struct StatsRunExpectancyPerInningReport {
@@ -1304,9 +1330,13 @@ impl StatsRunExpectancyPerInningReport {
         comma_separated
     }
 }
-impl Report for StatsRunExpectancyPerInningReport {
-    fn clear_stats(&mut self) { self.stats.clear(); }
-    fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+
+impl StatsReport for StatsRunExpectancyPerInningReport {
+    type Key = (u8, [bool;3]);
+    type Value = Vec<u32>;
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
         situations: &[GameSituation], _play_lines: &[String]) {
         let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
         let mut cur_inning = Inning::new();
@@ -1349,11 +1379,7 @@ impl Report for StatsRunExpectancyPerInningReport {
         }
     }
 
-    fn done_with_year(self: &mut Self, year: usize) { StatsReport::done_with_year(self, year) }
-
-    fn done_with_all(self: &mut Self) { StatsReport::done_with_all(self); }
-
-    fn merge_into(self: &Self, other: &mut dyn Any) { 
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
         for entry in self.stats.iter() {
             let other_entry = other.stats.entry(*entry.0).or_default();
@@ -1366,14 +1392,9 @@ impl Report for StatsRunExpectancyPerInningReport {
         }
     }
 
-    fn name(&self) -> &'static str { "StatsWinExpectancyReport" }
-    fn as_any_mut(&mut self) -> &mut dyn Any { self }
-    fn make_new(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
-}
-impl<'a> StatsReport<'a> for StatsRunExpectancyPerInningReport {
-    type Key = (u8, [bool;3]);
-    type Value = Vec<u32>;
-    fn get_stats(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn name_impl(&self) -> &'static str { "StatsWinExpectancyReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, ({}, {}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32).unwrap();
     }
@@ -1875,13 +1896,15 @@ fn main() -> Result<()> {
             num_games = years
                 .par_iter()
                 .map(|&year| {
-                    let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                     let mut local_num_games = 0;
-                    for path in years_to_files.get(year).unwrap() {
-                        local_num_games += parse_file(path, &mut local_reports).unwrap();
-                    }
-                    for report in &mut local_reports {
-                        report.done_with_year(*year);
+                    {
+                        let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
+                        for path in years_to_files.get(year).unwrap() {
+                            local_num_games += parse_file(path, &mut local_reports).unwrap();
+                        }
+                        for mut report in local_reports.drain(..) {
+                            report.done_with_year(*year);
+                        }
                     }
                     local_num_games
                 })
@@ -1890,7 +1913,7 @@ fn main() -> Result<()> {
         }
         else {
             for year in years {
-                for report in &mut reports {
+                for report in reports.iter_mut() {
                     report.clear_stats();
                 }
                 for path in years_to_files.get(year).unwrap() {
