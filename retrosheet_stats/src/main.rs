@@ -1490,7 +1490,7 @@ impl WalkOffWalkReport {
 impl Report for WalkOffWalkReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String]) {
-        let year: u32 = game_id[3..7].parse().unwrap();
+        let year: u32 = year_from_game_id(game_id);
         self.year_count.entry(year).or_insert(0);
         let last_game_situation = situations.last().unwrap();
         let home_won = final_game_situation.is_home_winning();
@@ -1626,7 +1626,7 @@ impl Report for CountsToWalksAndStrikeoutsReport {
     fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
         _situations: &[GameSituation], play_lines: &[String]) {
         self.num_games += 1;
-        let year: u32 = game_id[3..7].parse().unwrap();
+        let year: u32 = year_from_game_id(game_id);
         for play_line in play_lines {
             let info = PlayLineInfo::from(&play_line[..]);
             let pitches = info.pitches_str;
@@ -1858,6 +1858,10 @@ fn get_verbosity() -> Verbosity {
     unsafe {
         return VERBOSITY;
     }
+}
+
+fn year_from_game_id(game_id: &str) -> u32 {
+    game_id[3..7].parse().unwrap()
 }
 
 fn main() -> Result<()> {
