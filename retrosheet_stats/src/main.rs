@@ -269,7 +269,8 @@ struct GameSituation {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct GameRuleOptions {
-    runner_starts_on_second_in_extra_innings: bool
+    runner_starts_on_second_in_extra_innings: bool,
+    innings: u8
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
@@ -314,13 +315,12 @@ impl GameSituation {
     }
 
     // Advances to the next inning if there are 3 outs
-    // TODO - add a runner on second if in a year for that
-    fn next_inning_if_three_outs(self: &mut Self, runner_starts_on_second_in_extra_innings: bool) {
+    fn next_inning_if_three_outs(self: &mut Self, runner_starts_on_second_in_extra_innings: bool, innings: u8) {
         if self.outs >= 3 {
             self.inning = self.inning.next_inning();
             self.outs = 0;
             self.runners[0] = false;
-            self.runners[1] = runner_starts_on_second_in_extra_innings && self.inning.number > 9;
+            self.runners[1] = runner_starts_on_second_in_extra_innings && self.inning.number > innings;
             self.runners[2] = false;
             self.cur_score_diff = -1 * self.cur_score_diff;
         }
@@ -873,7 +873,7 @@ impl GameSituation {
                 return Err(anyhow!("ERROR - duplicate runner at base {}", duplicate_runner.unwrap()));
             }
         }
-        new_situation.next_inning_if_three_outs(game_rule_options.runner_starts_on_second_in_extra_innings);
+        new_situation.next_inning_if_three_outs(game_rule_options.runner_starts_on_second_in_extra_innings, game_rule_options.innings);
         Ok(new_situation)
     }
 
@@ -977,22 +977,24 @@ where P: Debug + AsRef<Path> {
     if get_verbosity().is_at_least(Verbosity::Normal) {
         println!("{:?}", filename);
     }
+    let filename_extension = filename.as_ref().extension().unwrap().to_str().unwrap();
+    let is_playoffs = filename_extension.to_uppercase() == "EVE";
     fn start_new_game_from_line(line: &str, cur_id: &mut String, cur_game_situation: &mut GameSituation,
         all_game_situations: &mut Vec<GameSituation>, play_lines: &mut Vec<String>,
-        game_rule_options: &mut GameRuleOptions) {
+        game_rule_options: &mut GameRuleOptions, is_playoffs: bool) {
         *cur_id = line[3..].to_owned();
         *cur_game_situation = GameSituation::new();
         all_game_situations.clear();
         all_game_situations.push(*cur_game_situation);
         play_lines.clear();
         let year = year_from_game_id(cur_id);
-        // In 2020 extra innings started a runner on second base.
-        // TODO - haha also extra inning double headers, lovely
-        // parse the info,innings,[79] line
-        game_rule_options.runner_starts_on_second_in_extra_innings = year == 2020;
+        // In 2020 a runner started on second base in extra innings, but not in playoff games.
+        game_rule_options.runner_starts_on_second_in_extra_innings = year == 2020 && !is_playoffs;
+        game_rule_options.innings = 9;
     }
     fn finish_game(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
-        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32) {
+        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32,
+        game_rule_options: &GameRuleOptions) {
         // Don't include the last situation in the list of keys, because it's one after the last inning probably
         if Some(cur_game_situation) == all_game_situations.last() {
             all_game_situations.remove(all_game_situations.len() - 1);
@@ -1001,7 +1003,8 @@ where P: Debug + AsRef<Path> {
             report.processed_game(&cur_id,
                     &cur_game_situation,
                     &all_game_situations,
-                    &play_lines);
+                    &play_lines,
+                    game_rule_options);
         }
         *num_games = *num_games + 1;
     }
@@ -1011,7 +1014,7 @@ where P: Debug + AsRef<Path> {
     let file = File::open(filename)?;
     let reader = io::BufReader::new(file);
     let lines = reader.split(b'\n').map(|l| l.unwrap());
-    let mut game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false };
+    let mut game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9 };
     for line in lines {
         let line = ISO_8859_1.decode(&line, DecoderTrap::Strict).unwrap();
         let line = line.trim();
@@ -1019,16 +1022,19 @@ where P: Debug + AsRef<Path> {
             if line.starts_with("id,") {
                 in_game = true;
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut game_rule_options);
+                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, is_playoffs);
             }
         }
         else {
             if line.starts_with("id,") {
                 finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-                    &mut play_lines, reports, &mut num_games);
+                    &mut play_lines, reports, &mut num_games, &game_rule_options);
 
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut game_rule_options);
+                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, is_playoffs);
+            }
+            else if line.starts_with("info,innings,") {
+                game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
             }
             else if line.starts_with("play,") {
                 let new_situation = cur_game_situation.parse_play(&line, &game_rule_options);
@@ -1055,7 +1061,7 @@ where P: Debug + AsRef<Path> {
     }
     if all_game_situations.len() > 0 {
         finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-            &mut play_lines, reports, &mut num_games);
+            &mut play_lines, reports, &mut num_games, &game_rule_options);
     }
 
     Ok(num_games)
@@ -1104,7 +1110,7 @@ fn get_ball_strike_counts_from_pitches(pitches: &str) -> SmallVec<[BallsStrikes;
 
 trait Report : Any + Send + Sync {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String]);
+        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
     fn clear_stats(self: &mut Self);
     /// "other" parameter must be of the same type
     fn merge_into(self: &Self, other: &mut dyn Any);
@@ -1127,7 +1133,7 @@ trait StatsReport : Any + Send + Sync {
     fn make_new_impl(&self) -> Box<dyn Report>;
     fn name_impl(&self) -> &'static str;
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String]);
+        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
     fn clear_stats_impl(self: &mut Self);
     /// "other" parameter must be of the same type
     fn merge_into_impl(self: &Self, other: &mut dyn Any);
@@ -1162,17 +1168,22 @@ trait StatsReport : Any + Send + Sync {
 impl<T> Report for T
     where T: StatsReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String]) {
+        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions) {
         
+        // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
+        // to avoid messing up statistics.
+        if game_rule_options.innings != 9 {
+            return;
+        }
         // In 2020 extra innings started a runner on second base, which messes up
         // statistics.  If this rule continues we should figure out how to handle this,
         // but for now, skip these games.
-        // TODO - look at game_rule_options
-        if year_from_game_id(game_id) == 2020 && final_game_situation.inning.number > 9 {
+        //TODO - look at number of innings
+        if game_rule_options.runner_starts_on_second_in_extra_innings && final_game_situation.inning.number > 9 {
             return;
         }
 
-        self.processed_game_impl(game_id, final_game_situation, situations, play_lines);
+        self.processed_game_impl(game_id, final_game_situation, situations, play_lines, game_rule_options);
     }
 
     fn clear_stats(self: &mut Self) {
@@ -1216,8 +1227,8 @@ impl StatsReport for StatsWinExpectancyReport {
     type Key = GameSituation;
     type Value = (u32, u32);
 
-    fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String]) {
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -1279,8 +1290,8 @@ impl StatsReport for StatsWinExpectancyWithBallsStrikesReport {
     type Key = (GameSituation, BallsStrikes);
     type Value = (u32, u32);
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
-    fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String]) {
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -1363,7 +1374,7 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
         let mut cur_inning = Inning::new();
         let mut start_situation = 0;
@@ -1443,7 +1454,7 @@ impl HomeTeamDownSixWithTwoOutsInNinthReport {
 }
 impl Report for HomeTeamDownSixWithTwoOutsInNinthReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if let Some(true) = home_won {
@@ -1515,7 +1526,7 @@ impl WalkOffWalkReport {
 }
 impl Report for WalkOffWalkReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String]) {
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         let year: u32 = year_from_game_id(game_id);
         self.year_count.entry(year).or_insert(0);
         let last_game_situation = situations.last().unwrap();
@@ -1650,7 +1661,7 @@ impl CountsToWalksAndStrikeoutsReport {
 
 impl Report for CountsToWalksAndStrikeoutsReport {
     fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
-        _situations: &[GameSituation], play_lines: &[String]) {
+        _situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         self.num_games += 1;
         let year: u32 = year_from_game_id(game_id);
         for play_line in play_lines {
@@ -1736,7 +1747,7 @@ impl BasesLoadedNoOutsNoRunsReport {
 
 impl Report for BasesLoadedNoOutsNoRunsReport {
     fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String]) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         let mut innings_to_situations: HashMap<Inning, Vec<&GameSituation>> = HashMap::new();
         for situation in situations {
             let vec = innings_to_situations.entry(situation.inning).or_insert(vec![]);
@@ -2026,7 +2037,7 @@ mod tests {
                 runners: [false, true, false]
             };
             let mut new_inning = orig_inning.clone();
-            new_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
+            new_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, 9);
             assert_eq!(orig_inning, new_inning);
         }
     }
@@ -2041,7 +2052,7 @@ mod tests {
                 runners: [false, true, false]
             };
             let mut new_inning = orig_inning.clone();
-            new_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
+            new_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, 9);
             assert_eq!(orig_inning, new_inning);
         }
     }
@@ -2056,7 +2067,7 @@ mod tests {
                 runners: [false, true, false]
             };
             let mut new_inning = orig_inning.clone();
-            new_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
+            new_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, 9);
             assert_eq!(orig_inning, new_inning);
         }
     }
@@ -2070,7 +2081,7 @@ mod tests {
                 outs: 3,
                 runners: [false, true, false]
             };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
+            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, 9);
             assert_eq!(GameSituation {
                 cur_score_diff: -2,
                 inning: Inning { number: 2, is_home: false},
@@ -2089,7 +2100,7 @@ mod tests {
                 outs: 3,
                 runners: [false, true, false]
             };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
+            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, 9);
             assert_eq!(GameSituation {
                 cur_score_diff: -2,
                 inning: Inning { number: 1, is_home: true},
@@ -2099,72 +2110,66 @@ mod tests {
         }
     }
 
+    fn make_extra_inning_game_situation(inning: Inning) -> GameSituation {
+        GameSituation {
+            cur_score_diff: 2,
+            inning,
+            outs: 3,
+            runners: [false, true, false]
+        }
+    }
+
     #[test]
     fn test_next_inning_if_three_outs_ninth_inning__no_extra_runner() {
         for runner_starts_on_second_in_extra_innings in [false, true].iter() {
-            let mut orig_inning = GameSituation {
-                cur_score_diff: 2,
-                inning: Inning { number: 9, is_home: false},
-                outs: 3,
-                runners: [false, true, false]
-            };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
-            assert_eq!(false, orig_inning.runners[1]);
+            for last_inning in [7, 8, 9, 10].iter() {
+                let mut orig_inning = make_extra_inning_game_situation(Inning { number: *last_inning, is_home: false});
+                orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, *last_inning);
+                assert_eq!(false, orig_inning.runners[1]);
+            }
         }
     }
 
     #[test]
     fn test_next_inning_if_three_outs_extra_innings__three_outs_visitor() {
         for runner_starts_on_second_in_extra_innings in [false, true].iter() {
-            let mut orig_inning = GameSituation {
-                cur_score_diff: 2,
-                inning: Inning { number: 10, is_home: false},
-                outs: 3,
-                runners: [false, false, true]
-            };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
-            assert_eq!(*runner_starts_on_second_in_extra_innings, orig_inning.runners[1]);
+            for last_inning in [7, 8, 9, 10].iter() {
+                let mut orig_inning = make_extra_inning_game_situation(Inning { number: *last_inning + 1, is_home: false});
+                orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, *last_inning);
+                assert_eq!(*runner_starts_on_second_in_extra_innings, orig_inning.runners[1]);
+            }
         }
     }
     #[test]
     fn test_next_inning_if_three_outs_eighth_inning__three_outs_home() {
         for runner_starts_on_second_in_extra_innings in [false, true].iter() {
-            let mut orig_inning = GameSituation {
-                cur_score_diff: 2,
-                inning: Inning { number: 8, is_home: true},
-                outs: 3,
-                runners: [false, false, true]
-            };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
-            assert_eq!(false, orig_inning.runners[1]);
+            for last_inning in [7, 8, 9, 10].iter() {
+                let mut orig_inning = make_extra_inning_game_situation(Inning { number: *last_inning - 1, is_home: true});
+                orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, *last_inning);
+                assert_eq!(false, orig_inning.runners[1]);
+            }
         }
     }
 
     #[test]
     fn test_next_inning_if_three_outs_ninth_inning__three_outs_home() {
         for runner_starts_on_second_in_extra_innings in [false, true].iter() {
-            let mut orig_inning = GameSituation {
-                cur_score_diff: 2,
-                inning: Inning { number: 9, is_home: true},
-                outs: 3,
-                runners: [false, false, true]
-            };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
-            assert_eq!(*runner_starts_on_second_in_extra_innings, orig_inning.runners[1]);
+            for last_inning in [7, 8, 9, 10].iter() {
+                let mut orig_inning = make_extra_inning_game_situation(Inning { number: *last_inning, is_home: true});
+                orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, *last_inning);
+                assert_eq!(*runner_starts_on_second_in_extra_innings, orig_inning.runners[1]);
+            }
         }
     }
 
     #[test]
     fn test_next_inning_if_three_outs_tenth_inning__three_outs_home() {
         for runner_starts_on_second_in_extra_innings in [false, true].iter() {
-            let mut orig_inning = GameSituation {
-                cur_score_diff: 2,
-                inning: Inning { number: 10, is_home: true},
-                outs: 3,
-                runners: [false, false, true]
-            };
-            orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings);
-            assert_eq!(*runner_starts_on_second_in_extra_innings, orig_inning.runners[1]);
+            for last_inning in [7, 8, 9, 10].iter() {
+                let mut orig_inning = make_extra_inning_game_situation(Inning { number: *last_inning + 1, is_home: true});
+                orig_inning.next_inning_if_three_outs(*runner_starts_on_second_in_extra_innings, *last_inning);
+                assert_eq!(*runner_starts_on_second_in_extra_innings, orig_inning.runners[1]);
+            }
         }
     }
 
@@ -2379,7 +2384,7 @@ mod tests {
         }
 
         fn assert_result(expected_situation: &GameSituation, initial_situation: &GameSituation, play_line: &str) -> Result<()> {
-            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false };
+            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9 };
             let new_situation = initial_situation.parse_play(&play_line, &game_rule_options)?;
             assert_eq!(expected_situation, &new_situation);
             Ok(())
