@@ -1178,8 +1178,10 @@ impl<T> Report for T
         // In 2020 extra innings started a runner on second base, which messes up
         // statistics.  If this rule continues we should figure out how to handle this,
         // but for now, skip these games.
-        //TODO - look at number of innings
-        if game_rule_options.runner_starts_on_second_in_extra_innings && final_game_situation.inning.number > 9 {
+        // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
+        // final_game_situation will be the top of the 10th inning (with 0 outs)
+        let last_real_situation = situations[situations.len() - 1];
+        if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
             return;
         }
 
