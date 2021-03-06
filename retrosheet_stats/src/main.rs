@@ -1431,8 +1431,8 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
         }
     }
 
-    fn name_impl(&self) -> &'static str { "StatsWinExpectancyReport" }
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
+    fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsRunExpectancyPerInningReport::new()) }
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, ({}, {}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32).unwrap();
