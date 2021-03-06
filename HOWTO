@@ -16,4 +16,3 @@ In this directory
 - in statsreact/src/App.tsx, look for MAX_YEAR and set it to the new max year
 - in statsreact/public/index.html, update the HTML description to the new max year
 - in statsreact, call npm run build
-- follow instructions in statsreact/HOWTO to fix up links
