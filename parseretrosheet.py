@@ -20,6 +20,10 @@ skipOutput = False
 stopOnFirstError = False
 sortByYear = False
 knownBadGames = ['WS2196605270', 'MIL197107272', 'MON197108040', 'NYN198105090', 'SEA200709261', 'MIL201304190', 'SFN201407300', 'BAL201906250']
+class GameRuleOptions:
+    def __init__(self):
+        self.innings = 9
+        self.runnerStartsOnSecondInExtraInnings = False
 
 positionToBase = {1:-1, 2:-1, 3:1, 4:2, 5:3, 6:2, 7:-1, 8:-1, 9:-1}
 # TODO - make this a real class I guess
@@ -59,7 +63,7 @@ class GameSituation:
         situation.curScoreDiff = key[4]
         return situation
 
-    def nextInningIfThreeOuts(self):
+    def nextInningIfThreeOuts(self, runnerStartsOnSecondInExtraInnings, innings):
         if (self.outs >= 3):
             if (self.isHome):
                 self.isHome = False
@@ -67,7 +71,7 @@ class GameSituation:
             else:
                 self.isHome = True
             self.outs = 0
-            self.runners = [0, 0, 0]
+            self.runners = [0, 1 if runnerStartsOnSecondInExtraInnings and self.inning > innings else 0, 0]
             self.curScoreDiff = -1 * self.curScoreDiff
 
     # returns True, False, or None if it's still tied.
@@ -93,22 +97,27 @@ def parseBatterEvent(batterEvent: str):
     pass
 
 def parseFilesParallel(fileNames: typing.Iterable[str]) -> typing.Tuple[int, typing.Iterable['Report']]:
+    global verbosity
+    verbosity = parseFilesParallel.localVerbosity
     clonedReportsToRun = [copy.deepcopy(x) for x in parseFilesParallel.originalReportsToRun]
     numGames = 0
     for fileName in fileNames:
         with open(fileName, 'r', encoding='latin-1') as eventFile:
             if verbosity >= Verbosity.normal:
                 print(fileName)
-            numGames += parseFile(eventFile, clonedReportsToRun)[0]
+            numGames += parseFile(eventFile, fileName, clonedReportsToRun)[0]
     return (numGames, clonedReportsToRun)
 
-def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> typing.Tuple[int, typing.Iterable['Report']]:
+def parseFile(f: typing.IO[str], eventFileName: str, reports: typing.Iterable['Report']) -> typing.Tuple[int, typing.Iterable['Report']]:
     numGames = 0
     inGame = False
     curGameSituation : GameSituation = GameSituation()
     gameSituationKeys : typing.List[GameSituationKey] = []
     playLines : typing.List[str] = []
     curId : str = ""
+    _, eventFileExtension = os.path.splitext(eventFileName)
+    isPlayoffs = eventFileExtension.upper() == '.EVE'
+    gameRuleOptions = GameRuleOptions()
     for line in f.readlines():
         if (not(inGame)):
             if (line.startswith("id,")):
@@ -118,11 +127,17 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> typing.T
                 gameSituationKeys.append(curGameSituation.getKey())
                 playLines = []
                 inGame = True
-                numGames = numGames + 1
+                # In 2020 a runner started on second base in extra innings, but not in playoff games
+                curYear = int(curId[3:7])
+                gameRuleOptions.runnerStartsOnSecondInExtraInnings = (curYear == 2020 and not isPlayoffs)
+                gameRuleOptions.innings = 9
+                if eventFileName == "2020NLW1.EVE":
+                    print(f"isPlayoffs: {isPlayoffs}, runneronsecond: {gameRuleOptions.runnerStartsOnSecondInExtraInnings}")
         else:
             if (line.startswith("id,")):
                 assert curId != ""
-                callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
+                numGames = numGames + 1
+                callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines, gameRuleOptions)
                 if (verbosity == Verbosity.verbose):
                     print("NEW GAME")
                 curGameSituation = GameSituation()
@@ -130,11 +145,14 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> typing.T
                 gameSituationKeys = []
                 gameSituationKeys.append(curGameSituation.getKey())
                 playLines = []
-                numGames = numGames + 1
+                # In 2020 a runner started on second base in extra innings, but not in playoff games
+                curYear = int(curId[3:7])
+                gameRuleOptions.runnerStartsOnSecondInExtraInnings = (curYear == 2020 and not isPlayoffs)
+                gameRuleOptions.innings = 9
             else:
                 if (line.startswith("play")):
                     try:
-                        parsePlay(line, curGameSituation)
+                        parsePlay(line, curGameSituation, gameRuleOptions)
                     except AssertionError:
                         if verbosity >= Verbosity.normal:
                             print("Error in game " + curId)
@@ -150,20 +168,22 @@ def parseFile(f: typing.IO[str], reports: typing.Iterable['Report']) -> typing.T
                         if (curGameSituationKey not in gameSituationKeys):
                             gameSituationKeys.append(curGameSituationKey)
                             playLines.append(line.strip())
-    if numGames == 0:
-        return (0, reports)
-    assert curId != ""
-    callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines)
+                elif (line.startswith("info,innings,")):
+                    gameRuleOptions.innings = int(line[len("info,innings,"):])
+    if inGame:
+        assert curId != ""
+        numGames = numGames + 1
+        callReportsProcessedGame(gameSituationKeys, curGameSituation, reports, curId, playLines, gameRuleOptions)
     return (numGames, reports)
 
-def callReportsProcessedGame(gameSituationKeys: typing.List[GameSituationKey], finalGameSituation: GameSituation, reports: typing.Iterable['Report'], curId: str, playLines: typing.List[str]) -> None:
+def callReportsProcessedGame(gameSituationKeys: typing.List[GameSituationKey], finalGameSituation: GameSituation, reports: typing.Iterable['Report'], curId: str, playLines: typing.List[str], gameRuleOptions: GameRuleOptions) -> None:
     # Don't include the last situation in the list of keys, because it's one after the last inning probably
     if (len(gameSituationKeys) > 0 and gameSituationKeys[-1] == finalGameSituation.getKey()):
         gameSituationKeys = gameSituationKeys[:-1]
     assert len(gameSituationKeys) == len(playLines)
     situationKeysAndNextPlayLines : typing.List[GameSituationKeyAndNextPlayLine] = [GameSituationKeyAndNextPlayLine(key, line) for (key, line) in zip(gameSituationKeys, playLines)]
     for report in reports:
-        report.processedGame(curId, finalGameSituation, situationKeysAndNextPlayLines)
+        report.processedGame(curId, finalGameSituation, situationKeysAndNextPlayLines, gameRuleOptions)
 
 def batterToFirst(runnerDests) -> None:
     runnerDests['B'] = 1
@@ -211,7 +231,7 @@ class PlayLineInfo(typing.NamedTuple):
         assert playMatch
         return PlayLineInfo(inning=int(playMatch.group(1)), isHome=(int(playMatch.group(2))==1), playerId=playMatch.group(3), countWhenPlayHappened=playMatch.group(4), pitchesString=playMatch.group(5), playString=playMatch.group(6))
 
-def parsePlay(line: str, gameSituation: GameSituation):
+def parsePlay(line: str, gameSituation: GameSituation, gameRuleOptions: GameRuleOptions):
     # decription of the format is at http://www.retrosheet.org/eventfile.htm
     playLineInfo = PlayLineInfo.fromLine(line)
     # if runnerDests[x] = 0, runner (or batter) is out
@@ -744,7 +764,7 @@ def parsePlay(line: str, gameSituation: GameSituation):
                 assert False
             newRunners[runnerDests[runner] - 1] = 1
     gameSituation.runners = newRunners
-    gameSituation.nextInningIfThreeOuts()
+    gameSituation.nextInningIfThreeOuts(gameRuleOptions.runnerStartsOnSecondInExtraInnings, gameRuleOptions.innings)
     # We're done - the information is "returned" in gameSituation
 
 class BallStrikeCount(typing.NamedTuple):
@@ -810,7 +830,7 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
     return counts
 
 class Report:
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         raise Exception(f"{type(self).__name__} must override processedGame!")
 
     def clearStats(self) -> None:
@@ -836,6 +856,21 @@ class StatsReport(Report):
     def clearStats(self) -> None:
         self.stats = {}
 
+    def shouldProcessGame(self, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> bool:
+        # In 2020 some games (doubleheaders) were played with only 7 innings, skip these
+        # to avoid messing up statistics.
+        if gameRuleOptions.innings != 9:
+            return False
+        # In 2020 extra innings started a runner on second base, which messes up
+        # statistics.  If this rule continues we should figure out how to handle this,
+        # but for now, skip these games.
+        # don't use finalGameSituation here, because if the visiting team wins a normal 9 inning game
+        # finalGameSituation will be the top of the 10th inning (with 0 outs)
+        lastRealSituation = GameSituation.fromKey(situationKeysAndPlayLines[-1].situationKey)
+        if gameRuleOptions.runnerStartsOnSecondInExtraInnings and lastRealSituation.inning > 9:
+            return False
+        return True
+ 
     def reportFileName(self) -> str:
         raise Exception(f"{type(self).__name__} must override reportFileName!")
 
@@ -884,8 +919,10 @@ class StatsWinExpectancyReport(StatsReport):
 
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff) to a tuple of
     # (number of wins, number of situations)
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         if skipOutput:
+            return
+        if not self.shouldProcessGame(situationKeysAndPlayLines, gameRuleOptions):
             return
         # Add gameKeys to stats
         # Check the last situation to see who won.
@@ -912,8 +949,10 @@ class StatsWinExpectancyWithBallsStrikesReport(StatsWinExpectancyReport):
 
     # Maps a tuple (inning, isHome, outs, (runner on 1st, runner on 2nd, runner on 3rd), curScoreDiff, (balls, strikes)) to a tuple of
     # (number of wins, number of situations)
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         if skipOutput:
+            return
+        if not self.shouldProcessGame(situationKeysAndPlayLines, gameRuleOptions):
             return
         # Add gameKeys to stats
         # Check the last situation to see who won.
@@ -947,7 +986,9 @@ class StatsRunExpectancyPerInningReport(StatsReport):
         else:
             return (inning[0], True)
 
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
+        if not self.shouldProcessGame(situationKeysAndPlayLines, gameRuleOptions):
+            return
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
         for situationKey in [x.situationKey for x in situationKeysAndPlayLines]:
             situation = GameSituation.fromKey(situationKey)
@@ -1000,7 +1041,9 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
     def reportFileName(self) -> str:
         return "runsperinningballsstrikesstats"
 
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
+        if not self.shouldProcessGame(situationKeysAndPlayLines, gameRuleOptions):
+            return
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[typing.Tuple[GameSituation, typing.List[BallStrikeCount]]]] = {}
         for situationKeyAndPlayLine in situationKeysAndPlayLines:
             situationKey = situationKeyAndPlayLine.situationKey
@@ -1045,7 +1088,7 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
         super().__init__()
         self.gameIds = []
 
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         homeWon = finalGameSituation.isHomeWinning()
         if (homeWon is None):
             # This game must have been tied when it stopped.  Don't count
@@ -1063,6 +1106,42 @@ class HomeTeamWonDownSixWithTwoOutsInNinthReport(Report):
     def mergeInto(self, other: 'HomeTeamWonDownSixWithTwoOutsInNinthReport'):
         other.gameIds.extend(self.gameIds)
 
+# Finds games with a specific set of situation keys. Useful for debugging purposes
+class SpecificSituationKeysReport(Report):
+    def __init__(self):
+        super().__init__()
+        # Try to look for unusual situations to include here so hopefully there will be only one game
+        # that satisfies all of them.
+        self.requiredKeys = [
+            #(13, True, 1, (1, 0, 1), 0),
+            (13, True, 0, (1, 1, 0), 0),
+            (13, True, 0, (1, 0, 0), 0),
+            (13, False, 1, (0, 1, 0), 0),
+            (12, False, 2, (0, 1, 1), 0),
+            (11, False, 2, (1, 1, 1), 0),
+            (7, False, 2, (1, 0, 1), 0),
+            (6, True, 2, (0, 0, 1), 0)
+        ]
+        # ATL202009300
+        self.gameIdsWithInfo = []
+
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
+        if gameId == "ATL202009300":
+            self.gameIdsWithInfo.append((gameId, [x.situationKey for x in situationKeysAndPlayLines]))
+        for requiredKey in self.requiredKeys:
+            if requiredKey not in [x.situationKey for x in situationKeysAndPlayLines]:
+                return
+        self.gameIdsWithInfo.append((gameId, [x.situationKey for x in situationKeysAndPlayLines]))
+
+    def doneWithAll(self) -> None:
+        for gameIdAndInfo in sorted(self.gameIdsWithInfo):
+            print(f"gameId: {gameIdAndInfo[0]}")
+            for x in gameIdAndInfo[1]:
+                print(f"  {x}")
+
+    def mergeInto(self, other: 'SpecificSituationKeysReport'):
+        other.gameIdsWithInfo.extend(self.gameIdsWithInfo)
+
 # Finds games where the home team won with a walkoff walk on 4 pitches
 class WalkOffWalkReport(Report):
     def __init__(self):
@@ -1074,7 +1153,7 @@ class WalkOffWalkReport(Report):
         self.yearCount = {}
         self.walkOffWalksOnFourPitchesLines = []
 
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         reallyVerbose = False # gameId == 'CHA201404020'
         year = int(gameId[3:7])
         if year not in self.yearCount:
@@ -1169,7 +1248,7 @@ class CountsToWalksAndStrikeoutsReport(Report):
         self.countsStats = {}
         self.yearCount = {}
 
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         reallyVerbose = False # gameId == 'CHA201404020'
         self.numGames += 1
         year = int(gameId[3:7])
@@ -1237,7 +1316,7 @@ class BasesLoadedNoOutsNoRunsReport(Report):
         else:
             return (inning[0], True)
 
-    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine]) -> None:
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
         for situationKey in [x.situationKey for x in situationKeysAndPlayLines]:
             situation = GameSituation.fromKey(situationKey)
@@ -1291,14 +1370,16 @@ def usage():
         print("- " + name)
 
 # https://stackoverflow.com/questions/10117073/how-to-use-initializer-to-set-up-my-multiprocess-pool/30816116#30816116
-def set_reports(function, reportsToRun):
+def set_reports(function, reportsToRun, localVerbosity):
     function.originalReportsToRun = reportsToRun
+    function.localVerbosity = localVerbosity
 
 # This selects what stats we're compiling.
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
 Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
 Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), StatsRunExpectancyPerInningWithBallsStrikesReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
+Reports['SpecificSituationKeys'] = [SpecificSituationKeysReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
 Reports['CountsToWalksAndStrikeouts']= [CountsToWalksAndStrikeoutsReport()]
 Reports['BasesLoadedNoOutsNoRuns'] = [BasesLoadedNoOutsNoRunsReport()]
@@ -1367,7 +1448,7 @@ def main(args):
             yearsToFiles[year].append(fileName)
         if doParallel:
             cpus = os.cpu_count()
-            with multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun), processes=cpus) as pool:
+            with multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun, verbosity), processes=cpus) as pool:
                 # need to do chunksize=1 to make sure each year is done separately
                 years = list(yearsToFiles.keys())
                 results = pool.map(parseFilesParallel, [yearsToFiles[year] for year in years], chunksize=1)
@@ -1386,7 +1467,7 @@ def main(args):
                     if verbosity >= Verbosity.normal:
                         print(fileName)
                     eventFile = open(fileName, 'r', encoding='latin-1')
-                    parseFile(eventFile, reportsToRun)
+                    parseFile(eventFile, fileName, reportsToRun)
                     eventFile.close()
                 if not skipOutput:
                     for report in reportsToRun:
@@ -1394,7 +1475,7 @@ def main(args):
     else:
         if doParallel:
             cpus = os.cpu_count()
-            with multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun), processes=cpus) as pool:
+            with multiprocessing.Pool(initializer=set_reports, initargs=(parseFilesParallel, reportsToRun, verbosity), processes=cpus) as pool:
                 results = pool.map(parseFilesParallel, [[x] for x in realFiles])
                 numGames = sum([x[0] for x in results])
                 allReports = [x[1] for x in results]
@@ -1407,7 +1488,7 @@ def main(args):
                 if verbosity >= Verbosity.normal:
                     print(fileName)
                 eventFile = open(fileName, 'r', encoding='latin-1')
-                numGames += parseFile(eventFile, reportsToRun)[0]
+                numGames += parseFile(eventFile, fileName, reportsToRun)[0]
                 eventFile.close()
         if verbosity >= Verbosity.normal:
             print("numGames is %d" % numGames)
@@ -1463,21 +1544,21 @@ class TestParsePlay(unittest.TestCase):
     def test_simpleout(self):
         (situation, playString) = self.util_setup(0, False, '8')
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
 
     def test_simpleout_oneout(self):
         (situation, playString) = self.util_setup(1, False, '8')
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 2
         self.assertEqual(sitCopy, situation)
 
     def test_simpleout_nextinning_top(self):
         (situation, playString) = self.util_setup(2, False, '8')
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 0
         sitCopy.isHome = True
         self.assertEqual(sitCopy, situation)
@@ -1485,7 +1566,7 @@ class TestParsePlay(unittest.TestCase):
     def test_simpleout_nextinning_bottom(self):
         (situation, playString) = self.util_setup(2, True, '8')
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 0
         sitCopy.isHome = False
         sitCopy.inning = 2
@@ -1495,7 +1576,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(2, False, '8')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 0
         sitCopy.isHome = True
         sitCopy.runners = [0, 0, 0]
@@ -1505,7 +1586,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(2, True, '8')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 0
         sitCopy.isHome = False
         sitCopy.inning = 2
@@ -1515,7 +1596,7 @@ class TestParsePlay(unittest.TestCase):
     def test_forceout(self):
         (situation, playString) = self.util_setup(0, False, '83')
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
 
@@ -1523,7 +1604,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '8.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 1, 0]
         self.assertEqual(sitCopy, situation)
@@ -1532,7 +1613,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '8.2-3')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 0, 1]
         self.assertEqual(sitCopy, situation)
@@ -1541,7 +1622,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '8.3-H')
         situation.runners = [0, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 1
@@ -1551,7 +1632,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '8.2-3;3-H')
         situation.runners = [0, 1, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 0, 1]
         sitCopy.curScoreDiff = 1
@@ -1561,7 +1642,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '8.2-H;3-H')
         situation.runners = [0, 1, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 2
@@ -1571,7 +1652,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '54(B)/BG25/SH.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 1, 0]
         self.assertEqual(sitCopy, situation)
@@ -1580,7 +1661,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '54(1)/FO/G5.3-H;B-1')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         sitCopy.curScoreDiff = 1
         sitCopy.outs = 1
@@ -1590,7 +1671,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '23/SH.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [0, 1, 0]
         self.assertEqual(sitCopy, situation)
@@ -1599,7 +1680,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '64(1)3/GDP/G6')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 2
         sitCopy.runners = [0, 0, 0]
         self.assertEqual(sitCopy, situation)
@@ -1608,7 +1689,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '8(B)84(2)/LDP/L8')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 2
         sitCopy.runners = [0, 0, 0]
         self.assertEqual(sitCopy, situation)
@@ -1617,7 +1698,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '3(B)3(1)/LDP')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 2
         sitCopy.runners = [0, 0, 0]
         self.assertEqual(sitCopy, situation)
@@ -1626,7 +1707,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'C/E2')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1634,7 +1715,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'C/E2.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1642,7 +1723,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'C/E2.B-1;1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1650,7 +1731,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'C/E1')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1658,7 +1739,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'C/E3')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1666,7 +1747,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'S7')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1674,7 +1755,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'D7/G5.3-H;2-H;1-H')
         situation.runners = [1, 1, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         sitCopy.curScoreDiff = 3
         self.assertEqual(sitCopy, situation)
@@ -1683,7 +1764,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'T9/F9LD.2-H')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 1]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -1692,7 +1773,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'DGR/L9LS.2-H')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -1701,7 +1782,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'E1/TH/BG15.1-3')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1709,7 +1790,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'E3.1-2;B-1')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1717,7 +1798,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'FC5/G5.3XH(52)')
         situation.runners = [0, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1726,7 +1807,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'FC3/G3S.3-H;1-2')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -1735,7 +1816,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'FLE5/P5F')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1743,7 +1824,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'H/L7D')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -1752,7 +1833,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'HR/F78XD.2-H;1-H')
         situation.runners = [1, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 3
         self.assertEqual(sitCopy, situation)
@@ -1761,7 +1842,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'HR9/F9LS.3-H;1-H')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 3
         self.assertEqual(sitCopy, situation)
@@ -1770,7 +1851,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'H9/F9LS.3-H;1-H')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 3
         self.assertEqual(sitCopy, situation)
@@ -1779,7 +1860,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'H9/F9LS')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -1788,7 +1869,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'HP.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1796,7 +1877,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'HP')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1804,7 +1885,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'K')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1813,7 +1894,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'K23')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1822,7 +1903,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'K+PB.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1831,7 +1912,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'K+WP.B-1')
         situation.runners = [0, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1839,7 +1920,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'K23+WP.2-3')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 1]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1849,7 +1930,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'K23+CS3(34)/DP')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 2
         self.assertEqual(sitCopy, situation)
@@ -1858,7 +1939,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'NP')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1866,7 +1947,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'W.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1874,7 +1955,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'IW')
         situation.runners = [0, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1882,7 +1963,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'W+WP.2-3')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1890,7 +1971,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'BK.3-H;1-2')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -1899,7 +1980,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'CSH(12)')
         situation.runners = [0, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1908,7 +1989,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'CS2(24).2-3')
         situation.runners = [1, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 1]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1917,7 +1998,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'CS2(2E4).1-3')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1925,7 +2006,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'DI.1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1934,7 +2015,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'OA.2X3(25)')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1943,7 +2024,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'WP.2-3;1-2')
         situation.runners = [1, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1951,7 +2032,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'PB.2-3')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -1959,7 +2040,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'PO2(14)')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1968,7 +2049,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'PO1(E3).1-2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1976,7 +2057,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'POCS2(14)')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 0, 0]
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
@@ -1985,7 +2066,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'SB2')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -1993,7 +2074,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'SB3;SB2')
         situation.runners = [1, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 1]
         self.assertEqual(sitCopy, situation)
 
@@ -2001,7 +2082,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'SBH;SB2')
         situation.runners = [1, 0, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [0, 1, 0]
         sitCopy.curScoreDiff = 1
         self.assertEqual(sitCopy, situation)
@@ -2011,7 +2092,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'S7/L.3-H;2-H;1XH(7432/TH)(E7)')
         situation.runners = [1, 1, 1]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 0, 0]
         sitCopy.curScoreDiff = 2
         sitCopy.outs = 1
@@ -2022,7 +2103,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'FC1.1X2(6E4);B-1')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.runners = [1, 1, 0]
         self.assertEqual(sitCopy, situation)
 
@@ -2031,7 +2112,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, '36(1)/BF.B-1')
         situation.runners = [1, 0, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         self.assertEqual(sitCopy, situation)
 
@@ -2040,7 +2121,7 @@ class TestParsePlay(unittest.TestCase):
         (situation, playString) = self.util_setup(0, False, 'W+POCS3(26)')
         situation.runners = [0, 1, 0]
         sitCopy = situation.copy()
-        parsePlay(playString, situation)
+        parsePlay(playString, situation, GameRuleOptions())
         sitCopy.outs = 1
         sitCopy.runners = [1, 0, 0]
         self.assertEqual(sitCopy, situation)
@@ -2051,7 +2132,7 @@ class TestParsePlay(unittest.TestCase):
     #    (situation, playString) = self.util_setup(2, False, 'D9/G+.1-H;BX3(E9)(95/TH)')
     #    situation.runners = [1, 0, 0]
     #    sitCopy = situation.copy()
-    #    parsePlay(playString, situation)
+    #    parsePlay(playString, situation, GameRuleOptions())
     #    sitCopy.outs = 0
     #    sitCopy.runners = [0, 0, 0]
     #    sitCopy.isHome = True
