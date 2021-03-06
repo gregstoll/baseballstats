@@ -1026,17 +1026,7 @@ where P: Debug + AsRef<Path> {
             }
         }
         else {
-            if line.starts_with("id,") {
-                finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-                    &mut play_lines, reports, &mut num_games, &game_rule_options);
-
-                start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, is_playoffs);
-            }
-            else if line.starts_with("info,innings,") {
-                game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
-            }
-            else if line.starts_with("play,") {
+            if line.starts_with("play,") {
                 let new_situation = cur_game_situation.parse_play(&line, &game_rule_options);
                 match new_situation {
                     Err(error) => {
@@ -1056,6 +1046,16 @@ where P: Debug + AsRef<Path> {
                         cur_game_situation = new_situation;
                     }
                 }
+            }
+            else if line.starts_with("id,") {
+                finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
+                    &mut play_lines, reports, &mut num_games, &game_rule_options);
+
+                start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
+                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, is_playoffs);
+            }
+            else if line.starts_with("info,innings,") {
+                game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
             }
         }
     }
@@ -1170,6 +1170,7 @@ impl<T> Report for T
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions) {
         
+        // TODO - allow opting out of these?
         // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
         // to avoid messing up statistics.
         if game_rule_options.innings != 9 {
@@ -1502,6 +1503,78 @@ impl Report for HomeTeamDownSixWithTwoOutsInNinthReport {
         let other = other.downcast_mut::<Self>().unwrap();
         for id in self.game_ids.iter() {
             other.game_ids.push(id.to_owned());
+        }
+    }
+}
+// Finds games with a specific set of situation keys. Useful for debugging purposes
+struct SpecificSituationKeysReport {
+    required_keys: Vec<GameSituation>,
+    game_ids_and_situations: Vec<(String, Vec<GameSituation>)>
+}
+impl SpecificSituationKeysReport {
+    fn new() -> Self {
+        // Try to look for unusual situations to include here so hopefully there will be only one game
+        // that satisfies all of them.
+        let required_keys = vec![
+            GameSituation { inning: Inning { number: 13, is_home: true}, outs: 0, runners: [true, true, false], cur_score_diff: 0},
+            GameSituation { inning: Inning { number: 13, is_home: true}, outs: 0, runners: [true, false, false], cur_score_diff: 0},
+            GameSituation { inning: Inning { number: 13, is_home: false}, outs: 1, runners: [false, true, false], cur_score_diff: 0},
+            GameSituation { inning: Inning { number: 12, is_home: false}, outs: 2, runners: [false, true, true], cur_score_diff: 0},
+            GameSituation { inning: Inning { number: 11, is_home: false}, outs: 2, runners: [true, true, true], cur_score_diff: 0},
+            GameSituation { inning: Inning { number: 7, is_home: false}, outs: 2, runners: [true, false, true], cur_score_diff: 0},
+            GameSituation { inning: Inning { number: 6, is_home: true}, outs: 2, runners: [false, false, true], cur_score_diff: 0},
+        ];
+
+        Self { game_ids_and_situations: Vec::new(), required_keys }
+    }
+}
+impl Report for SpecificSituationKeysReport {
+    fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        for required_key in self.required_keys.iter() {
+            if !situations.contains(required_key) {
+                return;
+            }
+        }
+        self.game_ids_and_situations.push(
+            (game_id.to_owned(), situations.to_owned())
+        );
+    }
+
+    fn clear_stats(self: &mut Self) {
+        self.game_ids_and_situations.clear();
+    }
+
+    fn done_with_year(self: &mut Self, _year: usize) {
+        panic!("{} doesn't support by year", self.name());
+    }
+
+    fn done_with_all(self: &mut Self) {
+        self.game_ids_and_situations.sort();
+        for game_id_and_situation in self.game_ids_and_situations.iter() {
+            println!("game id {}", game_id_and_situation.0);
+            for situation in game_id_and_situation.1.iter() {
+                println!("  {:?}", situation);
+            }
+        }
+    }
+
+    fn make_new(&self) -> Box<dyn Report> {
+        Box::new(Self::new())
+    }
+
+    fn name(&self) -> &'static str {
+        "SpecificSituationKeysReport"
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn merge_into(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for id_and_situation in self.game_ids_and_situations.iter() {
+            other.game_ids_and_situations.push(id_and_situation.clone());
         }
     }
 }
@@ -1860,8 +1933,11 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ("StatsWithBallsStrikes", (|| vec![
                 Box::new(StatsWinExpectancyWithBallsStrikesReport::new())])
             ),
-            ("HomeTeamDownSixWithTwoOutsInNinthReport", (|| vec![
+            ("HomeTeamDownSixWithTwoOutsInNinth", (|| vec![
                 Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new())])
+            ),
+            ("SpecificSituationKeys", (|| vec![
+                Box::new(SpecificSituationKeysReport::new())])
             ),
             ("WalkOffWalk", (|| vec![
                 Box::new(WalkOffWalkReport::new())])
