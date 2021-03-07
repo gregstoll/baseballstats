@@ -156,9 +156,9 @@ def parseFile(f: typing.IO[str], eventFileName: str, reports: typing.Iterable['R
                     except AssertionError:
                         if verbosity >= Verbosity.normal:
                             print("Error in game " + curId)
-                            if (curId in knownBadGames):
+                            if curId in knownBadGames:
                                 print("known bad game")
-                        if (curId not in knownBadGames and (verbosity == Verbosity.verbose or stopOnFirstError)):
+                        if curId not in knownBadGames:
                             raise Exception(f"Error in game {curId}")
                         else:
                             # We're just gonna punt and ignore the error
