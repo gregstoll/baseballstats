@@ -1263,7 +1263,7 @@ impl StatsReport for StatsWinExpectancyReport {
     }
     fn report_file_name() -> &'static str { "stats" }
 
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyReport::new()) }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
 
     fn name_impl(&self) -> &'static str { "StatsWinExpectancyReport" }
 
@@ -1330,7 +1330,7 @@ impl StatsReport for StatsWinExpectancyWithBallsStrikesReport {
 
     fn name_impl(&self) -> &'static str { "StatsWinExpectancyWithBallsStrikesReport" }
 
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsWinExpectancyWithBallsStrikesReport::new()) }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
 
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
@@ -1433,7 +1433,7 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
     }
 
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningReport" }
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(StatsRunExpectancyPerInningReport::new()) }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, ({}, {}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32).unwrap();
@@ -1800,7 +1800,7 @@ impl Report for CountsToWalksAndStrikeoutsReport {
         }
     }
 
-    fn make_new(&self) -> Box<dyn Report> { Box::new(CountsToWalksAndStrikeoutsReport::new()) }
+    fn make_new(&self) -> Box<dyn Report> { Box::new(Self::new()) }
 
     fn name(&self) -> &'static str { "CountsToWalksAndStrikeoutsReport" }
 
