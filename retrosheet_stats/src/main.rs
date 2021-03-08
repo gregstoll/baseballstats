@@ -1344,6 +1344,107 @@ impl StatsReport for StatsWinExpectancyWithBallsStrikesReport {
     fn report_file_name() -> &'static str { "statswithballsstrikes" }
 }
 
+struct StatsRunExpectancyPerInningWithBallsStrikesReport {
+    // key is (outs, runners, balls/strikes)
+    // value is times that index of runs were gained
+    // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
+    // 7 times 1 run was scored, and 4 times 2 runs were scored
+    stats: HashMap<(u8, [bool;3], BallsStrikes), Vec<u32>>
+}
+impl StatsRunExpectancyPerInningWithBallsStrikesReport {
+    fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+    fn format_runs_vec(runs_vec: &[u32]) -> String {
+        // https://stackoverflow.com/a/30325430/118417
+        let mut comma_separated = "[".to_owned();
+
+        if runs_vec.len() > 0 {
+            for num in &runs_vec[..runs_vec.len() - 1] {
+                comma_separated.push_str(&num.to_string());
+                comma_separated.push_str(", ");
+            }
+            comma_separated.push_str(&(runs_vec.last().unwrap()).to_string());
+        }
+        comma_separated.push_str("]");
+        comma_separated
+    }
+}
+
+impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
+    type Key = (u8, [bool;3], BallsStrikes);
+    type Value = Vec<u32>;
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        let mut innings_to_keys = HashMap::<Inning, Vec<(&GameSituation, Vec<BallsStrikes>)>>::new();
+        for (index, situation) in situations.iter().enumerate() {
+            // add stuff
+            let mut balls_strikes_vec = vec![];
+            let pitches = PlayLineInfo::from(&play_lines[index][..]).pitches_str;
+            let counts = get_ball_strike_counts_from_pitches(pitches);
+            for count in counts {
+                if count.balls < 4 && count.strikes < 3 {
+                    // TODO - simplify this
+                    balls_strikes_vec.push(count);
+                }
+            }
+            let entry = innings_to_keys.entry(situation.inning).or_insert(vec![]);
+            entry.push((situation, balls_strikes_vec));
+        }
+        for (inning, situations) in innings_to_keys.iter() {
+            let starting_run_diff = situations.first().unwrap().0.cur_score_diff;
+            let ending_run_diff = 
+                if let Some(next_situations) = innings_to_keys.get(&inning.next_inning()) {
+                    -1 * next_situations[0].0.cur_score_diff
+                }
+                else {
+                    situations.last().unwrap().0.cur_score_diff
+                };
+            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+            // Add the statistics now
+            for situation in situations {
+                // Make sure we don't duplicate keys
+                let runs_gained = (ending_run_diff - situation.0.cur_score_diff) as usize;
+                for count in &situation.1 {
+                    let key_to_use = (situation.0.outs, situation.0.runners, *count);
+                    let run_diff_vec = self.stats.entry(key_to_use).or_default();
+                    if run_diff_vec.len() < runs_gained + 1 {
+                        run_diff_vec.resize(runs_gained + 1, 0);
+                    }
+                    *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+                }
+            }
+        }
+    }
+
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            if other_entry.len() < entry.1.len() {
+                other_entry.resize(entry.1.len(), 0);
+            }
+            for i in 0..entry.1.len() {
+                other_entry[i] += entry.1[i];
+            }
+        }
+    }
+
+    fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningWithBallsStrikesReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, ({}, {}, {}), ({}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32, key.2.balls, key.2.strikes).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, key: &Self::Value) {
+        write!(file, "{}", Self::format_runs_vec(key)).unwrap();
+    }
+
+    fn report_file_name() -> &'static str { "runsperinningballsstrikesstats" }
+}
+
 struct StatsRunExpectancyPerInningReport {
     // key is (outs, runners)
     // value is times that index of runs were gained
@@ -1931,7 +2032,8 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
                 Box::new(StatsRunExpectancyPerInningReport::new())])
             ),
             ("StatsWithBallsStrikes", (|| vec![
-                Box::new(StatsWinExpectancyWithBallsStrikesReport::new())])
+                Box::new(StatsWinExpectancyWithBallsStrikesReport::new()),
+                Box::new(StatsRunExpectancyPerInningWithBallsStrikesReport::new())])
             ),
             ("HomeTeamDownSixWithTwoOutsInNinth", (|| vec![
                 Box::new(HomeTeamDownSixWithTwoOutsInNinthReport::new())])
