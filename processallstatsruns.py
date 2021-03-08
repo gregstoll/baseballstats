@@ -5,7 +5,7 @@ import subprocess
 
 def run(args, output_file_name):
     with open(output_file_name, 'w') as output_file:
-        subprocess.run(['python'] + args, check=True, universal_newlines=True, stdout=output_file)
+        subprocess.run(['python3'] + args, check=True, universal_newlines=True, stdout=output_file)
 
 run(['./processstatsruns.py', 'runsperinningstats'], 'runsperinning.xml')
 run(['./processballsstrikesstatsruns.py', 'runsperinningballsstrikesstats'], 'runsperinningballsstrikes.xml')
