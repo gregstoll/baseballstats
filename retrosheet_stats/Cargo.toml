@@ -30,5 +30,5 @@ features = ["std", "perf", "unicode-perl"]
 opt-level = 3
 #debug = true
 # https://deterministic.space/high-performance-rust.html
-lto = "fat"
-codegen-units = 1
+#lto = "fat"
+#codegen-units = 1
