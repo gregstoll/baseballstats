@@ -1144,7 +1144,9 @@ trait StatsReport : Any + Send + Sync {
     fn done_with_all_impl(self: &mut Self) {
         let mut contents: Vec<_> = self.get_stats().iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
-        let mut output = File::create(["..", Self::report_file_name()].iter().collect::<PathBuf>()).unwrap();
+        let mut path_parts = vec![".."];
+        path_parts.extend(Self::report_file_name().split("/").into_iter());
+        let mut output = File::create(path_parts.iter().collect::<PathBuf>()).unwrap();
         for entry in contents {
             self.write_key(&mut output, entry.0);
             write!(output, ": ").unwrap();
