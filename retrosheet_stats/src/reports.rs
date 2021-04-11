@@ -862,7 +862,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         let weighted_total: u32 = value.iter().enumerate().map(|(i, val)| (i as u32) * val).sum();
         let expected_value: f32 = (weighted_total as f32)/(total as f32);
         writeln!(file, "expected value: {}", expected_value).unwrap();
-        let percentages  = value.iter().map(|&val| (val as f32)/(total as f32));
+        let percentages  = value.iter().map(|&val| (val as f32 * 100f32)/(total as f32));
         writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
         let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
         writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
