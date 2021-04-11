@@ -27,7 +27,7 @@ default-features = false  # Turn off unicode support
 features = ["std", "perf", "unicode-perl"]
 
 [profile.release]
-opt-level = 3
+opt-level = 2 #3 is max
 #debug = true
 # https://deterministic.space/high-performance-rust.html
 #lto = "fat"
