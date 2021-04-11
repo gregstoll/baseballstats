@@ -762,3 +762,106 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
 
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
+
+pub struct StatsRunExpectancyPerInningByInningReport {
+    // key is inning
+    // value is times that index of runs were gained
+    // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
+    // 7 times 1 run was scored, and 4 times 2 runs were scored
+    stats: HashMap<Inning, Vec<u32>>
+}
+impl StatsRunExpectancyPerInningByInningReport {
+    pub fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+    fn format_runs_vec(runs_vec: &[u32]) -> String {
+        // https://stackoverflow.com/a/30325430/118417
+        let mut comma_separated = "[".to_owned();
+
+        if runs_vec.len() > 0 {
+            for num in &runs_vec[..runs_vec.len() - 1] {
+                comma_separated.push_str(&num.to_string());
+                comma_separated.push_str(", ");
+            }
+            comma_separated.push_str(&(runs_vec.last().unwrap()).to_string());
+        }
+        comma_separated.push_str("]");
+        comma_separated
+    }
+}
+
+impl StatsReport for StatsRunExpectancyPerInningByInningReport {
+    type Key = Inning;
+    type Value = Vec<u32>;
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
+        let mut cur_inning = Inning::new();
+        let mut start_situation = 0;
+        for (index, situation) in situations.iter().enumerate() {
+            if situation.inning != cur_inning {
+                assert_ne!(start_situation, index);
+                // add stuff
+                if let Some(_) = innings_to_keys.insert(cur_inning, &situations[start_situation..index]) {
+                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", _game_id, cur_inning, situation.inning);
+                }
+                cur_inning = situation.inning;
+                start_situation = index;
+            }
+        }
+        if start_situation < situations.len() {
+            innings_to_keys.insert(cur_inning, &situations[start_situation..]);
+        }
+        for (inning, &situations) in innings_to_keys.iter() {
+            let starting_run_diff = situations.first().unwrap().cur_score_diff;
+            let ending_run_diff = 
+                if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
+                    -1 * next_situations[0].cur_score_diff
+                }
+                else {
+                    situations.last().unwrap().cur_score_diff
+                };
+            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+            let runs_gained = (ending_run_diff - starting_run_diff) as usize;
+            let run_diff_vec = self.stats.entry(*inning).or_default();
+            if run_diff_vec.len() < runs_gained + 1 {
+                run_diff_vec.resize(runs_gained + 1, 0);
+            }
+            *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+        }
+    }
+
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            if other_entry.len() < entry.1.len() {
+                other_entry.resize(entry.1.len(), 0);
+            }
+            for i in 0..entry.1.len() {
+                other_entry[i] += entry.1[i];
+            }
+        }
+    }
+
+    fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningByInningReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, {})", key.number, key.is_home).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "{}", Self::format_runs_vec(value)).unwrap();
+    }
+    fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
+        let total: u32 = value.iter().sum();
+        writeln!(file, "total: {}", total).unwrap();
+        let weighted_total: u32 = value.iter().enumerate().map(|(i, val)| (i as u32) * val).sum();
+        let expected_value: f32 = (weighted_total as f32)/(total as f32);
+        writeln!(file, "expected value: {}", expected_value).unwrap();
+    }
+
+    fn report_file_name() -> &'static str { "runsperinningbyinningstats" }
+}

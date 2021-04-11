@@ -1131,6 +1131,7 @@ trait StatsReport : Any + Send + Sync {
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value>;
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key);
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value);
+    fn write_extra<T:Write>(&self, _file: &mut T, _key: &Self::Key, _value: &Self::Value) {}
     fn report_file_name() -> &'static str;
     fn make_new_impl(&self) -> Box<dyn Report>;
     fn name_impl(&self) -> &'static str;
@@ -1149,6 +1150,7 @@ trait StatsReport : Any + Send + Sync {
             write!(output, ": ").unwrap();
             self.write_value(&mut output, entry.1);
             writeln!(output, "").unwrap();
+            self.write_extra(&mut output, entry.0, entry.1);
         }
     }
 
@@ -1291,6 +1293,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ),
             ("BasesLoadedNoOutsNoRuns", (|| vec![
                 Box::new(reports::BasesLoadedNoOutsNoRunsReport::new())])
+            ),
+            ("RunExpectancyPerInning", (|| vec![
+                Box::new(reports::StatsRunExpectancyPerInningByInningReport::new())])
             ),
         ];
     }
