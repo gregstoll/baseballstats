@@ -795,8 +795,30 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
     type Value = Vec<u32>;
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
-    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions) {
+        // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
+        // to avoid messing up statistics.
+        if game_rule_options.innings != 9 {
+            return;
+        }
+        // In 2020 extra innings started a runner on second base, which messes up
+        // statistics.  If this rule continues we should figure out how to handle this,
+        // but for now, skip these games.
+        // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
+        // final_game_situation will be the top of the 10th inning (with 0 outs)
+        let last_real_situation = situations[situations.len() - 1];
+        if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
+            return;
+        }
+
+        // walkoff
+        /*if _game_id == "HOU201910190" {
+            for situation in situations {
+                println!("{:?}", situation);
+            }
+            println!("final: {:?}", final_game_situation);
+        }*/
         let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
         let mut cur_inning = Inning::new();
         let mut start_situation = 0;
@@ -816,13 +838,16 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         }
         for (inning, &situations) in innings_to_keys.iter() {
             let starting_run_diff = situations.first().unwrap().cur_score_diff;
-            let ending_run_diff = 
+            let mut ending_run_diff = 
                 if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
                     -1 * next_situations[0].cur_score_diff
                 }
                 else {
                     situations.last().unwrap().cur_score_diff
                 };
+            if &final_game_situation.inning == inning {
+                ending_run_diff = final_game_situation.cur_score_diff;
+            }
             assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
             let runs_gained = (ending_run_diff - starting_run_diff) as usize;
             let run_diff_vec = self.stats.entry(*inning).or_default();
