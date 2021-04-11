@@ -142,16 +142,20 @@ impl StatsRunExpectancyPerInningWithBallsStrikesReport {
     pub fn new() -> Self {
         Self { stats: HashMap::new() }
     }
-    fn format_runs_vec(runs_vec: &[u32]) -> String {
+    fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
+        return Self::format_vec(runs_vec, |val| val.to_string());
+    }
+    fn format_vec<T,F>(runs_vec: &[T], formatter: F) -> String
+        where F: Fn(&T) -> String {
         // https://stackoverflow.com/a/30325430/118417
         let mut comma_separated = "[".to_owned();
 
         if runs_vec.len() > 0 {
             for num in &runs_vec[..runs_vec.len() - 1] {
-                comma_separated.push_str(&num.to_string());
+                comma_separated.push_str(&formatter(&num));
                 comma_separated.push_str(", ");
             }
-            comma_separated.push_str(&(runs_vec.last().unwrap()).to_string());
+            comma_separated.push_str(&formatter(&(runs_vec.last().unwrap())));
         }
         comma_separated.push_str("]");
         comma_separated
@@ -168,7 +172,7 @@ impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
     }
 
     fn write_value<T:Write>(&self, file: &mut T, key: &Self::Value) {
-        write!(file, "{}", Self::format_runs_vec(key)).unwrap();
+        write!(file, "{}", Self::format_vec_default(key)).unwrap();
     }
 
     fn report_file_name() -> &'static str { "runsperinningballsstrikesstats" }
@@ -243,20 +247,6 @@ impl StatsRunExpectancyPerInningReport {
     pub fn new() -> Self {
         Self { stats: HashMap::new() }
     }
-    fn format_runs_vec(runs_vec: &[u32]) -> String {
-        // https://stackoverflow.com/a/30325430/118417
-        let mut comma_separated = "[".to_owned();
-
-        if runs_vec.len() > 0 {
-            for num in &runs_vec[..runs_vec.len() - 1] {
-                comma_separated.push_str(&num.to_string());
-                comma_separated.push_str(", ");
-            }
-            comma_separated.push_str(&(runs_vec.last().unwrap()).to_string());
-        }
-        comma_separated.push_str("]");
-        comma_separated
-    }
 }
 
 impl StatsReport for StatsRunExpectancyPerInningReport {
@@ -327,7 +317,7 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
         write!(file, "({}, ({}, {}, {}))", key.0, key.1[0] as i32, key.1[1] as i32, key.1[2] as i32).unwrap();
     }
     fn write_value<T:Write>(&self, file: &mut T, key: &Self::Value) {
-        write!(file, "{}", Self::format_runs_vec(key)).unwrap();
+        write!(file, "{}", format_vec_default(key)).unwrap();
     }
 
     fn report_file_name() -> &'static str { "runsperinningstats" }
@@ -774,20 +764,6 @@ impl StatsRunExpectancyPerInningByInningReport {
     pub fn new() -> Self {
         Self { stats: HashMap::new() }
     }
-    fn format_runs_vec(runs_vec: &[u32]) -> String {
-        // https://stackoverflow.com/a/30325430/118417
-        let mut comma_separated = "[".to_owned();
-
-        if runs_vec.len() > 0 {
-            for num in &runs_vec[..runs_vec.len() - 1] {
-                comma_separated.push_str(&num.to_string());
-                comma_separated.push_str(", ");
-            }
-            comma_separated.push_str(&(runs_vec.last().unwrap()).to_string());
-        }
-        comma_separated.push_str("]");
-        comma_separated
-    }
 }
 
 impl StatsReport for StatsRunExpectancyPerInningByInningReport {
@@ -878,7 +854,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         write!(file, "({}, {})", key.number, key.is_home).unwrap();
     }
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
-        write!(file, "{}", Self::format_runs_vec(value)).unwrap();
+        write!(file, "{}", format_vec_default(value)).unwrap();
     }
     fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
         let total: u32 = value.iter().sum();
@@ -886,7 +862,31 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         let weighted_total: u32 = value.iter().enumerate().map(|(i, val)| (i as u32) * val).sum();
         let expected_value: f32 = (weighted_total as f32)/(total as f32);
         writeln!(file, "expected value: {}", expected_value).unwrap();
+        let percentages  = value.iter().map(|&val| (val as f32)/(total as f32));
+        writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
+        let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
+        writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
+
     }
 
     fn report_file_name() -> &'static str { "runsperinningbyinningstats" }
+}
+
+fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
+    return format_vec(runs_vec, |val| val.to_string());
+}
+fn format_vec<T,F>(runs_vec: &[T], formatter: F) -> String
+    where F: Fn(&T) -> String {
+    // https://stackoverflow.com/a/30325430/118417
+    let mut comma_separated = "[".to_owned();
+
+    if runs_vec.len() > 0 {
+        for num in &runs_vec[..runs_vec.len() - 1] {
+            comma_separated.push_str(&formatter(&num));
+            comma_separated.push_str(", ");
+        }
+        comma_separated.push_str(&formatter(&(runs_vec.last().unwrap())));
+    }
+    comma_separated.push_str("]");
+    comma_separated
 }
