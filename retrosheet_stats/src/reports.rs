@@ -866,10 +866,9 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
         let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
         writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
-
     }
 
-    fn report_file_name() -> &'static str { "runsperinningbyinningstats" }
+    fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
 }
 
 fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
