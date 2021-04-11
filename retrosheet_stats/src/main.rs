@@ -1148,7 +1148,7 @@ trait StatsReport : Any + Send + Sync {
             self.write_key(&mut output, entry.0);
             write!(output, ": ").unwrap();
             self.write_value(&mut output, entry.1);
-            write!(output, "\r\n").unwrap();
+            writeln!(output, "").unwrap();
         }
     }
 
