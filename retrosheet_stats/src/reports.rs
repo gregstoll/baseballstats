@@ -802,7 +802,9 @@ fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situat
         }
         assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
         let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-        // This would be better perf, but can't be shared between threads safely
+        // This would be better perf (since we don't allocate a new Box every time),
+        // but can't be shared between threads safely.
+        // I think it actually is safe but am not sure how to convince the compiler of that.
         /*lazy_static! {
             static ref ADD_RUN_TO_DIFF_VEC : Box<dyn FnMut(&mut Vec<u32>)> = 
                 Box::new(|run_diff_vec| {
