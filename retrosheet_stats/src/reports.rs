@@ -753,6 +753,76 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 
+fn process_game_run_expectancy_by_inning(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
+    game_rule_options: &GameRuleOptions, run_diff_map: &mut HashMap<Inning, Vec<u32>>) {
+    // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
+    // to avoid messing up statistics.
+    if game_rule_options.innings != 9 {
+        return;
+    }
+    // In 2020 extra innings started a runner on second base, which messes up
+    // statistics.  If this rule continues we should figure out how to handle this,
+    // but for now, skip these games.
+    // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
+    // final_game_situation will be the top of the 10th inning (with 0 outs)
+    let last_real_situation = situations[situations.len() - 1];
+    if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
+        return;
+    }
+
+    let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
+    let mut cur_inning = Inning::new();
+    let mut start_situation = 0;
+    for (index, situation) in situations.iter().enumerate() {
+        if situation.inning != cur_inning {
+            assert_ne!(start_situation, index);
+            // add stuff
+            if let Some(_) = innings_to_keys.insert(cur_inning, &situations[start_situation..index]) {
+                assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", game_id, cur_inning, situation.inning);
+            }
+            cur_inning = situation.inning;
+            start_situation = index;
+        }
+    }
+    if start_situation < situations.len() {
+        innings_to_keys.insert(cur_inning, &situations[start_situation..]);
+    }
+    for (inning, &situations) in innings_to_keys.iter() {
+        let starting_run_diff = situations.first().unwrap().cur_score_diff;
+        let mut ending_run_diff = 
+            if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
+                -1 * next_situations[0].cur_score_diff
+            }
+            else {
+                situations.last().unwrap().cur_score_diff
+            };
+        if &final_game_situation.inning == inning {
+            ending_run_diff = final_game_situation.cur_score_diff;
+        }
+        assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+        let runs_gained = (ending_run_diff - starting_run_diff) as usize;
+        let run_diff_vec = run_diff_map.entry(*inning).or_default();
+        if run_diff_vec.len() < runs_gained + 1 {
+            run_diff_vec.resize(runs_gained + 1, 0);
+        }
+        *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+    }
+
+}
+
+fn write_extra_run_expectancy_by_inning_info<T: Write>(file: &mut T, value: &Vec<u32>) {
+    let total: u32 = value.iter().sum();
+    writeln!(file, "total: {}", total).unwrap();
+    let weighted_total: u32 = value.iter().enumerate().map(|(i, val)| (i as u32) * val).sum();
+    let expected_value: f32 = (weighted_total as f32)/(total as f32);
+    writeln!(file, "expected value: {}", expected_value).unwrap();
+    let percentages  = value.iter().map(|&val| (val as f32 * 100f32)/(total as f32));
+    writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
+    let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
+    writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
+    writeln!(file, "").unwrap();
+}
+
 pub struct StatsRunExpectancyPerInningByInningReport {
     // key is inning
     // value is times that index of runs were gained
@@ -771,23 +841,8 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
     type Value = Vec<u32>;
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
-    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
+    fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions) {
-        // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
-        // to avoid messing up statistics.
-        if game_rule_options.innings != 9 {
-            return;
-        }
-        // In 2020 extra innings started a runner on second base, which messes up
-        // statistics.  If this rule continues we should figure out how to handle this,
-        // but for now, skip these games.
-        // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
-        // final_game_situation will be the top of the 10th inning (with 0 outs)
-        let last_real_situation = situations[situations.len() - 1];
-        if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
-            return;
-        }
-
         // walkoff
         /*if _game_id == "HOU201910190" {
             for situation in situations {
@@ -795,43 +850,8 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
             }
             println!("final: {:?}", final_game_situation);
         }*/
-        let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
-        let mut cur_inning = Inning::new();
-        let mut start_situation = 0;
-        for (index, situation) in situations.iter().enumerate() {
-            if situation.inning != cur_inning {
-                assert_ne!(start_situation, index);
-                // add stuff
-                if let Some(_) = innings_to_keys.insert(cur_inning, &situations[start_situation..index]) {
-                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", _game_id, cur_inning, situation.inning);
-                }
-                cur_inning = situation.inning;
-                start_situation = index;
-            }
-        }
-        if start_situation < situations.len() {
-            innings_to_keys.insert(cur_inning, &situations[start_situation..]);
-        }
-        for (inning, &situations) in innings_to_keys.iter() {
-            let starting_run_diff = situations.first().unwrap().cur_score_diff;
-            let mut ending_run_diff = 
-                if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
-                    -1 * next_situations[0].cur_score_diff
-                }
-                else {
-                    situations.last().unwrap().cur_score_diff
-                };
-            if &final_game_situation.inning == inning {
-                ending_run_diff = final_game_situation.cur_score_diff;
-            }
-            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
-            let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-            let run_diff_vec = self.stats.entry(*inning).or_default();
-            if run_diff_vec.len() < runs_gained + 1 {
-                run_diff_vec.resize(runs_gained + 1, 0);
-            }
-            *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
-        }
+        process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
+            game_rule_options, &mut self.stats);
     }
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
@@ -857,16 +877,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         write!(file, "{}", format_vec_default(value)).unwrap();
     }
     fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
-        let total: u32 = value.iter().sum();
-        writeln!(file, "total: {}", total).unwrap();
-        let weighted_total: u32 = value.iter().enumerate().map(|(i, val)| (i as u32) * val).sum();
-        let expected_value: f32 = (weighted_total as f32)/(total as f32);
-        writeln!(file, "expected value: {}", expected_value).unwrap();
-        let percentages  = value.iter().map(|&val| (val as f32 * 100f32)/(total as f32));
-        writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
-        let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
-        writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
-        writeln!(file, "").unwrap();
+        write_extra_run_expectancy_by_inning_info(file, value);
     }
 
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
