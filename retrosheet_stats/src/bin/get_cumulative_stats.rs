@@ -132,6 +132,6 @@ mod tests {
         let result = process_query_string("stateString=\"H\",6,1,3,-1&ballsStrikesState=0,1&startYear=1957&endYear=2019&rand=0.9792518693455747").unwrap();
         assert_eq!("250", result["wins"].to_string());
         assert_eq!("529", result["total"].to_string());
-        assert_eq!("2.7", result["leverage"].to_string());
+        assert_eq!("2.71", result["leverage"].to_string());
     }
 }
