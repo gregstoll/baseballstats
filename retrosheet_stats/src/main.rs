@@ -1111,6 +1111,13 @@ fn get_ball_strike_counts_from_pitches(pitches: &str) -> SmallVec<[BallsStrikes;
 }
 
 trait Report : Any + Send + Sync {
+    /// game_id is the Retrosheet game id for the game. year_from_game_id() will return the year the game was played in.
+    /// final_game_situation is the situation _after_ the last play of the game. Beware - for a 9 inning game
+    ///    where the visiting team wins this will be in the top of the 10th inning with 0 outs. But for a 9 inning game
+    ///    where the home team wins on a walkoff this will be in the bottom of the 9th.
+    /// situations is the list of the situations at the _start_ of every play. So the last value here will be the
+    ///    situation before the final plate appearance of the game.
+    /// play_lines is the list of plays in the game - there are as many of these as entries in the situations slice.
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
     fn clear_stats(self: &mut Self);
@@ -1135,6 +1142,13 @@ trait StatsReport : Any + Send + Sync {
     fn report_file_name() -> &'static str;
     fn make_new_impl(&self) -> Box<dyn Report>;
     fn name_impl(&self) -> &'static str;
+    /// game_id is the Retrosheet game id for the game. year_from_game_id() will return the year the game was played in.
+    /// final_game_situation is the situation _after_ the last play of the game. Beware - for a 9 inning game
+    ///    where the visiting team wins this will be in the top of the 10th inning with 0 outs. But for a 9 inning game
+    ///    where the home team wins on a walkoff this will be in the bottom of the 9th.
+    /// situations is the list of the situations at the _start_ of every play. So the last value here will be the
+    ///    situation before the final plate appearance of the game.
+    /// play_lines is the list of plays in the game - there are as many of these as entries in the situations slice.
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
     fn clear_stats_impl(self: &mut Self);

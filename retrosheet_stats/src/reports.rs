@@ -142,24 +142,6 @@ impl StatsRunExpectancyPerInningWithBallsStrikesReport {
     pub fn new() -> Self {
         Self { stats: HashMap::new() }
     }
-    fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
-        return Self::format_vec(runs_vec, |val| val.to_string());
-    }
-    fn format_vec<T,F>(runs_vec: &[T], formatter: F) -> String
-        where F: Fn(&T) -> String {
-        // https://stackoverflow.com/a/30325430/118417
-        let mut comma_separated = "[".to_owned();
-
-        if runs_vec.len() > 0 {
-            for num in &runs_vec[..runs_vec.len() - 1] {
-                comma_separated.push_str(&formatter(&num));
-                comma_separated.push_str(", ");
-            }
-            comma_separated.push_str(&formatter(&(runs_vec.last().unwrap())));
-        }
-        comma_separated.push_str("]");
-        comma_separated
-    }
 }
 
 impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
@@ -172,13 +154,13 @@ impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
     }
 
     fn write_value<T:Write>(&self, file: &mut T, key: &Self::Value) {
-        write!(file, "{}", Self::format_vec_default(key)).unwrap();
+        write!(file, "{}", format_vec_default(key)).unwrap();
     }
 
     fn report_file_name() -> &'static str { "runsperinningballsstrikesstats" }
     fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningWithBallsStrikesReport" }
-    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         let mut innings_to_keys = HashMap::<Inning, Vec<(&GameSituation, Vec<BallsStrikes>)>>::new();
         for (index, situation) in situations.iter().enumerate() {
@@ -197,13 +179,16 @@ impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
         }
         for (inning, situations) in innings_to_keys.iter() {
             let starting_run_diff = situations.first().unwrap().0.cur_score_diff;
-            let ending_run_diff = 
+            let mut ending_run_diff = 
                 if let Some(next_situations) = innings_to_keys.get(&inning.next_inning()) {
                     -1 * next_situations[0].0.cur_score_diff
                 }
                 else {
                     situations.last().unwrap().0.cur_score_diff
                 };
+            if &final_game_situation.inning == inning {
+                ending_run_diff = final_game_situation.cur_score_diff;
+            }
             assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
             // Add the statistics now
             for situation in situations {
@@ -254,7 +239,7 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
     type Value = Vec<u32>;
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
-    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+    fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
         let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
         let mut cur_inning = Inning::new();
@@ -275,13 +260,16 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
         }
         for (inning, &situations) in innings_to_keys.iter() {
             let starting_run_diff = situations.first().unwrap().cur_score_diff;
-            let ending_run_diff = 
+            let mut ending_run_diff = 
                 if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
                     -1 * next_situations[0].cur_score_diff
                 }
                 else {
                     situations.last().unwrap().cur_score_diff
                 };
+            if &final_game_situation.inning == inning {
+                ending_run_diff = final_game_situation.cur_score_diff;
+            }
             assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
             // Add the statistics now
             for situation in situations {
