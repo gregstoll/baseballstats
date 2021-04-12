@@ -830,6 +830,13 @@ def getBallStrikeCountsFromPitches(pitches: str) -> typing.List[BallStrikeCount]
     return counts
 
 class Report:
+    # game_id is the Retrosheet game id for the game. year_from_game_id() will return the year the game was played in.
+    # final_game_situation is the situation _after_ the last play of the game. Beware - for a 9 inning game
+    #    where the visiting team wins this will be in the top of the 10th inning with 0 outs. But for a 9 inning game
+    #    where the home team wins on a walkoff this will be in the bottom of the 9th.
+    # situations is the list of the situations at the _start_ of every play. So the last value here will be the
+    #    situation before the final plate appearance of the game.
+    # play_lines is the list of plays in the game - there are as many of these as entries in the situations slice.
     def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
         raise Exception(f"{type(self).__name__} must override processedGame!")
 
@@ -1008,6 +1015,9 @@ class StatsRunExpectancyPerInningReport(StatsReport):
                 endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0].curScoreDiff
             else:
                 endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+            # Check if this was a walkoff
+            if ((finalGameSituation.inning, finalGameSituation.isHome) == inning):
+                endingRunDiff = finalGameSituation.curScoreDiff
             if (endingRunDiff - startingRunDiff < 0):
                 print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
                 assert False
@@ -1066,6 +1076,9 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
                 endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0][0].curScoreDiff
             else:
                 endingRunDiff = inningsToKeys[inning][-1][0].curScoreDiff
+            # Check if this was a walkoff
+            if ((finalGameSituation.inning, finalGameSituation.isHome) == inning):
+                endingRunDiff = finalGameSituation.curScoreDiff
             if (endingRunDiff - startingRunDiff < 0):
                 print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
                 assert False
