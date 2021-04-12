@@ -1299,6 +1299,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ("RunExpectancyPerInning", (|| vec![
                 Box::new(reports::StatsRunExpectancyPerInningByInningReport::new())])
             ),
+            ("RunExpectancyPerInningAndEra", (|| vec![
+                Box::new(reports::StatsRunExpectancyPerInningByInningAndEraReport::new())])
+            ),
         ];
     }
     match report_id {

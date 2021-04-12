@@ -753,8 +753,9 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 
-fn process_game_run_expectancy_by_inning(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
-    game_rule_options: &GameRuleOptions, run_diff_map: &mut HashMap<Inning, Vec<u32>>) {
+fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
+    game_rule_options: &GameRuleOptions, mut process_run_diff_vec: T)
+    where T: FnMut(Inning, usize, Box<dyn FnMut(&mut Vec<u32>, usize)>) {
     // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
     // to avoid messing up statistics.
     if game_rule_options.innings != 9 {
@@ -801,13 +802,23 @@ fn process_game_run_expectancy_by_inning(game_id: &str, final_game_situation: &G
         }
         assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
         let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-        let run_diff_vec = run_diff_map.entry(*inning).or_default();
-        if run_diff_vec.len() < runs_gained + 1 {
-            run_diff_vec.resize(runs_gained + 1, 0);
-        }
-        *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+        // This would be better perf, but can't be shared between threads safely
+        /*lazy_static! {
+            static ref ADD_RUN_TO_DIFF_VEC : Box<dyn FnMut(&mut Vec<u32>)> = 
+                Box::new(|run_diff_vec| {
+                    if run_diff_vec.len() < runs_gained + 1 {
+                        run_diff_vec.resize(runs_gained + 1, 0);
+                    }
+                    *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+                });
+        }*/
+        process_run_diff_vec(*inning, runs_gained, Box::new(|run_diff_vec, runs_gained| {
+            if run_diff_vec.len() < runs_gained + 1 {
+                run_diff_vec.resize(runs_gained + 1, 0);
+            }
+            *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
+        }));
     }
-
 }
 
 fn write_extra_run_expectancy_by_inning_info<T: Write>(file: &mut T, value: &Vec<u32>) {
@@ -851,7 +862,8 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
             println!("final: {:?}", final_game_situation);
         }*/
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
-            game_rule_options, &mut self.stats);
+            game_rule_options,
+             |inning, runs_gained, mut process_fn| process_fn(self.stats.entry(inning).or_default(), runs_gained));
     }
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
@@ -883,6 +895,87 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
 }
 
+// https://thesportjournal.org/article/examining-perceptions-of-baseballs-eras/
+// see also https://www.billjamesonline.com/dividing_baseball_history_into_eras/ (but didn't use)
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub enum Era {
+    Expansion,
+    FreeAgency,
+    Steroid,
+    PostSteroid
+}
+
+impl From<u32> for Era {
+    fn from(year: u32) -> Self {
+        match year {
+            0..=1976 => Era::Expansion, // technically this is 1961-1976, but we only have a few years before this, so include those too
+            1977..=1993 => Era::FreeAgency,
+            1994..=2005 => Era::Steroid,
+            _ => Era::PostSteroid
+        }
+    }
+}
+
+impl Display for Era {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+pub struct StatsRunExpectancyPerInningByInningAndEraReport {
+    // key is inning
+    // value is times that index of runs were gained
+    // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
+    // 7 times 1 run was scored, and 4 times 2 runs were scored
+    stats: HashMap<(Inning, Era), Vec<u32>>
+}
+impl StatsRunExpectancyPerInningByInningAndEraReport {
+    pub fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
+    type Key = (Inning, Era);
+    type Value = Vec<u32>;
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions) {
+        let year = year_from_game_id(game_id);
+        let era: Era = year.into();
+        process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
+            game_rule_options,
+             |inning, runs_gained, mut process_fn| process_fn(self.stats.entry((inning, era)).or_default(), runs_gained));
+    }
+
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            if other_entry.len() < entry.1.len() {
+                other_entry.resize(entry.1.len(), 0);
+            }
+            for i in 0..entry.1.len() {
+                other_entry[i] += entry.1[i];
+            }
+        }
+    }
+
+    fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningByInningAndEraReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, {}), {}", key.0.number, key.0.is_home, key.1).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "{}", format_vec_default(value)).unwrap();
+    }
+    fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
+        write_extra_run_expectancy_by_inning_info(file, value);
+    }
+
+    fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinninganderastats" }
+}
 fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
     return format_vec(runs_vec, |val| val.to_string());
 }
