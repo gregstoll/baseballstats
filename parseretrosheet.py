@@ -881,6 +881,7 @@ class StatsReport(Report):
         statKeys.sort()
         for key in statKeys:
             outputFile.write("%s: %s\n" % (key, self.stats[key]))
+            self.writeExtraInfo(outputFile, key, self.stats[key])
         outputFile.close()
 
     def doneWithAll(self) -> None:
@@ -890,7 +891,11 @@ class StatsReport(Report):
         statKeys.sort()
         for key in statKeys:
             outputFile.write("%s: %s\n" % (key, self.stats[key]))
+            self.writeExtraInfo(outputFile, key, self.stats[key])
         outputFile.close()
+    
+    def writeExtraInfo(self, outputFile, key, value) -> None:
+        pass
 
 class StatsWinExpectancyReport(StatsReport):
     def reportFileName(self) -> str:
@@ -1080,6 +1085,74 @@ class StatsRunExpectancyPerInningWithBallsStrikesReport(StatsRunExpectancyPerInn
                     else:
                         self.stats[keyToUse] = [0] * (runsGained + 1)
                     self.stats[keyToUse][runsGained] += 1
+
+class StatsRunExpectancyPerInningByInningReport(StatsReport):
+    def reportFileName(self) -> str:
+        return "analysis/runsByInning/runsperinningbyinningstats"
+
+    def getNextInning(self, inning: typing.Tuple[int, bool]) -> typing.Tuple[int, bool]:
+        if (inning[1]):
+            return (inning[0]+1, False)
+        else:
+            return (inning[0], True)
+
+    def processedGame(self, gameId: str, finalGameSituation: GameSituation, situationKeysAndPlayLines: typing.List[GameSituationKeyAndNextPlayLine], gameRuleOptions: GameRuleOptions) -> None:
+        if not self.shouldProcessGame(situationKeysAndPlayLines, gameRuleOptions):
+            return
+        inningsToKeys : typing.Dict[typing.Tuple[int, bool], typing.List[GameSituation]] = {}
+        for situationKey in [x.situationKey for x in situationKeysAndPlayLines]:
+            situation = GameSituation.fromKey(situationKey)
+            key = (situation.inning, situation.isHome)
+            if (key in inningsToKeys):
+                inningsToKeys[key].append(situation)
+            else:
+                inningsToKeys[key] = [situation]
+        for inning in inningsToKeys:
+            startingRunDiff = inningsToKeys[inning][0].curScoreDiff
+            if (self.getNextInning(inning) in inningsToKeys):
+                endingRunDiff = -1 * inningsToKeys[self.getNextInning(inning)][0].curScoreDiff
+            else:
+                endingRunDiff = inningsToKeys[inning][-1].curScoreDiff
+            # Check if this was a walkoff
+            if ((finalGameSituation.inning, finalGameSituation.isHome) == inning):
+                endingRunDiff = finalGameSituation.curScoreDiff
+            if (endingRunDiff - startingRunDiff < 0):
+                print("uh-oh - scored %d runs!" % (endingRunDiff - startingRunDiff))
+                assert False
+            # Add the statistics now.
+            runsGained = endingRunDiff - startingRunDiff
+            if (inning in self.stats):
+                while (len(self.stats[inning]) < (runsGained + 1)):
+                    self.stats[inning].append(0)
+            else:
+                self.stats[inning] = [0] * (runsGained + 1)
+            self.stats[inning][runsGained] += 1
+
+    def writeExtraInfo(self, outputFile, key, value):
+        total = sum(value)
+        outputFile.write(f"total: {sum(value)}\n")
+        weighted_totals = [v * i for (i, v) in enumerate(value)]
+        outputFile.write(f"expected value: {sum(weighted_totals)/float(total):.6f}\n")
+        percentages = [(v * 100)/float(total) for v in value]
+        percentage_strs = ', '.join([f"{p:.2f}%" for p in percentages])
+        outputFile.write(f"[{percentage_strs}]\n")
+        contribs = ', '.join([f"{w/float(total):.2f}" for w in weighted_totals])
+        outputFile.write(f"contribs: [{contribs}]\n")
+        outputFile.write("\n")
+
+    def mergeInto(self, other: 'StatsRunExpectancyPerInningByInningReport') -> None:
+        for key in self.stats:
+            if key in other.stats:
+                otherValue = other.stats[key]
+                thisValue = self.stats[key]
+                for i in range(len(otherValue)):
+                    if i >= len(thisValue):
+                        break
+                    otherValue[i] += thisValue[i]
+                for i in range(len(otherValue), len(thisValue)):
+                    otherValue.append(thisValue[i])
+            else:
+                other.stats[key] = self.stats[key]
 
 # Finds games where the home team won after being down by 6 runs in the bottom of the ninth
 # with two outs and nobody on base
@@ -1378,6 +1451,7 @@ def set_reports(function, reportsToRun, localVerbosity):
 Reports: typing.Dict[str, typing.Iterable[Report]] = {}
 Reports['Stats'] = [StatsWinExpectancyReport(), StatsRunExpectancyPerInningReport()]
 Reports['StatsWithBallsStrikes'] = [StatsWinExpectancyWithBallsStrikesReport(), StatsRunExpectancyPerInningWithBallsStrikesReport()]
+Reports['RunExpectancyPerInning'] = [StatsRunExpectancyPerInningByInningReport()]
 Reports['HomeTeamWonDownSixWithTwoOutsInNinth'] = [HomeTeamWonDownSixWithTwoOutsInNinthReport()]
 Reports['SpecificSituationKeys'] = [SpecificSituationKeysReport()]
 Reports['WalkOffWalk']= [WalkOffWalkReport()]
