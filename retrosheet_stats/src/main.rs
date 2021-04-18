@@ -3,7 +3,7 @@ mod reports;
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -1348,6 +1348,7 @@ fn year_from_game_id(game_id: &str) -> u32 {
 }
 
 fn main() -> Result<()> {
+    let start = Instant::now();
     let mut options : Options = argh::from_env();
     let mut reports: Vec<Box<dyn Report>> = get_reports(&options.reports)?;
     let mut num_games = 0;
@@ -1463,6 +1464,8 @@ fn main() -> Result<()> {
             }
         }
     }
+    let elapsed = start.elapsed();
+    println!("Took {:?}", elapsed);
     Ok(())
 }
 
