@@ -743,7 +743,7 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
 
 fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
     game_rule_options: &GameRuleOptions, mut process_run_diff_vec: T)
-    where T: FnMut(Inning, usize, Box<dyn FnMut(&mut Vec<u32>, usize)>) {
+    where T: FnMut(Inning, usize, &dyn Fn(&mut Vec<u32>, usize)) {
     // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
     // to avoid messing up statistics.
     if game_rule_options.innings != 9 {
@@ -790,25 +790,15 @@ fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situat
         }
         assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
         let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-        // This would be better perf (since we don't allocate a new Box every time),
-        // but can't be shared between threads safely.
-        // I think it actually is safe but am not sure how to convince the compiler of that.
-        /*lazy_static! {
-            static ref ADD_RUN_TO_DIFF_VEC : Box<dyn FnMut(&mut Vec<u32>)> = 
-                Box::new(|run_diff_vec| {
-                    if run_diff_vec.len() < runs_gained + 1 {
-                        run_diff_vec.resize(runs_gained + 1, 0);
-                    }
-                    *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
-                });
-        }*/
-        process_run_diff_vec(*inning, runs_gained, Box::new(|run_diff_vec, runs_gained| {
-            if run_diff_vec.len() < runs_gained + 1 {
-                run_diff_vec.resize(runs_gained + 1, 0);
-            }
-            *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
-        }));
+        process_run_diff_vec(*inning, runs_gained, &add_run_to_diff_vec);
     }
+}
+
+fn add_run_to_diff_vec(run_diff_vec: &mut Vec<u32>, runs_gained: usize) {
+    if run_diff_vec.len() < runs_gained + 1 {
+        run_diff_vec.resize(runs_gained + 1, 0);
+    }
+    *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
 }
 
 fn write_extra_run_expectancy_by_inning_info<T: Write>(file: &mut T, value: &Vec<u32>) {
@@ -853,7 +843,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         }*/
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
             game_rule_options,
-             |inning, runs_gained, mut process_fn| process_fn(self.stats.entry(inning).or_default(), runs_gained));
+             |inning, runs_gained, process_fn| process_fn(self.stats.entry(inning).or_default(), runs_gained));
     }
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
@@ -935,7 +925,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
         let era: Era = year.into();
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
             game_rule_options,
-             |inning, runs_gained, mut process_fn| process_fn(self.stats.entry((inning, era)).or_default(), runs_gained));
+             |inning, runs_gained, process_fn| process_fn(self.stats.entry((inning, era)).or_default(), runs_gained));
     }
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
