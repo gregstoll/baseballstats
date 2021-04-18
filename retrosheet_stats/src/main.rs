@@ -1151,6 +1151,27 @@ trait StatsReport : Any + Send + Sync {
     /// play_lines is the list of plays in the game - there are as many of these as entries in the situations slice.
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
+
+    /// Whether to call processed_game_impl(). By default we skip games that are
+    /// less than 9 innings or had a runner start on a base in extra innings
+    fn should_process_game(&self, _game_id: &str, _final_game_situation: &GameSituation,
+        situations: &[GameSituation], game_rule_options: &GameRuleOptions) -> bool {
+        // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
+        // to avoid messing up statistics.
+        if game_rule_options.innings != 9 {
+            return false;
+        }
+        // In 2020 extra innings started a runner on second base, which messes up
+        // statistics.  If this rule continues we should figure out how to handle this,
+        // but for now, skip these games.
+        // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
+        // final_game_situation will be the top of the 10th inning (with 0 outs)
+        let last_real_situation = situations[situations.len() - 1];
+        if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
+            return false;
+        }
+        return true;
+    }
     fn clear_stats_impl(self: &mut Self);
     /// "other" parameter must be of the same type
     fn merge_into_impl(self: &Self, other: &mut dyn Any);
@@ -1189,20 +1210,7 @@ impl<T> Report for T
     where T: StatsReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions) {
-        
-        // TODO - allow opting out of these?
-        // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
-        // to avoid messing up statistics.
-        if game_rule_options.innings != 9 {
-            return;
-        }
-        // In 2020 extra innings started a runner on second base, which messes up
-        // statistics.  If this rule continues we should figure out how to handle this,
-        // but for now, skip these games.
-        // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
-        // final_game_situation will be the top of the 10th inning (with 0 outs)
-        let last_real_situation = situations[situations.len() - 1];
-        if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
+        if !self.should_process_game(game_id, final_game_situation, situations, game_rule_options) {
             return;
         }
 
