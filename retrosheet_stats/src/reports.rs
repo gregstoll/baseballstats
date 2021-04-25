@@ -890,6 +890,10 @@ impl StatsReport for ManagerChallengesByScoreDifferentialReport {
     type Key = u8;
     type Value = Vec<String>;
 
+    fn should_process_game(&self, _game_id: &str, _final_game_situation: &GameSituation, _situations: &[GameSituation], _game_rule_options: &GameRuleOptions) -> bool {
+        // Don't care if the game was shortened or had runners in extra innings, we want to see them all!
+        true
+    }
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
