@@ -1324,6 +1324,9 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ("RunExpectancyPerInningAndEra", (|| vec![
                 Box::new(reports::StatsRunExpectancyPerInningByInningAndEraReport::new())])
             ),
+            ("ManagerChallengesByScoreDifferential", (|| vec![
+                Box::new(reports::ManagerChallengesByScoreDifferentialReport::new())])
+            ),
         ];
     }
     match report_id {

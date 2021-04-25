@@ -875,6 +875,64 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
 }
 
+pub struct ManagerChallengesByScoreDifferentialReport {
+    // key is run differential
+    // value is games when that was challenged
+    stats: HashMap<u8, Vec<String>>
+}
+impl ManagerChallengesByScoreDifferentialReport {
+    pub fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+
+impl StatsReport for ManagerChallengesByScoreDifferentialReport {
+    type Key = u8;
+    type Value = Vec<String>;
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        for i in 0..situations.len() {
+            let play_line = &play_lines[i];
+            if play_line.to_ascii_uppercase().contains("/MREV") {
+                let situation = situations[i];
+                let abs_score_diff: u8 = situation.cur_score_diff.abs() as u8;
+                let game_ids = self.stats.entry(abs_score_diff).or_default();
+                game_ids.push(game_id.to_owned());
+            }
+        }
+    }
+
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            for game_id in entry.1 {
+                other_entry.push(game_id.to_owned());
+            }
+        }
+    }
+
+    fn name_impl(&self) -> &'static str { "ManagerChallengesByScoreDifferentialReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "{}", key).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        if value.len() >= 5 {
+            write!(file, "({} times)", value.len()).unwrap();
+        }
+        else {
+            write!(file, "{}", format_vec_default(value)).unwrap();
+
+        }
+    }
+
+    fn report_file_name() -> &'static str { "analysis/challenges/managerchallengesbyrundifferential.txt" }
+}
+
 // https://thesportjournal.org/article/examining-perceptions-of-baseballs-eras/
 // see also https://www.billjamesonline.com/dividing_baseball_history_into_eras/ (but didn't use)
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
