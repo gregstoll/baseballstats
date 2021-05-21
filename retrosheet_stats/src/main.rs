@@ -1195,6 +1195,7 @@ trait StatsReport : Any + Send + Sync {
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         let mut path_parts = vec![".."];
         path_parts.extend(Self::report_file_name().split("/").into_iter());
+        // TODO - create this path if it doesn't exist
         let mut output = File::create(path_parts.iter().collect::<PathBuf>()).unwrap();
         for entry in contents {
             self.write_key(&mut output, entry.0);
@@ -1342,7 +1343,7 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ("RunExpectancyForBottomFirstInningByNumberBatters", (|| vec![
                 Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<false>::new())])
             ),
-            ("RunExpectancyForBottomFirstInningByNumberBatters", (|| vec![
+            ("RunExpectancyForBottomFirstInningByNumberPitches", (|| vec![
                 Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<true>::new())])
             ),
             ("ManagerChallengesByScoreDifferential", (|| vec![

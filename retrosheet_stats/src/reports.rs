@@ -895,51 +895,64 @@ impl<const P: bool> StatsReport for StatsRunExpectancyForBottomFirstInningByNumb
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "{}", format_vec_default(value)).unwrap();
     }
+    fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
+        write_extra_run_expectancy_by_inning_info(file, value);
+    }
 
     fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyForBottomFirstInningByNumberBattersReport" }
+    fn should_process_game(&self, _game_id: &str, final_game_situation: &GameSituation, _situations: &[GameSituation], _game_rule_options: &GameRuleOptions, game_info: &GameInfo) -> bool {
+        if P {
+            let mut has_pitches = false;
+            // If we're looking at pitches, skip games that don't have them
+            if let Some(pitches) = game_info.get("pitches") {
+                has_pitches = pitches == "pitches";
+            }
+            if !has_pitches {
+                return false;
+            }
+        }
+        // just care about the first inning, so make sure we finished that.
+        return final_game_situation.inning.number > 1;
+    }
 
     fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        _situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
         _game_info: &GameInfo) {
-        /*let innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
-        let cur_inning = Inning::new();
-        let start_situation = 0;*/
-        //TODO
-        todo!();
-        /*
-        let mut number_innings_or_pitches = 0;
+        let mut number_batters_or_pitches: u8 = 0;
+        let top_first = Inning {number: 1, is_home: false};
+        let bottom_first = Inning {number: 1, is_home: true};
+        let mut first_situation_bottom_first = None;
+        let mut first_situation_top_second = None;
         for (index, situation) in situations.iter().enumerate() {
-            if situation.inning != cur_inning {
-                assert_ne!(start_situation, index);
-                // add stuff
-                if let Some(_) = innings_to_keys.insert(cur_inning, &situations[start_situation..index]) {
-                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", game_id, cur_inning, situation.inning);
-                }
-                cur_inning = situation.inning;
-                start_situation = index;
-            }
-        }
-        if start_situation < situations.len() {
-            innings_to_keys.insert(cur_inning, &situations[start_situation..]);
-        }
-        for (inning, &situations) in innings_to_keys.iter() {
-            let starting_run_diff = situations.first().unwrap().cur_score_diff;
-            let mut ending_run_diff = 
-                if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
-                    -1 * next_situations[0].cur_score_diff
+            if situation.inning == top_first {
+                if P {
+                    let pitches = PlayLineInfo::from(&play_lines[index][..]).pitches_str;
+                    // Don't care about balls or strikes or fouls, just count the pitches
+                    number_batters_or_pitches += pitches.len() as u8;
                 }
                 else {
-                    situations.last().unwrap().cur_score_diff
-                };
-            if &final_game_situation.inning == inning {
-                ending_run_diff = final_game_situation.cur_score_diff;
+                    number_batters_or_pitches += 1;
+                }
             }
-            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
-            let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-            process_run_diff_vec(*inning, runs_gained, &add_run_to_diff_vec);
+            else if situation.inning == bottom_first {
+                if first_situation_bottom_first.is_none() {
+                    first_situation_bottom_first = Some(situation);
+                }
+            }
+            else {
+                first_situation_top_second = Some(situation);
+                break;
+            }
         }
-        */
+        if P && number_batters_or_pitches == 0 {
+            // some games that claim they have pitches actually don't :-(
+            return;
+        }
+        let run_diff = -1 * first_situation_top_second.unwrap().cur_score_diff - first_situation_bottom_first.unwrap().cur_score_diff;
+        assert!(run_diff >= 0, "uh-oh, scored {} runs", run_diff);
+        let run_diff_vec = self.stats.entry(number_batters_or_pitches).or_default();
+        add_run_to_diff_vec(run_diff_vec, run_diff as usize)
     }
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
