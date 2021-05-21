@@ -742,23 +742,8 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
 }
 
 fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
-    game_rule_options: &GameRuleOptions, mut process_run_diff_vec: T)
+    _game_rule_options: &GameRuleOptions, mut process_run_diff_vec: T)
     where T: FnMut(Inning, usize, &dyn Fn(&mut Vec<u32>, usize)) {
-    // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
-    // to avoid messing up statistics.
-    if game_rule_options.innings != 9 {
-        return;
-    }
-    // In 2020 extra innings started a runner on second base, which messes up
-    // statistics.  If this rule continues we should figure out how to handle this,
-    // but for now, skip these games.
-    // don't use final_game_situation here, because if the visiting team wins a normal 9 inning game
-    // final_game_situation will be the top of the 10th inning (with 0 outs)
-    let last_real_situation = situations[situations.len() - 1];
-    if game_rule_options.runner_starts_on_second_in_extra_innings && last_real_situation.inning.number > 9 {
-        return;
-    }
-
     let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
     let mut cur_inning = Inning::new();
     let mut start_situation = 0;
