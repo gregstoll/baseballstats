@@ -275,6 +275,8 @@ struct GameRuleOptions {
     innings: u8
 }
 
+type GameInfo = HashMap<String, String>;
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct BallsStrikes {
     balls: u8,
@@ -976,6 +978,7 @@ where P: Debug + AsRef<Path> {
     let mut in_game = false;
     let mut num_games = 0;
     let mut cur_id = "".to_owned();
+    let mut game_info = GameInfo::new();
     if get_verbosity().is_at_least(Verbosity::Normal) {
         println!("{:?}", filename);
     }
@@ -983,20 +986,22 @@ where P: Debug + AsRef<Path> {
     let is_playoffs = filename_extension.to_uppercase() == "EVE";
     fn start_new_game_from_line(line: &str, cur_id: &mut String, cur_game_situation: &mut GameSituation,
         all_game_situations: &mut Vec<GameSituation>, play_lines: &mut Vec<String>,
-        game_rule_options: &mut GameRuleOptions, is_playoffs: bool) {
+        game_rule_options: &mut GameRuleOptions, game_info: &mut GameInfo, is_playoffs: bool) {
         *cur_id = line[3..].to_owned();
         *cur_game_situation = GameSituation::new();
         all_game_situations.clear();
         all_game_situations.push(*cur_game_situation);
         play_lines.clear();
+        game_info.clear();
         let year = year_from_game_id(cur_id);
         // In 2020 a runner started on second base in extra innings, but not in playoff games.
+        // TODO - get this from info
         game_rule_options.runner_starts_on_second_in_extra_innings = year == 2020 && !is_playoffs;
         game_rule_options.innings = 9;
     }
     fn finish_game(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
         play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32,
-        game_rule_options: &GameRuleOptions) {
+        game_rule_options: &GameRuleOptions, game_info: &GameInfo) {
         // Don't include the last situation in the list of keys, because it's one after the last inning probably
         if Some(cur_game_situation) == all_game_situations.last() {
             all_game_situations.remove(all_game_situations.len() - 1);
@@ -1006,7 +1011,8 @@ where P: Debug + AsRef<Path> {
                     &cur_game_situation,
                     &all_game_situations,
                     &play_lines,
-                    game_rule_options);
+                    game_rule_options,
+                    &game_info);
         }
         *num_games = *num_games + 1;
     }
@@ -1024,7 +1030,7 @@ where P: Debug + AsRef<Path> {
             if line.starts_with("id,") {
                 in_game = true;
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, is_playoffs);
+                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, &mut game_info, is_playoffs);
             }
         }
         else {
@@ -1051,19 +1057,23 @@ where P: Debug + AsRef<Path> {
             }
             else if line.starts_with("id,") {
                 finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-                    &mut play_lines, reports, &mut num_games, &game_rule_options);
+                    &mut play_lines, reports, &mut num_games, &game_rule_options, &game_info);
 
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
-                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, is_playoffs);
+                    &mut all_game_situations, &mut play_lines, &mut game_rule_options, &mut game_info, is_playoffs);
             }
-            else if line.starts_with("info,innings,") {
-                game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
+            else if line.starts_with("info,") {
+                if line.starts_with("info,innings,") {
+                    game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
+                }
+                let (key, value) = line["info,".len()..].split_once(",").unwrap();
+                game_info.insert(key.to_owned(), value.to_owned());
             }
         }
     }
     if all_game_situations.len() > 0 {
         finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-            &mut play_lines, reports, &mut num_games, &game_rule_options);
+            &mut play_lines, reports, &mut num_games, &game_rule_options, &game_info);
     }
 
     Ok(num_games)
@@ -1118,8 +1128,10 @@ trait Report : Any + Send + Sync {
     /// situations is the list of the situations at the _start_ of every play. So the last value here will be the
     ///    situation before the final plate appearance of the game.
     /// play_lines is the list of plays in the game - there are as many of these as entries in the situations slice.
+    /// game_info is the key value pairs of the Retrosheet lines that start with "info,"
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
+        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions,
+        game_info: &GameInfo);
     fn clear_stats(self: &mut Self);
     /// "other" parameter must be of the same type
     fn merge_into(self: &Self, other: &mut dyn Any);
@@ -1149,13 +1161,15 @@ trait StatsReport : Any + Send + Sync {
     /// situations is the list of the situations at the _start_ of every play. So the last value here will be the
     ///    situation before the final plate appearance of the game.
     /// play_lines is the list of plays in the game - there are as many of these as entries in the situations slice.
+    /// game_info is the key value pairs of the Retrosheet lines that start with "info,"
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions);
+        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions,
+        game_info: &GameInfo);
 
     /// Whether to call processed_game_impl(). By default we skip games that are
     /// less than 9 innings or had a runner start on a base in extra innings
     fn should_process_game(&self, _game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], game_rule_options: &GameRuleOptions) -> bool {
+        situations: &[GameSituation], game_rule_options: &GameRuleOptions, _game_info: &GameInfo) -> bool {
         // In 2020 some games (doubleheaders) were played with only 7 innings, skip these
         // to avoid messing up statistics.
         if game_rule_options.innings != 9 {
@@ -1209,12 +1223,13 @@ trait StatsReport : Any + Send + Sync {
 impl<T> Report for T
     where T: StatsReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions) {
-        if !self.should_process_game(game_id, final_game_situation, situations, game_rule_options) {
+        situations: &[GameSituation], play_lines: &[String], game_rule_options: &GameRuleOptions,
+        game_info: &GameInfo) {
+        if !self.should_process_game(game_id, final_game_situation, situations, game_rule_options, game_info) {
             return;
         }
 
-        self.processed_game_impl(game_id, final_game_situation, situations, play_lines, game_rule_options);
+        self.processed_game_impl(game_id, final_game_situation, situations, play_lines, game_rule_options, game_info);
     }
 
     fn clear_stats(self: &mut Self) {
@@ -1323,6 +1338,12 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
             ),
             ("RunExpectancyPerInningAndEra", (|| vec![
                 Box::new(reports::StatsRunExpectancyPerInningByInningAndEraReport::new())])
+            ),
+            ("RunExpectancyForBottomFirstInningByNumberBatters", (|| vec![
+                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<false>::new())])
+            ),
+            ("RunExpectancyForBottomFirstInningByNumberBatters", (|| vec![
+                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<true>::new())])
             ),
             ("ManagerChallengesByScoreDifferential", (|| vec![
                 Box::new(reports::ManagerChallengesByScoreDifferentialReport::new())])

@@ -1,7 +1,7 @@
 use std::{any::Any, collections::HashMap, fmt::Display, io::Write};
 use smallvec::SmallVec;
 
-use crate::{BallsStrikes, GameRuleOptions, GameSituation, Inning, PlayLineInfo, Report, StatsReport, get_ball_strike_counts_from_pitches, year_from_game_id};
+use crate::{BallsStrikes, GameInfo, GameRuleOptions, GameSituation, Inning, PlayLineInfo, Report, StatsReport, get_ball_strike_counts_from_pitches, year_from_game_id};
 
 pub struct StatsWinExpectancyReport {
     // value is (num_wins, num_situation)
@@ -18,7 +18,8 @@ impl StatsReport for StatsWinExpectancyReport {
     type Value = (u32, u32);
 
     fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -81,7 +82,8 @@ impl StatsReport for StatsWinExpectancyWithBallsStrikesReport {
     type Value = (u32, u32);
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if home_won.is_none() {
@@ -161,7 +163,8 @@ impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
     fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningWithBallsStrikesReport" }
     fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         let mut innings_to_keys = HashMap::<Inning, Vec<(&GameSituation, Vec<BallsStrikes>)>>::new();
         for (index, situation) in situations.iter().enumerate() {
             // add stuff
@@ -240,7 +243,8 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
         let mut cur_inning = Inning::new();
         let mut start_situation = 0;
@@ -323,7 +327,8 @@ impl HomeTeamDownSixWithTwoOutsInNinthReport {
 }
 impl Report for HomeTeamDownSixWithTwoOutsInNinthReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         // Check the last situation to see who won
         let home_won = final_game_situation.is_home_winning();
         if let Some(true) = home_won {
@@ -396,7 +401,8 @@ impl SpecificSituationKeysReport {
 }
 impl Report for SpecificSituationKeysReport {
     fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         for required_key in self.required_keys.iter() {
             if !situations.contains(required_key) {
                 return;
@@ -467,7 +473,8 @@ impl WalkOffWalkReport {
 }
 impl Report for WalkOffWalkReport {
     fn processed_game(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         let year: u32 = year_from_game_id(game_id);
         self.year_count.entry(year).or_insert(0);
         let last_game_situation = situations.last().unwrap();
@@ -602,7 +609,8 @@ impl CountsToWalksAndStrikeoutsReport {
 
 impl Report for CountsToWalksAndStrikeoutsReport {
     fn processed_game(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
-        _situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        _situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         self.num_games += 1;
         let year: u32 = year_from_game_id(game_id);
         for play_line in play_lines {
@@ -688,7 +696,8 @@ impl BasesLoadedNoOutsNoRunsReport {
 
 impl Report for BasesLoadedNoOutsNoRunsReport {
     fn processed_game(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         let mut innings_to_situations: HashMap<Inning, Vec<&GameSituation>> = HashMap::new();
         for situation in situations {
             let vec = innings_to_situations.entry(situation.inning).or_insert(vec![]);
@@ -818,7 +827,8 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         // walkoff
         /*if _game_id == "HOU201910190" {
             for situation in situations {
@@ -860,6 +870,96 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
 }
 
+// P = true means use pitches
+// P = false means use batters
+pub struct StatsRunExpectancyForBottomFirstInningByNumberBattersReport<const P: bool> {
+    // key is number of batters in top of the 1st
+    // value is times that index of runs were gained in bottom of the 1st
+    // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
+    // 7 times 1 run was scored, and 4 times 2 runs were scored
+    stats: HashMap<u8, Vec<u32>>
+}
+impl<const P: bool> StatsRunExpectancyForBottomFirstInningByNumberBattersReport<P> {
+    pub fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+impl<const P: bool> StatsReport for StatsRunExpectancyForBottomFirstInningByNumberBattersReport<P> {
+    type Key = u8;
+    type Value = Vec<u32>;
+
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "{}", key).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "{}", format_vec_default(value)).unwrap();
+    }
+
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn name_impl(&self) -> &'static str { "StatsRunExpectancyForBottomFirstInningByNumberBattersReport" }
+
+    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+        _situations: &[GameSituation], _play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
+        /*let innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
+        let cur_inning = Inning::new();
+        let start_situation = 0;*/
+        //TODO
+        todo!();
+        /*
+        let mut number_innings_or_pitches = 0;
+        for (index, situation) in situations.iter().enumerate() {
+            if situation.inning != cur_inning {
+                assert_ne!(start_situation, index);
+                // add stuff
+                if let Some(_) = innings_to_keys.insert(cur_inning, &situations[start_situation..index]) {
+                    assert!(false, "got duplicate innings_to_keys for game {} inning {:?} new inning {:?}", game_id, cur_inning, situation.inning);
+                }
+                cur_inning = situation.inning;
+                start_situation = index;
+            }
+        }
+        if start_situation < situations.len() {
+            innings_to_keys.insert(cur_inning, &situations[start_situation..]);
+        }
+        for (inning, &situations) in innings_to_keys.iter() {
+            let starting_run_diff = situations.first().unwrap().cur_score_diff;
+            let mut ending_run_diff = 
+                if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
+                    -1 * next_situations[0].cur_score_diff
+                }
+                else {
+                    situations.last().unwrap().cur_score_diff
+                };
+            if &final_game_situation.inning == inning {
+                ending_run_diff = final_game_situation.cur_score_diff;
+            }
+            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+            let runs_gained = (ending_run_diff - starting_run_diff) as usize;
+            process_run_diff_vec(*inning, runs_gained, &add_run_to_diff_vec);
+        }
+        */
+    }
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) {
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            if other_entry.len() < entry.1.len() {
+                other_entry.resize(entry.1.len(), 0);
+            }
+            for i in 0..entry.1.len() {
+                other_entry[i] += entry.1[i];
+            }
+        }
+    }
+    fn report_file_name() -> &'static str {
+         if P { "analysis/runsBottomFirst/runsByPitches" } else { "analysis/runsBottomFirst/runsByBatters" }
+    }
+}
+
 pub struct ManagerChallengesByScoreDifferentialReport {
     // key is run differential
     // value is games when that was challenged
@@ -875,13 +975,15 @@ impl StatsReport for ManagerChallengesByScoreDifferentialReport {
     type Key = u8;
     type Value = Vec<String>;
 
-    fn should_process_game(&self, _game_id: &str, _final_game_situation: &GameSituation, _situations: &[GameSituation], _game_rule_options: &GameRuleOptions) -> bool {
+    fn should_process_game(&self, _game_id: &str, _final_game_situation: &GameSituation, _situations: &[GameSituation], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) -> bool {
         // Don't care if the game was shortened or had runners in extra innings, we want to see them all!
         true
     }
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
-        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         for i in 0..situations.len() {
             let play_line = &play_lines[i];
             if play_line.to_ascii_uppercase().contains("/MREV") {
@@ -967,7 +1069,8 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
 
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
-        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions) {
+        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
         let year = year_from_game_id(game_id);
         let era: Era = year.into();
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
