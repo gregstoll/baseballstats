@@ -795,16 +795,18 @@ fn add_run_to_diff_vec(run_diff_vec: &mut Vec<u32>, runs_gained: usize) {
     *run_diff_vec.get_mut(runs_gained).unwrap() += 1;
 }
 
-fn write_extra_run_expectancy_by_inning_info<T: Write>(file: &mut T, value: &Vec<u32>) {
+fn write_extra_run_expectancy_by_inning_info<T: Write>(file: &mut T, value: &Vec<u32>, verbose: bool) {
     let total: u32 = value.iter().sum();
     writeln!(file, "total: {}", total).unwrap();
     let weighted_total: u32 = value.iter().enumerate().map(|(i, val)| (i as u32) * val).sum();
     let expected_value: f32 = (weighted_total as f32)/(total as f32);
     writeln!(file, "expected value: {}", expected_value).unwrap();
-    let percentages  = value.iter().map(|&val| (val as f32 * 100f32)/(total as f32));
-    writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
-    let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
-    writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
+    if verbose {
+        let percentages  = value.iter().map(|&val| (val as f32 * 100f32)/(total as f32));
+        writeln!(file, "{}", format_vec(&percentages.collect::<Vec<f32>>(), |p| format!("{:.2}%", p))).unwrap();
+        let weighted_contributions = value.iter().enumerate().map(|(i, val)| ((i as f32) * (*val as f32))/(total as f32));
+        writeln!(file, "contribs: {}", format_vec(&weighted_contributions.collect::<Vec<f32>>(), |p| format!("{:.2}", p))).unwrap();
+    }
     writeln!(file, "").unwrap();
 }
 
@@ -864,7 +866,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         write!(file, "{}", format_vec_default(value)).unwrap();
     }
     fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
-        write_extra_run_expectancy_by_inning_info(file, value);
+        write_extra_run_expectancy_by_inning_info(file, value, true);
     }
 
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
@@ -872,31 +874,37 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
 
 // P = true means use pitches
 // P = false means use batters
-pub struct StatsRunExpectancyForBottomFirstInningByNumberBattersReport<const P: bool> {
+// B is the bucket size (so 5 means 0-4 are grouped together, so are 5-9, etc.)
+pub struct StatsRunExpectancyForBottomFirstInningByNumberBattersReport<const P: bool, const B: u8> {
     // key is number of batters in top of the 1st
     // value is times that index of runs were gained in bottom of the 1st
     // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
     // 7 times 1 run was scored, and 4 times 2 runs were scored
     stats: HashMap<u8, Vec<u32>>
 }
-impl<const P: bool> StatsRunExpectancyForBottomFirstInningByNumberBattersReport<P> {
+impl<const P: bool, const B: u8> StatsRunExpectancyForBottomFirstInningByNumberBattersReport<P, B> {
     pub fn new() -> Self {
         Self { stats: HashMap::new() }
     }
 }
-impl<const P: bool> StatsReport for StatsRunExpectancyForBottomFirstInningByNumberBattersReport<P> {
+impl<const P: bool, const B: u8> StatsReport for StatsRunExpectancyForBottomFirstInningByNumberBattersReport<P, B> {
     type Key = u8;
     type Value = Vec<u32>;
 
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
-        write!(file, "{}", key).unwrap();
+        if B == 1 {
+            write!(file, "{}", key).unwrap();
+        }
+        else {
+            write!(file, "{}-{}", key*B, key*B+(B-1)).unwrap();
+        }
     }
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "{}", format_vec_default(value)).unwrap();
     }
     fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
-        write_extra_run_expectancy_by_inning_info(file, value);
+        write_extra_run_expectancy_by_inning_info(file, value, false);
     }
 
     fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
@@ -951,7 +959,8 @@ impl<const P: bool> StatsReport for StatsRunExpectancyForBottomFirstInningByNumb
         }
         let run_diff = -1 * first_situation_top_second.unwrap().cur_score_diff - first_situation_bottom_first.unwrap().cur_score_diff;
         assert!(run_diff >= 0, "uh-oh, scored {} runs", run_diff);
-        let run_diff_vec = self.stats.entry(number_batters_or_pitches).or_default();
+        let key = number_batters_or_pitches / B;
+        let run_diff_vec = self.stats.entry(key).or_default();
         add_run_to_diff_vec(run_diff_vec, run_diff as usize)
     }
 
@@ -969,7 +978,10 @@ impl<const P: bool> StatsReport for StatsRunExpectancyForBottomFirstInningByNumb
         }
     }
     fn report_file_name() -> &'static str {
-         if P { "analysis/runsBottomFirst/runsByPitches" } else { "analysis/runsBottomFirst/runsByBatters" }
+        let word = if P { "Pitches" } else { "Batters" };
+        let suffix = if B == 1 { "".to_owned() } else { format!("BucketBy{}", B) };
+        let file_name = format!("analysis/runsBottomFirst/runsBy{}{}.txt", word, suffix);
+        Box::leak(file_name.into_boxed_str())
     }
 }
 
@@ -1114,7 +1126,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
         write!(file, "{}", format_vec_default(value)).unwrap();
     }
     fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
-        write_extra_run_expectancy_by_inning_info(file, value);
+        write_extra_run_expectancy_by_inning_info(file, value, true);
     }
 
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinninganderastats" }

@@ -1,0 +1,296 @@
+1: [3, 1, 0, 1]
+total: 5
+expected value: 0.8
+
+2: [1, 2, 1, 1]
+total: 5
+expected value: 1.4
+
+3: [7, 3, 1]
+total: 11
+expected value: 0.45454547
+
+4: [44, 12, 1, 3, 5, 1]
+total: 66
+expected value: 0.72727275
+
+5: [170, 35, 20, 13, 5, 4, 1]
+total: 248
+expected value: 0.6451613
+
+6: [450, 102, 45, 26, 4, 5, 3]
+total: 635
+expected value: 0.5181102
+
+7: [822, 160, 105, 46, 22, 12, 5, 0, 1, 0, 0, 0, 0, 0, 1]
+total: 1174
+expected value: 0.60306644
+
+8: [1371, 347, 161, 81, 37, 17, 5]
+total: 2019
+expected value: 0.5819713
+
+9: [1912, 464, 255, 127, 56, 28, 9, 3, 1, 1]
+total: 2856
+expected value: 0.63410366
+
+10: [2572, 600, 322, 134, 70, 23, 8, 5, 1, 0, 0, 0, 0, 1]
+total: 3736
+expected value: 0.57414347
+
+11: [2799, 704, 334, 182, 82, 29, 5, 2, 1]
+total: 4138
+expected value: 0.5903818
+
+12: [3094, 761, 407, 194, 91, 44, 17, 12, 2, 2, 2, 1]
+total: 4627
+expected value: 0.6466393
+
+13: [3106, 804, 409, 194, 83, 38, 10, 3, 1, 3]
+total: 4651
+expected value: 0.6110514
+
+14: [2969, 735, 340, 184, 95, 25, 21, 5, 3, 1, 1, 1]
+total: 4380
+expected value: 0.6134703
+
+15: [2848, 723, 348, 176, 74, 34, 6, 7, 1]
+total: 4217
+expected value: 0.59426135
+
+16: [2620, 654, 335, 167, 68, 33, 10, 2]
+total: 3889
+expected value: 0.60066855
+
+17: [2417, 583, 310, 164, 71, 34, 10, 4, 2, 1, 0, 0, 0, 0, 1]
+total: 3597
+expected value: 0.6327495
+
+18: [2298, 547, 300, 126, 74, 31, 12, 6, 1, 2]
+total: 3397
+expected value: 0.6229026
+
+19: [2195, 547, 266, 144, 62, 30, 9, 5, 1, 1, 1]
+total: 3261
+expected value: 0.62097514
+
+20: [1962, 499, 267, 116, 59, 16, 11, 1, 1, 1, 1]
+total: 2934
+expected value: 0.61247444
+
+21: [1705, 437, 211, 121, 45, 17, 6, 1, 0, 1]
+total: 2544
+expected value: 0.6049528
+
+22: [1655, 401, 203, 109, 49, 21, 8, 3, 1, 0, 1]
+total: 2451
+expected value: 0.620971
+
+23: [1512, 340, 189, 93, 43, 21, 8, 1, 0, 0, 1, 1]
+total: 2209
+expected value: 0.61113626
+
+24: [1305, 305, 171, 102, 32, 11, 4, 1, 1, 0, 1]
+total: 1933
+expected value: 0.61303675
+
+25: [1268, 294, 155, 85, 34, 12, 4, 0, 3, 0, 1, 0, 0, 1]
+total: 1857
+expected value: 0.60635436
+
+26: [1113, 293, 150, 70, 32, 21, 8, 2, 2]
+total: 1691
+expected value: 0.65878177
+
+27: [973, 234, 131, 57, 31, 12, 5, 1]
+total: 1444
+expected value: 0.61495847
+
+28: [866, 231, 94, 58, 29, 10, 5, 1]
+total: 1294
+expected value: 0.6151468
+
+29: [777, 184, 106, 45, 25, 7, 8, 0, 1, 2, 1]
+total: 1156
+expected value: 0.6487889
+
+30: [713, 175, 84, 45, 21, 7, 2, 3, 0, 0, 0, 0, 1]
+total: 1051
+expected value: 0.6108468
+
+31: [671, 180, 78, 38, 16, 12, 3, 2, 0, 1]
+total: 1001
+expected value: 0.6143856
+
+32: [527, 169, 79, 32, 11, 7, 4]
+total: 829
+expected value: 0.6344994
+
+33: [510, 119, 68, 30, 20, 9, 4, 1, 0, 0, 0, 1]
+total: 762
+expected value: 0.671916
+
+34: [436, 100, 54, 24, 11, 8, 1, 0, 1]
+total: 635
+expected value: 0.5952756
+
+35: [371, 90, 48, 24, 16, 4, 2]
+total: 555
+expected value: 0.6378378
+
+36: [314, 84, 45, 23, 2, 1, 1]
+total: 470
+expected value: 0.55744684
+
+37: [282, 58, 40, 20, 12, 3, 2]
+total: 417
+expected value: 0.65467626
+
+38: [271, 46, 26, 13, 5, 5, 3, 1, 0, 0, 0, 0, 1]
+total: 371
+expected value: 0.5902965
+
+39: [197, 57, 25, 14, 7, 2]
+total: 302
+expected value: 0.6192053
+
+40: [172, 41, 26, 4, 6, 4, 2, 0, 0, 1]
+total: 256
+expected value: 0.6640625
+
+41: [178, 46, 17, 10, 4, 2, 1]
+total: 258
+expected value: 0.5503876
+
+42: [146, 40, 27, 8, 5, 1]
+total: 227
+expected value: 0.62995595
+
+43: [95, 31, 14, 3, 5, 2, 1, 1]
+total: 152
+expected value: 0.7302632
+
+44: [102, 26, 14, 5, 8]
+total: 155
+expected value: 0.6516129
+
+45: [85, 19, 11, 3, 2, 0, 1, 0, 0, 1]
+total: 122
+expected value: 0.59836066
+
+46: [79, 22, 6, 7, 1, 2]
+total: 117
+expected value: 0.5897436
+
+47: [63, 17, 7, 4, 2, 2, 1]
+total: 96
+expected value: 0.6979167
+
+48: [58, 12, 7, 3, 1]
+total: 81
+expected value: 0.4814815
+
+49: [44, 8, 3, 1, 3, 0, 1]
+total: 60
+expected value: 0.5833333
+
+50: [38, 5, 9, 3, 0, 1, 1]
+total: 57
+expected value: 0.75438595
+
+51: [44, 8, 1, 0, 1]
+total: 54
+expected value: 0.25925925
+
+52: [36, 6, 9, 1, 2, 0, 2]
+total: 56
+expected value: 0.83928573
+
+53: [22, 5, 5]
+total: 32
+expected value: 0.46875
+
+54: [16, 6, 3, 0, 1]
+total: 26
+expected value: 0.61538464
+
+55: [16, 4, 1, 1, 1]
+total: 23
+expected value: 0.5652174
+
+56: [9, 3, 0, 3, 1]
+total: 16
+expected value: 1
+
+57: [9, 2, 1, 1]
+total: 13
+expected value: 0.53846157
+
+58: [4, 2]
+total: 6
+expected value: 0.33333334
+
+59: [9, 2]
+total: 11
+expected value: 0.18181819
+
+60: [7, 4, 3]
+total: 14
+expected value: 0.71428573
+
+61: [6, 2, 2, 0, 0, 1]
+total: 11
+expected value: 1
+
+62: [5]
+total: 5
+expected value: 0
+
+63: [2]
+total: 2
+expected value: 0
+
+64: [3, 1]
+total: 4
+expected value: 0.25
+
+65: [3, 1]
+total: 4
+expected value: 0.25
+
+66: [5, 1]
+total: 6
+expected value: 0.16666667
+
+68: [2, 1]
+total: 3
+expected value: 0.33333334
+
+69: [3]
+total: 3
+expected value: 0
+
+70: [1, 0, 1, 1]
+total: 3
+expected value: 1.6666666
+
+72: [1]
+total: 1
+expected value: 0
+
+75: [0, 1]
+total: 1
+expected value: 1
+
+80: [1, 0, 1]
+total: 2
+expected value: 1
+
+81: [1]
+total: 1
+expected value: 0
+
+88: [1]
+total: 1
+expected value: 0
+

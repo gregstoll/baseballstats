@@ -1341,10 +1341,12 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
                 Box::new(reports::StatsRunExpectancyPerInningByInningAndEraReport::new())])
             ),
             ("RunExpectancyForBottomFirstInningByNumberBatters", (|| vec![
-                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<false>::new())])
+                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<false, 1>::new())])
             ),
             ("RunExpectancyForBottomFirstInningByNumberPitches", (|| vec![
-                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<true>::new())])
+                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<true, 10>::new()),
+                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<true, 12>::new()),
+                Box::new(reports::StatsRunExpectancyForBottomFirstInningByNumberBattersReport::<true, 15>::new())])
             ),
             ("ManagerChallengesByScoreDifferential", (|| vec![
                 Box::new(reports::ManagerChallengesByScoreDifferentialReport::new())])
