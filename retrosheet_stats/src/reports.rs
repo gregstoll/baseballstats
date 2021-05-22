@@ -924,7 +924,7 @@ impl<const P: bool, const B: u8> StatsReport for StatsRunExpectancyForBottomFirs
         return final_game_situation.inning.number > 1;
     }
 
-    fn processed_game_impl(self: &mut Self, _game_id: &str, _final_game_situation: &GameSituation,
+    fn processed_game_impl(self: &mut Self, game_id: &str, _final_game_situation: &GameSituation,
         situations: &[GameSituation], play_lines: &[String], _game_rule_options: &GameRuleOptions,
         _game_info: &GameInfo) {
         let mut number_batters_or_pitches: u8 = 0;
@@ -959,6 +959,19 @@ impl<const P: bool, const B: u8> StatsReport for StatsRunExpectancyForBottomFirs
         }
         let run_diff = -1 * first_situation_top_second.unwrap().cur_score_diff - first_situation_bottom_first.unwrap().cur_score_diff;
         assert!(run_diff >= 0, "uh-oh, scored {} runs", run_diff);
+        if P
+        {
+            if number_batters_or_pitches == 88
+            {
+                println!("Game with 88 pitches: {}", game_id);
+            }
+        }
+        else {
+            if number_batters_or_pitches == 18
+            {
+                println!("Game with 18 batters: {}", game_id);
+            }
+        }
         let key = number_batters_or_pitches / B;
         let run_diff_vec = self.stats.entry(key).or_default();
         add_run_to_diff_vec(run_diff_vec, run_diff as usize)
