@@ -993,9 +993,10 @@ where P: Debug + AsRef<Path> {
         all_game_situations.push(*cur_game_situation);
         play_lines.clear();
         game_info.clear();
-        let year = year_from_game_id(cur_id);
-        // In 2020 a runner started on second base in extra innings, but not in playoff games.
-        // TODO - get this from info
+        //game_rule_options.runner_starts_on_second_in_extra_innings = false;
+        // TODO - game files during 2020 playoffs have the ghost runner set to true in the
+        // Retrosheet file, which is wrong.
+        let year = year_from_game_id(&cur_id);
         game_rule_options.runner_starts_on_second_in_extra_innings = year == 2020 && !is_playoffs;
         game_rule_options.innings = 9;
     }
@@ -1065,6 +1066,14 @@ where P: Debug + AsRef<Path> {
             else if line.starts_with("info,") {
                 if line.starts_with("info,innings,") {
                     game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
+                }
+                else if line.starts_with("info,tiebreaker,") {
+                    let tiebreaker_base = line["info,tiebreaker,".len()..].parse::<u8>().unwrap();
+                    // we don't handle extra runners on anything but second base right now
+                    assert!(tiebreaker_base == 2);
+                    // TODO - game files during 2020 playoffs have the ghost runner set to true in the
+                    // Retrosheet file, which is wrong.
+                    //game_rule_options.runner_starts_on_second_in_extra_innings = tiebreaker_base == 2;
                 }
                 let (key, value) = line["info,".len()..].split_once(",").unwrap();
                 game_info.insert(key.to_owned(), value.to_owned());
