@@ -750,8 +750,10 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
     fn as_any_mut(&mut self) -> &mut dyn Any { self }
 }
 
+// if game_state is None, process each inning once from start to end
+// if game_state is (runners, outs), process each inning each time that situation happens
 fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
-    _game_rule_options: &GameRuleOptions, mut process_run_diff_vec: T)
+    _game_rule_options: &GameRuleOptions, game_state: Option<([bool;3], u8)>, mut process_run_diff_vec: T)
     where T: FnMut(Inning, i8, usize, &dyn Fn(&mut Vec<u32>, usize)) {
     let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
     let mut cur_inning = Inning::new();
@@ -771,7 +773,6 @@ fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situat
         innings_to_keys.insert(cur_inning, &situations[start_situation..]);
     }
     for (inning, &situations) in innings_to_keys.iter() {
-        let starting_run_diff = situations.first().unwrap().cur_score_diff;
         let mut ending_run_diff = 
             if let Some(&next_situations) = innings_to_keys.get(&inning.next_inning()) {
                 -1 * next_situations[0].cur_score_diff
@@ -782,9 +783,22 @@ fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situat
         if &final_game_situation.inning == inning {
             ending_run_diff = final_game_situation.cur_score_diff;
         }
-        assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
-        let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-        process_run_diff_vec(*inning, starting_run_diff, runs_gained, &add_run_to_diff_vec);
+        if let Some((runners, outs)) = game_state {
+            for situation in situations {
+                if situation.outs == outs && situation.runners == runners {
+                    let starting_run_diff = situation.cur_score_diff;
+                    assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+                    let runs_gained = (ending_run_diff - starting_run_diff) as usize;
+                    process_run_diff_vec(*inning, starting_run_diff, runs_gained, &add_run_to_diff_vec);
+                }
+            }
+        }
+        else {
+            let starting_run_diff = situations.first().unwrap().cur_score_diff;
+            assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
+            let runs_gained = (ending_run_diff - starting_run_diff) as usize;
+            process_run_diff_vec(*inning, starting_run_diff, runs_gained, &add_run_to_diff_vec);
+        }
     }
 }
 
@@ -839,7 +853,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
             println!("final: {:?}", final_game_situation);
         }*/
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
-            game_rule_options,
+            game_rule_options, None,
              |inning, _, runs_gained, process_fn| process_fn(self.stats.entry(inning).or_default(), runs_gained));
     }
 
@@ -1113,7 +1127,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
         let year = year_from_game_id(game_id);
         let era: Era = year.into();
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
-            game_rule_options,
+            game_rule_options, None,
              |inning, _, runs_gained, process_fn| process_fn(self.stats.entry((inning, era)).or_default(), runs_gained));
     }
 
@@ -1152,12 +1166,15 @@ pub struct StatsScoreAnyRunsByInningAndScoreDiffReport {
     // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
     // 7 times 1 run was scored, and 4 times 2 runs were scored
     stats: HashMap<(Inning, i8), Vec<u32>>,
-    runners: [bool;3],
-    outs: u8
+    runners: Option<[bool;3]>,
+    outs: Option<u8>
 }
 impl StatsScoreAnyRunsByInningAndScoreDiffReport {
-    pub fn new(runners: &[bool;3], outs: u8) -> Self {
-        Self { stats: HashMap::new(), runners: runners.clone(), outs }
+    pub fn new(runners: Option<[bool;3]>, outs: Option<u8>) -> Self {
+        if runners.is_some() != outs.is_some() {
+            panic!("StatsScoreAnyRunsByInningAndScoreDiffReport args must be both Some or both None!");
+        }
+        Self { stats: HashMap::new(), runners: runners, outs }
     }
 }
 
@@ -1169,8 +1186,9 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
         situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions,
         _game_info: &GameInfo) {
+        let game_state = if let Some(runners) = self.runners { Some((runners, self.outs.unwrap())) } else { None };
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
-            game_rule_options,
+            game_rule_options, game_state, 
              |inning, starting_score_diff, runs_gained, process_fn|
                 process_fn(self.stats.entry((inning, starting_score_diff)).or_default(), runs_gained));
     }
@@ -1189,7 +1207,7 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     }
 
     fn name_impl(&self) -> &'static str { "StatsScoreAnyRunsByInningAndScoreDiffReport" }
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new(&self.runners, self.outs)) }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new(self.runners, self.outs)) }
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, {}, {})", key.0.number, key.0.is_home, key.1).unwrap();
@@ -1198,13 +1216,20 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
         write!(file, "{}", vec_at_least_one_run(value)).unwrap();
     }
     fn report_file_name(&self) -> &'static str {
-        let runners_string = format!("{}{}{}{}", 
-            if self.runners[0] { "1" } else { "" },
-            if self.runners[1] { "2" } else { "" },
-            if self.runners[2] { "3" } else { "" },
-            if !self.runners[0] && !self.runners[1] && !self.runners[2] { "none" } else { "" }
-        );
-        let file_name = format!("analysis/anyRunsByInningAndScoreDiff/reportrunners{}outs{}.txt", runners_string, self.outs);
+        let suffix = 
+            if let Some(runners) = self.runners {
+                let runners_string = format!("{}{}{}{}", 
+                    if runners[0] { "1" } else { "" },
+                    if runners[1] { "2" } else { "" },
+                    if runners[2] { "3" } else { "" },
+                    if !runners[0] && !runners[1] && !runners[2] { "none" } else { "" }
+                );
+                format!("runners{}outs{}", runners_string, self.outs.unwrap())
+            }
+            else {
+                "".to_owned()
+            };
+        let file_name = format!("analysis/anyRunsByInningAndScoreDiff/report{}.txt", suffix);
         Box::leak(file_name.into_boxed_str())
     }
 }
