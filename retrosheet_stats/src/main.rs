@@ -3,7 +3,7 @@ mod reports;
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::File, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::{self, File}, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -1204,8 +1204,12 @@ trait StatsReport : Any + Send + Sync {
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         let mut path_parts = vec![".."];
         path_parts.extend(Self::report_file_name().split("/").into_iter());
-        // TODO - create this path if it doesn't exist
-        let mut output = File::create(path_parts.iter().collect::<PathBuf>()).unwrap();
+        let path: &Path = &path_parts.iter().collect::<PathBuf>();
+        // create this path if it doesn't exist
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        let mut output = File::create(path).unwrap();
         for entry in contents {
             self.write_key(&mut output, entry.0);
             write!(output, ": ").unwrap();
