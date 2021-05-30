@@ -752,7 +752,7 @@ impl Report for BasesLoadedNoOutsNoRunsReport {
 
 fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
     _game_rule_options: &GameRuleOptions, mut process_run_diff_vec: T)
-    where T: FnMut(Inning, usize, &dyn Fn(&mut Vec<u32>, usize)) {
+    where T: FnMut(Inning, i8, usize, &dyn Fn(&mut Vec<u32>, usize)) {
     let mut innings_to_keys = HashMap::<Inning, &[GameSituation]>::new();
     let mut cur_inning = Inning::new();
     let mut start_situation = 0;
@@ -784,7 +784,7 @@ fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situat
         }
         assert!(ending_run_diff - starting_run_diff >= 0, "uh-oh, scored {} runs!", ending_run_diff - starting_run_diff);
         let runs_gained = (ending_run_diff - starting_run_diff) as usize;
-        process_run_diff_vec(*inning, runs_gained, &add_run_to_diff_vec);
+        process_run_diff_vec(*inning, starting_run_diff, runs_gained, &add_run_to_diff_vec);
     }
 }
 
@@ -840,7 +840,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         }*/
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
             game_rule_options,
-             |inning, runs_gained, process_fn| process_fn(self.stats.entry(inning).or_default(), runs_gained));
+             |inning, _, runs_gained, process_fn| process_fn(self.stats.entry(inning).or_default(), runs_gained));
     }
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
@@ -1113,7 +1113,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
         let era: Era = year.into();
         process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
             game_rule_options,
-             |inning, runs_gained, process_fn| process_fn(self.stats.entry((inning, era)).or_default(), runs_gained));
+             |inning, _, runs_gained, process_fn| process_fn(self.stats.entry((inning, era)).or_default(), runs_gained));
     }
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
@@ -1144,6 +1144,72 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
 
     fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinninganderastats" }
 }
+
+pub struct StatsScoreAnyRunsByInningAndScoreDiffReport {
+    // key is (inning, cur team score diff)
+    // value is times that index of runs were gained
+    // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
+    // 7 times 1 run was scored, and 4 times 2 runs were scored
+    stats: HashMap<(Inning, i8), Vec<u32>>
+}
+impl StatsScoreAnyRunsByInningAndScoreDiffReport {
+    pub fn new() -> Self {
+        Self { stats: HashMap::new() }
+    }
+}
+
+impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
+    type Key = (Inning, i8);
+    type Value = Vec<u32>;
+
+    fn clear_stats_impl(&mut self) { self.stats.clear(); }
+    fn processed_game_impl(self: &mut Self, game_id: &str, final_game_situation: &GameSituation,
+        situations: &[GameSituation], _play_lines: &[String], game_rule_options: &GameRuleOptions,
+        _game_info: &GameInfo) {
+        process_game_run_expectancy_by_inning(game_id, final_game_situation, situations,
+            game_rule_options,
+             |inning, starting_score_diff, runs_gained, process_fn|
+                process_fn(self.stats.entry((inning, starting_score_diff)).or_default(), runs_gained));
+    }
+
+    fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
+        let other = other.downcast_mut::<Self>().unwrap();
+        for entry in self.stats.iter() {
+            let other_entry = other.stats.entry(*entry.0).or_default();
+            if other_entry.len() < entry.1.len() {
+                other_entry.resize(entry.1.len(), 0);
+            }
+            for i in 0..entry.1.len() {
+                other_entry[i] += entry.1[i];
+            }
+        }
+    }
+
+    fn name_impl(&self) -> &'static str { "StatsScoreAnyRunsByInningAndScoreDiffReport" }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
+    fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
+        write!(file, "({}, {}, {})", key.0.number, key.0.is_home, key.1).unwrap();
+    }
+    fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
+        write!(file, "{}", vec_at_least_one_run(value)).unwrap();
+    }
+    /*fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
+        write_extra_run_expectancy_by_inning_info(file, value, true);
+    }*/
+
+    fn report_file_name() -> &'static str { "analysis/anyRunsByInningAndScoreDiff/report" }
+}
+fn vec_at_least_one_run(runs_vec: &[u32]) -> String {
+    let total = runs_vec.iter().sum::<u32>();
+    let prob_at_least_one_run = format!("{:.2}", 100f32 * (1f32 - (runs_vec[0] as f32 / total as f32)));
+    if total >= 1000 {
+        format!("Score 1+ runs: {}% ({} tries)", prob_at_least_one_run, total)
+    }
+    else {
+        "".to_owned()
+    }
+}
 fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
     return format_vec(runs_vec, |val| val.to_string());
 }
@@ -1162,3 +1228,4 @@ fn format_vec<T,F>(runs_vec: &[T], formatter: F) -> String
     comma_separated.push_str("]");
     comma_separated
 }
+
