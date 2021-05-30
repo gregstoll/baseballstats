@@ -1160,7 +1160,7 @@ trait StatsReport : Any + Send + Sync {
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key);
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value);
     fn write_extra<T:Write>(&self, _file: &mut T, _key: &Self::Key, _value: &Self::Value) {}
-    fn report_file_name() -> &'static str;
+    fn report_file_name(&self) -> &'static str;
     fn make_new_impl(&self) -> Box<dyn Report>;
     fn name_impl(&self) -> &'static str;
     /// game_id is the Retrosheet game id for the game. year_from_game_id() will return the year the game was played in.
@@ -1203,7 +1203,7 @@ trait StatsReport : Any + Send + Sync {
         let mut contents: Vec<_> = self.get_stats().iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         let mut path_parts = vec![".."];
-        path_parts.extend(Self::report_file_name().split("/").into_iter());
+        path_parts.extend(self.report_file_name().split("/").into_iter());
         let path: &Path = &path_parts.iter().collect::<PathBuf>();
         // create this path if it doesn't exist
         if let Some(parent) = path.parent() {
@@ -1220,7 +1220,7 @@ trait StatsReport : Any + Send + Sync {
     }
 
     fn done_with_year_impl(self: &mut Self, year: usize) {
-        let path: PathBuf = ["..", "statsyears", &format!("{}.{}", Self::report_file_name(), year.to_string())].iter().collect();
+        let path: PathBuf = ["..", "statsyears", &format!("{}.{}", self.report_file_name(), year.to_string())].iter().collect();
         let mut contents: Vec<_> = self.get_stats().iter().collect();
         contents.sort_by(|a, b| a.0.partial_cmp(b.0).unwrap());
         let mut output = BufWriter::new(File::create(path).unwrap());
@@ -1365,7 +1365,7 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
                 Box::new(reports::ManagerChallengesByScoreDifferentialReport::new())])
             ),
             ("ScoreAnyRunsByInningAndScoreDiff", (|| vec![
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new())])
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(&[false, false, false], 0))])
             ),
         ];
     }

@@ -49,7 +49,7 @@ impl StatsReport for StatsWinExpectancyReport {
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "({}, {})", value.0, value.1).unwrap();
     }
-    fn report_file_name() -> &'static str { "stats" }
+    fn report_file_name(&self) -> &'static str { "stats" }
 
     fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
 
@@ -130,7 +130,7 @@ impl StatsReport for StatsWinExpectancyWithBallsStrikesReport {
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "({}, {})", value.0, value.1).unwrap();
     }
-    fn report_file_name() -> &'static str { "statswithballsstrikes" }
+    fn report_file_name(&self) -> &'static str { "statswithballsstrikes" }
 }
 
 pub struct StatsRunExpectancyPerInningWithBallsStrikesReport {
@@ -159,7 +159,7 @@ impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
         write!(file, "{}", format_vec_default(key)).unwrap();
     }
 
-    fn report_file_name() -> &'static str { "runsperinningballsstrikesstats" }
+    fn report_file_name(&self) -> &'static str { "runsperinningballsstrikesstats" }
     fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningWithBallsStrikesReport" }
     fn processed_game_impl(self: &mut Self, _game_id: &str, final_game_situation: &GameSituation,
@@ -312,7 +312,7 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
         write!(file, "{}", format_vec_default(key)).unwrap();
     }
 
-    fn report_file_name() -> &'static str { "runsperinningstats" }
+    fn report_file_name(&self) -> &'static str { "runsperinningstats" }
 }
 
 // Finds games where the home team won after being down by 6 runs in the bottom of the ninth
@@ -869,7 +869,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
         write_extra_run_expectancy_by_inning_info(file, value, true);
     }
 
-    fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
+    fn report_file_name(&self) -> &'static str { "analysis/runsByInning/runsperinningbyinningstats" }
 }
 
 // P = true means use pitches
@@ -980,6 +980,7 @@ impl<const P: bool, const B: u8> StatsReport for StatsRunExpectancyForBottomFirs
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn merge_into_impl(self: &Self, other: &mut dyn Any) {
         let other = other.downcast_mut::<Self>().unwrap();
+        //TODO - refactor this
         for entry in self.stats.iter() {
             let other_entry = other.stats.entry(*entry.0).or_default();
             if other_entry.len() < entry.1.len() {
@@ -990,7 +991,7 @@ impl<const P: bool, const B: u8> StatsReport for StatsRunExpectancyForBottomFirs
             }
         }
     }
-    fn report_file_name() -> &'static str {
+    fn report_file_name(&self) -> &'static str {
         let word = if P { "Pitches" } else { "Batters" };
         let suffix = if B == 1 { "".to_owned() } else { format!("BucketBy{}", B) };
         let file_name = format!("analysis/runsBottomFirst/runsBy{}{}.txt", word, suffix);
@@ -1059,7 +1060,7 @@ impl StatsReport for ManagerChallengesByScoreDifferentialReport {
         }
     }
 
-    fn report_file_name() -> &'static str { "analysis/challenges/managerchallengesbyrundifferential.txt" }
+    fn report_file_name(&self) -> &'static str { "analysis/challenges/managerchallengesbyrundifferential.txt" }
 }
 
 // https://thesportjournal.org/article/examining-perceptions-of-baseballs-eras/
@@ -1142,7 +1143,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
         write_extra_run_expectancy_by_inning_info(file, value, true);
     }
 
-    fn report_file_name() -> &'static str { "analysis/runsByInning/runsperinningbyinninganderastats" }
+    fn report_file_name(&self) -> &'static str { "analysis/runsByInning/runsperinningbyinninganderastats" }
 }
 
 pub struct StatsScoreAnyRunsByInningAndScoreDiffReport {
@@ -1150,11 +1151,13 @@ pub struct StatsScoreAnyRunsByInningAndScoreDiffReport {
     // value is times that index of runs were gained
     // so a value of [10, 7, 4] means that 10 times 0 runs were scored,
     // 7 times 1 run was scored, and 4 times 2 runs were scored
-    stats: HashMap<(Inning, i8), Vec<u32>>
+    stats: HashMap<(Inning, i8), Vec<u32>>,
+    runners: [bool;3],
+    outs: u8
 }
 impl StatsScoreAnyRunsByInningAndScoreDiffReport {
-    pub fn new() -> Self {
-        Self { stats: HashMap::new() }
+    pub fn new(runners: &[bool;3], outs: u8) -> Self {
+        Self { stats: HashMap::new(), runners: runners.clone(), outs }
     }
 }
 
@@ -1186,7 +1189,7 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     }
 
     fn name_impl(&self) -> &'static str { "StatsScoreAnyRunsByInningAndScoreDiffReport" }
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new()) }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new(&self.runners, self.outs)) }
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, {}, {})", key.0.number, key.0.is_home, key.1).unwrap();
@@ -1194,11 +1197,16 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "{}", vec_at_least_one_run(value)).unwrap();
     }
-    /*fn write_extra<T:Write>(&self, file: &mut T, _key: &Self::Key, value: &Self::Value) {
-        write_extra_run_expectancy_by_inning_info(file, value, true);
-    }*/
-
-    fn report_file_name() -> &'static str { "analysis/anyRunsByInningAndScoreDiff/report" }
+    fn report_file_name(&self) -> &'static str {
+        let runners_string = format!("{}{}{}{}", 
+            if self.runners[0] { "1" } else { "" },
+            if self.runners[1] { "2" } else { "" },
+            if self.runners[2] { "3" } else { "" },
+            if !self.runners[0] && !self.runners[1] && !self.runners[2] { "none" } else { "" }
+        );
+        let file_name = format!("analysis/anyRunsByInningAndScoreDiff/reportrunners{}outs{}.txt", runners_string, self.outs);
+        Box::leak(file_name.into_boxed_str())
+    }
 }
 fn vec_at_least_one_run(runs_vec: &[u32]) -> String {
     let total = runs_vec.iter().sum::<u32>();
