@@ -1215,6 +1215,10 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
         write!(file, "{}", vec_at_least_one_run(value)).unwrap();
     }
+    fn should_write_key_value(&self, _key: &Self::Key, value: &Self::Value) -> bool {
+        let total = value.iter().sum::<u32>();
+        total >= 1000
+    }
     fn report_file_name(&self) -> &'static str {
         let suffix = 
             if let Some(runners) = self.runners {
@@ -1236,12 +1240,7 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
 fn vec_at_least_one_run(runs_vec: &[u32]) -> String {
     let total = runs_vec.iter().sum::<u32>();
     let prob_at_least_one_run = format!("{:.2}", 100f32 * (1f32 - (runs_vec[0] as f32 / total as f32)));
-    if total >= 1000 {
-        format!("Score 1+ runs: {}% ({} tries)", prob_at_least_one_run, total)
-    }
-    else {
-        "".to_owned()
-    }
+    format!("Score 1+ runs: {}% ({} tries)", prob_at_least_one_run, total)
 }
 fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
     return format_vec(runs_vec, |val| val.to_string());
