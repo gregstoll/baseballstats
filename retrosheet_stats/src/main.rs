@@ -1159,7 +1159,7 @@ trait StatsReport : Any + Send + Sync {
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value>;
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key);
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value);
-    fn should_write_key_value(&self, key: &Self::Key, value: &Self::Value) -> bool { true }
+    fn should_write_key_value(&self, _key: &Self::Key, _value: &Self::Value) -> bool { true }
     fn write_extra<T:Write>(&self, _file: &mut T, _key: &Self::Key, _value: &Self::Value) {}
     fn report_file_name(&self) -> &'static str;
     fn make_new_impl(&self) -> Box<dyn Report>;
