@@ -1271,6 +1271,7 @@ mod tests {
     fn test_simple_vec__format_vec_default() {
         assert_eq!("[5, 0, 1, 4]", format_vec_default(&[5, 0, 1, 4]));
     }
+
     #[test]
     fn test_simple_vec_with_percent_formatter__format_vec() {
         assert_eq!("[5.12%, 0.00%, 1.77%, 4.10%]", format_vec(&[5.123, 0.00119, 1.7676, 4.101010], |p| format!("{:.2}%", p)));
