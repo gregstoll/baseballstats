@@ -1261,3 +1261,72 @@ fn format_vec<T,F>(runs_vec: &[T], formatter: F) -> String
     comma_separated
 }
 
+
+#[cfg(test)]
+mod tests {
+    #![allow(non_snake_case)]
+    use super::*;
+
+    #[test]
+    fn test_simple_vec__format_vec_default() {
+        assert_eq!("[5, 0, 1, 4]", format_vec_default(&[5, 0, 1, 4]));
+    }
+    #[test]
+    fn test_simple_vec_with_percent_formatter__format_vec() {
+        assert_eq!("[5.12%, 0.00%, 1.77%, 4.10%]", format_vec(&[5.123, 0.00119, 1.7676, 4.101010], |p| format!("{:.2}%", p)));
+    }
+
+    #[test]
+    fn test_empty_list__add_zero_to_diff_vec() {
+        let orig_run_vec = vec![];
+        let mut new_run_vec = orig_run_vec.clone();
+        add_run_to_diff_vec(&mut new_run_vec, 0);
+        assert_eq!(vec![1], new_run_vec);
+    }
+
+    #[test]
+    fn test_empty_list__add_one_to_diff_vec() {
+        let orig_run_vec = vec![];
+        let mut new_run_vec = orig_run_vec.clone();
+        add_run_to_diff_vec(&mut new_run_vec, 1);
+        assert_eq!(vec![0, 1], new_run_vec);
+    }
+
+    #[test]
+    fn test_empty_list__add_two_to_diff_vec() {
+        let orig_run_vec = vec![];
+        let mut new_run_vec = orig_run_vec.clone();
+        add_run_to_diff_vec(&mut new_run_vec, 2);
+        assert_eq!(vec![0, 0, 1], new_run_vec);
+    }
+
+    #[test]
+    fn test_list__add_zero_to_diff_vec() {
+        let orig_run_vec = vec![5, 0, 1];
+        let mut new_run_vec = orig_run_vec.clone();
+        add_run_to_diff_vec(&mut new_run_vec, 0);
+        assert_eq!(vec![6, 0, 1], new_run_vec);
+    }
+
+    #[test]
+    fn test_list__add_one_to_diff_vec() {
+        let orig_run_vec = vec![5, 0, 1];
+        let mut new_run_vec = orig_run_vec.clone();
+        add_run_to_diff_vec(&mut new_run_vec, 1);
+        assert_eq!(vec![5, 1, 1], new_run_vec);
+    }
+
+    #[test]
+    fn test_list__add_seven_to_diff_vec() {
+        let orig_run_vec = vec![5, 0, 1];
+        let mut new_run_vec = orig_run_vec.clone();
+        add_run_to_diff_vec(&mut new_run_vec, 7);
+        assert_eq!(vec![5, 0, 1, 0, 0, 0, 0, 1], new_run_vec);
+    }
+
+    // TODO - process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
+/*     fn 
+fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
+    _game_rule_options: &GameRuleOptions, game_state: Option<([bool;3], u8)>, mut process_run_diff_vec: T)
+    where T: FnMut(Inning, i8, usize, &dyn Fn(&mut Vec<u32>, usize)) {*/
+}
