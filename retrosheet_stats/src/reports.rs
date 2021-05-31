@@ -1217,7 +1217,7 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     }
     fn should_write_key_value(&self, _key: &Self::Key, value: &Self::Value) -> bool {
         let total = value.iter().sum::<u32>();
-        total >= 1000
+        total >= 500
     }
     fn report_file_name(&self) -> &'static str {
         let suffix = 

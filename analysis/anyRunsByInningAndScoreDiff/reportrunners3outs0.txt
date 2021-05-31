@@ -1,0 +1,4 @@
+(1, false, 0): Score 1+ runs: 86.20% (1942 tries)
+(1, true, 0): Score 1+ runs: 87.38% (1719 tries)
+(2, false, 0): Score 1+ runs: 77.64% (501 tries)
+(2, true, 0): Score 1+ runs: 77.82% (505 tries)
