@@ -1325,9 +1325,36 @@ mod tests {
         assert_eq!(vec![5, 0, 1, 0, 0, 0, 0, 1], new_run_vec);
     }
 
-    // TODO - process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
-/*     fn 
-fn process_game_run_expectancy_by_inning<'a, T>(game_id: &str, final_game_situation: &GameSituation, situations: &[GameSituation],
-    _game_rule_options: &GameRuleOptions, game_state: Option<([bool;3], u8)>, mut process_run_diff_vec: T)
-    where T: FnMut(Inning, i8, usize, &dyn Fn(&mut Vec<u32>, usize)) {*/
+    #[test]
+    fn test_normal_end_visitors_score__process_game_run_expectancy() {
+        let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false};
+        let top_first = Inning { is_home: false, number: 1};
+        let bottom_first = top_first.next_inning();
+        let top_second = bottom_first.next_inning();
+        let situations = vec![
+            GameSituation::new(),
+            GameSituation { cur_score_diff: 1, inning: top_first, runners: [false, false, false], outs: 0},
+            GameSituation { cur_score_diff: 1, inning: top_first, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: 1, inning: top_first, runners: [false, false, false], outs: 2},
+            GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, false, false], outs: 0},
+            GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, false, false], outs: 2},
+        ];
+        let final_game_situation = GameSituation { cur_score_diff: 1, inning: top_second, runners: [false, false, false], outs: 0};
+        let mut results = Vec::new();
+
+        process_game_run_expectancy_by_inning("gameID", &final_game_situation, &situations,
+            &game_rule_options, None, 
+            |inning, start_score_diff, runs_gained, _| results.push((inning, start_score_diff, runs_gained)));
+
+        results.sort();
+        assert_eq!(vec![
+            (top_first, 0i8, 1),
+            (bottom_first, -1i8, 0)
+        ], results);
+    }
+
+    // TODO - test normal end for home team winning
+    // TODO - test home walkoff
+    // TODO - test Some game_states
 }
