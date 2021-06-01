@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, fmt::Display, io::Write};
+use std::{any::Any, collections::HashMap, fmt::Display, io::Write, hash::Hash};
 use smallvec::SmallVec;
 
 use crate::{BallsStrikes, GameInfo, GameRuleOptions, GameSituation, Inning, PlayLineInfo, Report, StatsReport, get_ball_strike_counts_from_pitches, year_from_game_id};
@@ -212,14 +212,19 @@ impl StatsReport for StatsRunExpectancyPerInningWithBallsStrikesReport {
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
-        for entry in self.stats.iter() {
-            let other_entry = other.stats.entry(*entry.0).or_default();
-            if other_entry.len() < entry.1.len() {
-                other_entry.resize(entry.1.len(), 0);
-            }
-            for i in 0..entry.1.len() {
-                other_entry[i] += entry.1[i];
-            }
+        merge_into_runs_vec(&self.stats, &mut other.stats);
+    }
+}
+
+fn merge_into_runs_vec<T>(source: &HashMap<T, Vec<u32>>, dest: &mut HashMap<T, Vec<u32>>)
+    where T: Eq + Hash + Copy {
+    for (key, source_vec) in source.iter() {
+        let dest_vec = dest.entry(*key).or_default();
+        if dest_vec.len() < source_vec.len() {
+            dest_vec.resize(source_vec.len(), 0);
+        }
+        for i in 0..source_vec.len() {
+            dest_vec[i] += source_vec[i];
         }
     }
 }
@@ -291,15 +296,7 @@ impl StatsReport for StatsRunExpectancyPerInningReport {
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
-        for entry in self.stats.iter() {
-            let other_entry = other.stats.entry(*entry.0).or_default();
-            if other_entry.len() < entry.1.len() {
-                other_entry.resize(entry.1.len(), 0);
-            }
-            for i in 0..entry.1.len() {
-                other_entry[i] += entry.1[i];
-            }
-        }
+        merge_into_runs_vec(&self.stats, &mut other.stats);
     }
 
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningReport" }
@@ -859,15 +856,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningReport {
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
-        for entry in self.stats.iter() {
-            let other_entry = other.stats.entry(*entry.0).or_default();
-            if other_entry.len() < entry.1.len() {
-                other_entry.resize(entry.1.len(), 0);
-            }
-            for i in 0..entry.1.len() {
-                other_entry[i] += entry.1[i];
-            }
-        }
+        merge_into_runs_vec(&self.stats, &mut other.stats);
     }
 
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningByInningReport" }
@@ -994,16 +983,7 @@ impl<const P: bool, const B: u8> StatsReport for StatsRunExpectancyForBottomFirs
     fn clear_stats_impl(&mut self) { self.stats.clear(); }
     fn merge_into_impl(self: &Self, other: &mut dyn Any) {
         let other = other.downcast_mut::<Self>().unwrap();
-        //TODO - refactor this
-        for entry in self.stats.iter() {
-            let other_entry = other.stats.entry(*entry.0).or_default();
-            if other_entry.len() < entry.1.len() {
-                other_entry.resize(entry.1.len(), 0);
-            }
-            for i in 0..entry.1.len() {
-                other_entry[i] += entry.1[i];
-            }
-        }
+        merge_into_runs_vec(&self.stats, &mut other.stats);
     }
     fn report_file_name(&self) -> &'static str {
         let word = if P { "Pitches" } else { "Batters" };
@@ -1133,15 +1113,7 @@ impl StatsReport for StatsRunExpectancyPerInningByInningAndEraReport {
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
-        for entry in self.stats.iter() {
-            let other_entry = other.stats.entry(*entry.0).or_default();
-            if other_entry.len() < entry.1.len() {
-                other_entry.resize(entry.1.len(), 0);
-            }
-            for i in 0..entry.1.len() {
-                other_entry[i] += entry.1[i];
-            }
-        }
+        merge_into_runs_vec(&self.stats, &mut other.stats);
     }
 
     fn name_impl(&self) -> &'static str { "StatsRunExpectancyPerInningByInningAndEraReport" }
@@ -1195,15 +1167,7 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
 
     fn merge_into_impl(self: &Self, other: &mut dyn Any) { 
         let other = other.downcast_mut::<Self>().unwrap();
-        for entry in self.stats.iter() {
-            let other_entry = other.stats.entry(*entry.0).or_default();
-            if other_entry.len() < entry.1.len() {
-                other_entry.resize(entry.1.len(), 0);
-            }
-            for i in 0..entry.1.len() {
-                other_entry[i] += entry.1[i];
-            }
-        }
+        merge_into_runs_vec(&self.stats, &mut other.stats);
     }
 
     fn name_impl(&self) -> &'static str { "StatsScoreAnyRunsByInningAndScoreDiffReport" }
@@ -1477,4 +1441,6 @@ mod tests {
             (Inning { number: 1, is_home: true}, 0i8, 1),
         ], results);
     }
+
+    // TODO - add tests for merge_into_runs_vec
 }
