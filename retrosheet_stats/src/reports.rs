@@ -1325,8 +1325,12 @@ mod tests {
         assert_eq!(vec![5, 0, 1, 0, 0, 0, 0, 1], new_run_vec);
     }
 
-    #[test]
-    fn test_normal_end_visitors_score__process_game_run_expectancy() {
+    struct FullGameInfo {
+        situations: Vec<GameSituation>,
+        final_game_situation: GameSituation,
+        game_rule_options: GameRuleOptions
+    }
+    fn get_visitors_score_and_normal_end_info() -> FullGameInfo {
         let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false};
         let top_first = Inning { is_home: false, number: 1};
         let bottom_first = top_first.next_inning();
@@ -1338,23 +1342,139 @@ mod tests {
             GameSituation { cur_score_diff: 1, inning: top_first, runners: [false, false, false], outs: 2},
             GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, false, false], outs: 0},
             GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, false, false], outs: 1},
-            GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, false, false], outs: 2},
+            GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, true, false], outs: 1},
+            GameSituation { cur_score_diff: -1, inning: bottom_first, runners: [false, true, false], outs: 2},
         ];
         let final_game_situation = GameSituation { cur_score_diff: 1, inning: top_second, runners: [false, false, false], outs: 0};
+        FullGameInfo {
+            situations,
+            final_game_situation,
+            game_rule_options
+        }
+    }
+
+    fn get_home_score_and_normal_end_info() -> FullGameInfo {
+        let game_rule_options = GameRuleOptions { innings: 2, runner_starts_on_second_in_extra_innings: false};
+        let top_first = Inning { is_home: false, number: 1};
+        let bottom_first = top_first.next_inning();
+        let top_second = bottom_first.next_inning();
+        let bottom_second = top_second.next_inning();
+        let situations = vec![
+            GameSituation::new(),
+            GameSituation { cur_score_diff: 0, inning: top_first, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: 0, inning: top_first, runners: [false, false, false], outs: 2},
+            GameSituation { cur_score_diff: 0, inning: bottom_first, runners: [false, false, false], outs: 0},
+            GameSituation { cur_score_diff: 0, inning: bottom_first, runners: [false, false, true], outs: 0},
+            GameSituation { cur_score_diff: 2, inning: bottom_first, runners: [false, false, false], outs: 0},
+            GameSituation { cur_score_diff: 2, inning: bottom_first, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: 2, inning: bottom_first, runners: [false, false, false], outs: 2},
+            GameSituation { cur_score_diff: -2, inning: top_second, runners: [false, false, false], outs: 0},
+            GameSituation { cur_score_diff: -2, inning: top_second, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: -2, inning: top_second, runners: [false, false, false], outs: 2},
+        ];
+        let final_game_situation = GameSituation { cur_score_diff: 2, inning: bottom_second, runners: [false, false, false], outs: 0};
+        FullGameInfo {
+            situations,
+            final_game_situation,
+            game_rule_options
+        }
+    }
+    fn get_home_walkoff_end_info() -> FullGameInfo {
+        let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false};
+        let top_first = Inning { is_home: false, number: 1};
+        let bottom_first = top_first.next_inning();
+        let situations = vec![
+            GameSituation::new(),
+            GameSituation { cur_score_diff: 0, inning: top_first, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: 0, inning: top_first, runners: [false, false, false], outs: 2},
+            GameSituation { cur_score_diff: 0, inning: top_first, runners: [true, false, false], outs: 2},
+            GameSituation { cur_score_diff: 0, inning: bottom_first, runners: [false, false, false], outs: 0},
+            GameSituation { cur_score_diff: 0, inning: bottom_first, runners: [false, false, false], outs: 1},
+            GameSituation { cur_score_diff: 0, inning: bottom_first, runners: [true, false, false], outs: 1},
+        ];
+        let final_game_situation = GameSituation { cur_score_diff: 1, inning: bottom_first, runners: [false, true, false], outs: 1};
+        FullGameInfo {
+            situations,
+            final_game_situation,
+            game_rule_options
+        }
+    }
+
+    fn process_run_expectancy_by_inning_test(full_game_info: &FullGameInfo, game_state: Option<([bool; 3], u8)>) -> Vec<(Inning, i8, usize)> {
         let mut results = Vec::new();
 
-        process_game_run_expectancy_by_inning("gameID", &final_game_situation, &situations,
-            &game_rule_options, None, 
+        process_game_run_expectancy_by_inning("gameID", &full_game_info.final_game_situation, &full_game_info.situations,
+            &full_game_info.game_rule_options, game_state, 
             |inning, start_score_diff, runs_gained, _| results.push((inning, start_score_diff, runs_gained)));
 
         results.sort();
+        results
+    }
+
+    #[test]
+    fn test_visitors_score_normal_end__process_game_run_expectancy() {
+        let full_game_info = get_visitors_score_and_normal_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, None);
         assert_eq!(vec![
-            (top_first, 0i8, 1),
-            (bottom_first, -1i8, 0)
+            (Inning { number: 1, is_home: false}, 0i8, 1),
+            (Inning { number: 1, is_home: true}, -1i8, 0)
         ], results);
     }
 
-    // TODO - test normal end for home team winning
-    // TODO - test home walkoff
-    // TODO - test Some game_states
+    #[test]
+    fn test_visitors_score_normal_end_game_state_start_of_inning__process_game_run_expectancy() {
+        let full_game_info = get_visitors_score_and_normal_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, Some(([false, false, false], 0)));
+        assert_eq!(vec![
+            (Inning { number: 1, is_home: false}, 0i8, 1),
+            (Inning { number: 1, is_home: false}, 1i8, 0),
+            (Inning { number: 1, is_home: true}, -1i8, 0)
+        ], results);
+    }
+
+    #[test]
+    fn test_visitors_score_normal_end_game_state_that_does_not_happen__process_game_run_expectancy() {
+        let full_game_info = get_visitors_score_and_normal_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, Some(([false, true, false], 0)));
+        assert_eq!(Vec::<(Inning, i8, usize)>::new(), results);
+    }
+
+    #[test]
+    fn test_home_score_normal_end__process_game_run_expectancy() {
+        let full_game_info = get_home_score_and_normal_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, None);
+        assert_eq!(vec![
+            (Inning { number: 1, is_home: false}, 0i8, 0),
+            (Inning { number: 1, is_home: true}, 0i8, 2),
+            (Inning { number: 2, is_home: false}, -2i8, 0),
+        ], results);
+    }
+
+    #[test]
+    fn test_home_score_normal_end_game_state_happens_once__process_game_run_expectancy() {
+        let full_game_info = get_home_score_and_normal_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, Some(([false, false, true], 0)));
+        assert_eq!(vec![
+            (Inning { number: 1, is_home: true}, 0i8, 2),
+        ], results);
+    }
+
+    #[test]
+    fn test_home_walkoff_end__process_game_run_expectancy() {
+        let full_game_info = get_home_walkoff_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, None);
+        assert_eq!(vec![
+            (Inning { number: 1, is_home: false}, 0i8, 0),
+            (Inning { number: 1, is_home: true}, 0i8, 1),
+        ], results);
+    }
+
+    #[test]
+    fn test_home_walkoff_end_game_state_is_last_play__process_game_run_expectancy() {
+        let full_game_info = get_home_walkoff_end_info();
+        let results = process_run_expectancy_by_inning_test(&full_game_info, Some(([true, false, false], 1)));
+        assert_eq!(vec![
+            (Inning { number: 1, is_home: true}, 0i8, 1),
+        ], results);
+    }
 }
