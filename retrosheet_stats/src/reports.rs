@@ -1442,5 +1442,73 @@ mod tests {
         ], results);
     }
 
-    // TODO - add tests for merge_into_runs_vec
+    fn assert_hashmap_equal<T>(mut expected: Vec<(T, Vec<u32>)>, actual: &HashMap<T, Vec<u32>>)
+        where T: Eq + Ord + Hash + Copy + std::fmt::Debug {
+        expected.sort();
+        let mut actual_vec = Vec::new();
+        for (key, value) in actual {
+            actual_vec.push((*key, value.clone()));
+        }
+        actual_vec.sort();
+        assert_eq!(expected, actual_vec);
+    }
+
+    #[test]
+    fn test_empty_source__merge_into_runs_vec() {
+        let source: HashMap<i32, Vec<u32>> = HashMap::new();
+        let mut dest = HashMap::new();
+        dest.insert(0, vec![3, 4, 5]);
+        dest.insert(1, vec![1, 2, 3]);
+
+        merge_into_runs_vec(&source, &mut dest);
+        assert_hashmap_equal(vec![(0, vec![3, 4, 5]), (1, vec![1, 2, 3])], &dest);
+    }
+
+    #[test]
+    fn test_empty_dest__merge_into_runs_vec() {
+        let mut dest: HashMap<i32, Vec<u32>> = HashMap::new();
+        let mut source = HashMap::new();
+        source.insert(0, vec![3, 4, 5]);
+        source.insert(1, vec![1, 2, 3]);
+
+        merge_into_runs_vec(&source, &mut dest);
+        assert_hashmap_equal(vec![(0, vec![3, 4, 5]), (1, vec![1, 2, 3])], &dest);
+    }
+
+    #[test]
+    fn test_empty_vec__merge_into_runs_vec() {
+        let mut dest: HashMap<i32, Vec<u32>> = HashMap::new();
+        let mut source = HashMap::new();
+        dest.insert(0, vec![3, 4, 5]);
+        dest.insert(1, vec![1, 2, 3]);
+        source.insert(0, vec![]);
+
+        merge_into_runs_vec(&source, &mut dest);
+        assert_hashmap_equal(vec![(0, vec![3, 4, 5]), (1, vec![1, 2, 3])], &dest);
+    }
+
+    #[test]
+    fn test_vec_of_zeros__merge_into_runs_vec() {
+        let mut dest: HashMap<i32, Vec<u32>> = HashMap::new();
+        let mut source = HashMap::new();
+        dest.insert(0, vec![3, 4, 5]);
+        dest.insert(1, vec![1, 2, 3]);
+        source.insert(0, vec![0, 0, 0, 0]);
+
+        merge_into_runs_vec(&source, &mut dest);
+        assert_hashmap_equal(vec![(0, vec![3, 4, 5, 0]), (1, vec![1, 2, 3])], &dest);
+    }
+
+    #[test]
+    fn test_multiple_overlaps__merge_into_runs_vec() {
+        let mut dest: HashMap<i32, Vec<u32>> = HashMap::new();
+        let mut source = HashMap::new();
+        dest.insert(0, vec![3, 4, 5]);
+        dest.insert(1, vec![1, 2, 3]);
+        source.insert(0, vec![10, 20]);
+        source.insert(1, vec![30, 40, 50, 60]);
+
+        merge_into_runs_vec(&source, &mut dest);
+        assert_hashmap_equal(vec![(0, vec![13, 24, 5]), (1, vec![31, 42, 53, 60])], &dest);
+    }
 }
