@@ -1368,20 +1368,21 @@ fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
                 Box::new(reports::ManagerChallengesByScoreDifferentialReport::new())])
             ),
             ("ScoreAnyRunsByInningAndScoreDiff", (|| vec![
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(None, None)),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, false]), Some(0))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, false]), Some(0))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, true, false]), Some(0))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, true]), Some(0))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, true]), Some(0))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, false]), Some(1))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, true, false]), Some(1))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, true]), Some(1))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, true]), Some(1))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, false]), Some(2))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, true, false]), Some(2))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, true]), Some(2))),
-                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, true]), Some(2)))])
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(None, None, 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(None, None, 2)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, false]), Some(0), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, false]), Some(0), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, true, false]), Some(0), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, true]), Some(0), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, true]), Some(0), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, false]), Some(1), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, true, false]), Some(1), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, true]), Some(1), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, true]), Some(1), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, false]), Some(2), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, true, false]), Some(2), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([false, false, true]), Some(2), 1)),
+                Box::new(reports::StatsScoreAnyRunsByInningAndScoreDiffReport::new(Some([true, false, true]), Some(2), 1))])
             ),
         ];
     }

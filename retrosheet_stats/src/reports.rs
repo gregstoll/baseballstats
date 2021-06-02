@@ -1,4 +1,4 @@
-use std::{any::Any, collections::HashMap, fmt::Display, io::Write, hash::Hash};
+use std::{any::Any, collections::HashMap, fmt::Display, hash::Hash, io::Write};
 use smallvec::SmallVec;
 
 use crate::{BallsStrikes, GameInfo, GameRuleOptions, GameSituation, Inning, PlayLineInfo, Report, StatsReport, get_ball_strike_counts_from_pitches, year_from_game_id};
@@ -1139,14 +1139,15 @@ pub struct StatsScoreAnyRunsByInningAndScoreDiffReport {
     // 7 times 1 run was scored, and 4 times 2 runs were scored
     stats: HashMap<(Inning, i8), Vec<u32>>,
     runners: Option<[bool;3]>,
-    outs: Option<u8>
+    outs: Option<u8>,
+    runs_at_least: usize
 }
 impl StatsScoreAnyRunsByInningAndScoreDiffReport {
-    pub fn new(runners: Option<[bool;3]>, outs: Option<u8>) -> Self {
+    pub fn new(runners: Option<[bool;3]>, outs: Option<u8>, runs_at_least: usize) -> Self {
         if runners.is_some() != outs.is_some() {
             panic!("StatsScoreAnyRunsByInningAndScoreDiffReport args must be both Some or both None!");
         }
-        Self { stats: HashMap::new(), runners: runners, outs }
+        Self { stats: HashMap::new(), runners, outs, runs_at_least }
     }
 }
 
@@ -1171,13 +1172,13 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
     }
 
     fn name_impl(&self) -> &'static str { "StatsScoreAnyRunsByInningAndScoreDiffReport" }
-    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new(self.runners, self.outs)) }
+    fn make_new_impl(&self) -> Box<dyn Report> { Box::new(Self::new(self.runners, self.outs, self.runs_at_least)) }
     fn get_stats<'a>(&'a self) -> &'a HashMap<Self::Key, Self::Value> { &self.stats }
     fn write_key<T:Write>(&self, file: &mut T, key: &Self::Key) {
         write!(file, "({}, {}, {})", key.0.number, key.0.is_home, key.1).unwrap();
     }
     fn write_value<T:Write>(&self, file: &mut T, value: &Self::Value) {
-        write!(file, "{}", vec_at_least_one_run(value)).unwrap();
+        write!(file, "{}", vec_at_least_n_runs(value, self.runs_at_least)).unwrap();
     }
     fn should_write_key_value(&self, _key: &Self::Key, value: &Self::Value) -> bool {
         let total = value.iter().sum::<u32>();
@@ -1197,14 +1198,15 @@ impl StatsReport for StatsScoreAnyRunsByInningAndScoreDiffReport {
             else {
                 "".to_owned()
             };
-        let file_name = format!("analysis/anyRunsByInningAndScoreDiff/report{}.txt", suffix);
+        let file_name = format!("analysis/anyRunsByInningAndScoreDiff/report{}runs{}.txt", suffix, self.runs_at_least);
         Box::leak(file_name.into_boxed_str())
     }
 }
-fn vec_at_least_one_run(runs_vec: &[u32]) -> String {
+fn vec_at_least_n_runs(runs_vec: &[u32], n: usize) -> String {
     let total = runs_vec.iter().sum::<u32>();
-    let prob_at_least_one_run = format!("{:.2}", 100f32 * (1f32 - (runs_vec[0] as f32 / total as f32)));
-    format!("Score 1+ runs: {}% ({} tries)", prob_at_least_one_run, total)
+    let below_n_runs = runs_vec.get(0..std::cmp::min(n, runs_vec.len()-1)).unwrap().iter().sum::<u32>();
+    let prob_at_least_n_runs = format!("{:.2}", 100f32 * (1f32 - (below_n_runs as f32 / total as f32)));
+    format!("Score {}+ runs: {}% ({} tries)", n, prob_at_least_n_runs, total)
 }
 fn format_vec_default<T:Display>(runs_vec: &[T]) -> String {
     return format_vec(runs_vec, |val| val.to_string());
