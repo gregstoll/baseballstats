@@ -1,0 +1,1 @@
+Article written with this data: [How often does a bases loaded no out situation end with 0 runs?](https://gregstoll.wordpress.com/2020/08/25/how-often-does-a-bases-loaded-no-out-situation-end-with-0-runs/)

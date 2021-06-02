@@ -1,0 +1,1 @@
+Article written with this data: [Does the length of the top of the first inning affect the number of runs scored in the bottom of the first? (somewhat!)](https://gregstoll.wordpress.com/2021/05/22/does-the-length-of-the-top-of-the-first-inning-affect-the-number-of-runs-scored-in-the-bottom-of-the-first-somewhat/)
