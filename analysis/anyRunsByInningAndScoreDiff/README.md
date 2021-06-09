@@ -1,0 +1,1 @@
+Articles written with this data: [How effective are teams at manufacturing runs?](https://gregstoll.wordpress.com/2021/06/08/how-effective-are-teams-at-manufacturing-runs/)
