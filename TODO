@@ -1,3 +1,6 @@
+To process files before 1950:
+- read https://www.retrosheet.org/GameFiles.pdf and decide how to handle EDx files
+- fail to read any EBx or EDx files
 HOWTO is getting long, make it easier to do
 use Retrosheet data to figure out if a runner starts on second base in extra innings
 This seems wrong:
