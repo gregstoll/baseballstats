@@ -979,11 +979,14 @@ where P: Debug + AsRef<Path> {
     let mut num_games = 0;
     let mut cur_id = "".to_owned();
     let mut game_info = GameInfo::new();
+    let filename_extension_upper = filename.as_ref().extension().unwrap().to_str().unwrap().to_uppercase();
+    if filename_extension_upper.starts_with("EB") || filename_extension_upper.starts_with("ED") {
+        panic!("Cannot process file {:?}, as it has a {:?} extension and is not a complete file. For more info, see https://www.retrosheet.org/GameFiles.pdf", filename, filename_extension_upper);
+    }
     if get_verbosity().is_at_least(Verbosity::Normal) {
         println!("{:?}", filename);
     }
-    let filename_extension = filename.as_ref().extension().unwrap().to_str().unwrap();
-    let is_playoffs = filename_extension.to_uppercase() == "EVE";
+    let is_playoffs = filename_extension_upper == "EVE";
     fn start_new_game_from_line(line: &str, cur_id: &mut String, cur_game_situation: &mut GameSituation,
         all_game_situations: &mut Vec<GameSituation>, play_lines: &mut Vec<String>,
         game_rule_options: &mut GameRuleOptions, game_info: &mut GameInfo, is_playoffs: bool) {
