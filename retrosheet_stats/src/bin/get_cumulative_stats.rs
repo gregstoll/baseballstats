@@ -121,9 +121,9 @@ mod tests {
     #[test]
     fn test_single_year() {
         let result = process_query_string("stateString=\"V\",1,0,1,0&ballsStrikesState=0,0&startYear=1957&endYear=1957&rand=0.7276145813300261").unwrap();
-        assert_eq!("564", result["wins"].to_string());
-        assert_eq!("1186", result["total"].to_string());
-        assert_eq!("0.84", result["leverage"].to_string());
+        assert_eq!("567", result["wins"].to_string());
+        assert_eq!("1193", result["total"].to_string());
+        assert_eq!("0.86", result["leverage"].to_string());
     }
 
     #[test]
@@ -132,6 +132,6 @@ mod tests {
         let result = process_query_string("stateString=\"H\",6,1,3,-1&ballsStrikesState=0,1&startYear=1957&endYear=2019&rand=0.9792518693455747").unwrap();
         assert_eq!("250", result["wins"].to_string());
         assert_eq!("529", result["total"].to_string());
-        assert_eq!("2.71", result["leverage"].to_string());
+        assert_eq!("2.63", result["leverage"].to_string());
     }
 }
