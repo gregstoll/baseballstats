@@ -3,10 +3,11 @@ import sys, re, os, os.path, functools
 
 lineRe = re.compile(r'^(\(\d+, \(\d+, \d+, \d+\)\)): \[(.*?)\]\s*')
 fileNameRe = re.compile(r'^runsperinningstats\.(\d+)$')
-def main(directory):
+def main(directory, isQuiet):
     fileNames = [x for x in os.listdir(directory) if fileNameRe.match(x)]
     fileNames = sorted(fileNames)
-    print(fileNames)
+    if not isQuiet:
+        print(fileNames)
     existingLineMap = {}
     startYear = int(fileNameRe.match(fileNames[0]).group(1))
     endYear = int(fileNameRe.match(fileNames[-1]).group(1))
@@ -42,4 +43,5 @@ def main(directory):
                 outFile.write(line + '\n')
 
 if (__name__ == '__main__'):
-    main(sys.argv[1])
+    isQuiet = len(sys.argv) > 2 and sys.argv[2] == '-q'
+    main(sys.argv[1], isQuiet)

@@ -176,9 +176,9 @@ def calculateRawLeverage(data, situation, verbose=False):
 
 def main():
     fileNames = [x for x in os.listdir(directory) if fileNameRe.match(x)]
-    fileName = sorted(fileNames)[-1]
-    print(fileName)
-    data = readData(os.path.join(directory, fileName))
+    lastFileName = sorted(fileNames)[-1]
+    print(lastFileName)
+    data = readData(os.path.join(directory, lastFileName))
     totalGames = 0
     for k in list(data.keys()):
         totalGames += data[k].totalCount
@@ -193,7 +193,7 @@ def main():
             s = data[k]
             f.write('{0},{1:.2f}\n'.format(s.getFileString(), calculateRawLeverage(data, s)/averageLeverage))
 
-    if True:
+    if False:
         k = ("H", 9, 2, 3, -1)
         s = data[k]
         print((calculateRawLeverage(data, s)))

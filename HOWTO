@@ -1,3 +1,8 @@
+Just run updateallstatsdata.py
+
+--
+OLD
+
 In the retrosheet_stats directory
 - call cargo run --release
 - call cargo run --release -- -r StatsWithBallsStrikes

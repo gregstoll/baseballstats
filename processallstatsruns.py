@@ -23,10 +23,12 @@ for file_name in os.listdir(stats_years_dir):
         year = match.group(1)
         output_file_name = os.path.join(os.path.abspath('statsruns'), 'runsperinningcumulative' + year + '.xml')
         run(['./processstatsruns.py', os.path.join(os.path.abspath('statsyears'), file_name)], output_file_name)
-        print(year)
+        if False:
+            print(year)
     balls_strikes_match = file_name_balls_strikes_re.match(file_name)
     if balls_strikes_match:
         year = balls_strikes_match.group(1)
         output_file_name = os.path.join(os.path.abspath('statsruns'), 'runsperinningballsstrikescumulative' + year + '.xml')
         run(['./processballsstrikesstatsruns.py', os.path.join(os.path.abspath('statsyears'), file_name)], output_file_name)
-        print(year)
+        if False:
+            print(year)

@@ -3,10 +3,11 @@ import sys, re, os, os.path, functools
 
 lineRe = re.compile(r'^\((\d+), (\d+), (\d+), \((\d+), (\d+), (\d+)\), (-?\d+)\): \((\d+), (\d+)\)')
 fileNameRe = re.compile(r'^stats\.(\d+)$')
-def main(directory):
+def main(directory, isQuiet):
     fileNames = [x for x in os.listdir(directory) if fileNameRe.match(x)]
     fileNames = sorted(fileNames)
-    print(fileNames)
+    if not isQuiet:
+        print(fileNames)
     existingLineMap = {}
     startYear = int(fileNameRe.match(fileNames[0]).group(1))
     endYear = int(fileNameRe.match(fileNames[-1]).group(1))
@@ -49,7 +50,8 @@ def main(directory):
                 else:
                     print(("ERROR - couldn't parse line %s" %line))
             f.close()
-        print((len(existingLineMap)))
+        if not isQuiet:
+            print((len(existingLineMap)))
         for existingKey in existingLineMap:
             linesToWrite.append(existingKey + ",%s,%s" % (existingLineMap[existingKey][1], existingLineMap[existingKey][0]))
             newExistingLineMap[existingKey] = existingLineMap[existingKey]
@@ -78,4 +80,5 @@ def cmpWithCommaFirst(x, y):
         return 0
 
 if (__name__ == '__main__'):
-    main(sys.argv[1])
+    isQuiet = len(sys.argv) > 2 and sys.argv[2] == '-q'
+    main(sys.argv[1], isQuiet)
