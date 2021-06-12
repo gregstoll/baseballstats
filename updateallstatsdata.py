@@ -36,3 +36,4 @@ run_python_with_output(['processstats.py', 'stats'], 'probs.txt')
 run_python_with_output(['processballsstrikesstats.py', 'statswithballsstrikes'], 'probswithballsstrikes.txt')
 run_python(['processallstatsruns.py'])
 run_python_with_output(['processballsstrikesstatsruns.py', 'runsperinningballsstrikesstats'], 'runsperinningballsstrikes.xml')
+
