@@ -1,0 +1,23 @@
+<situations>
+<situation outs="0" runners="1"><total>1253</total><count runs="0">978</count><count runs="1">162</count><count runs="2">63</count><count runs="3">29</count><count runs="4">9</count><count runs="5">7</count><count runs="6">4</count><count runs="7">1</count></situation>
+<situation outs="0" runners="3"><total>81</total><count runs="0">42</count><count runs="1">26</count><count runs="2">6</count><count runs="3">4</count><count runs="4">3</count></situation>
+<situation outs="0" runners="2"><total>296</total><count runs="0">183</count><count runs="1">63</count><count runs="2">26</count><count runs="3">15</count><count runs="4">3</count><count runs="5">3</count><count runs="6">3</count></situation>
+<situation outs="0" runners="4"><total>62</total><count runs="0">28</count><count runs="1">14</count><count runs="2">6</count><count runs="3">10</count><count runs="4">1</count><count runs="5">1</count><count runs="6">2</count></situation>
+<situation outs="0" runners="8"><total>13</total><count runs="0">2</count><count runs="1">2</count><count runs="2">1</count><count runs="3">4</count><count runs="4">1</count><count runs="5">2</count><count runs="6">1</count></situation>
+<situation outs="1" runners="1"><total>912</total><count runs="0">792</count><count runs="1">71</count><count runs="2">27</count><count runs="3">11</count><count runs="4">5</count><count runs="5">4</count><count runs="6">1</count><count runs="7">1</count></situation>
+<situation outs="1" runners="5"><total>83</total><count runs="0">36</count><count runs="1">38</count><count runs="2">4</count><count runs="3">3</count><count runs="4">2</count></situation>
+<situation outs="1" runners="3"><total>200</total><count runs="0">121</count><count runs="1">59</count><count runs="2">9</count><count runs="3">7</count><count runs="4">2</count><count runs="5">2</count></situation>
+<situation outs="1" runners="7"><total>66</total><count runs="0">21</count><count runs="1">15</count><count runs="2">20</count><count runs="3">8</count><count runs="4">0</count><count runs="5">2</count></situation>
+<situation outs="1" runners="2"><total>359</total><count runs="0">271</count><count runs="1">46</count><count runs="2">22</count><count runs="3">11</count><count runs="4">2</count><count runs="5">5</count><count runs="6">1</count><count runs="7">1</count></situation>
+<situation outs="1" runners="6"><total>47</total><count runs="0">15</count><count runs="1">16</count><count runs="2">5</count><count runs="3">4</count><count runs="4">5</count><count runs="5">1</count><count runs="6">0</count><count runs="7">1</count></situation>
+<situation outs="1" runners="4"><total>103</total><count runs="0">57</count><count runs="1">19</count><count runs="2">11</count><count runs="3">13</count><count runs="4">1</count><count runs="5">1</count><count runs="6">1</count></situation>
+<situation outs="1" runners="8"><total>33</total><count runs="0">10</count><count runs="1">7</count><count runs="2">7</count><count runs="3">6</count><count runs="4">1</count><count runs="5">2</count></situation>
+<situation outs="2" runners="1"><total>715</total><count runs="0">682</count><count runs="1">18</count><count runs="2">10</count><count runs="3">2</count><count runs="4">3</count></situation>
+<situation outs="2" runners="5"><total>126</total><count runs="0">86</count><count runs="1">35</count><count runs="2">3</count><count runs="3">0</count><count runs="4">2</count></situation>
+<situation outs="2" runners="3"><total>250</total><count runs="0">196</count><count runs="1">37</count><count runs="2">10</count><count runs="3">5</count><count runs="4">1</count><count runs="5">1</count></situation>
+<situation outs="2" runners="7"><total>78</total><count runs="0">50</count><count runs="1">6</count><count runs="2">21</count><count runs="3">1</count></situation>
+<situation outs="2" runners="2"><total>402</total><count runs="0">362</count><count runs="1">17</count><count runs="2">16</count><count runs="3">5</count><count runs="4">2</count></situation>
+<situation outs="2" runners="6"><total>73</total><count runs="0">51</count><count runs="1">10</count><count runs="2">9</count><count runs="3">2</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="2" runners="4"><total>122</total><count runs="0">92</count><count runs="1">15</count><count runs="2">8</count><count runs="3">5</count><count runs="4">2</count></situation>
+<situation outs="2" runners="8"><total>38</total><count runs="0">23</count><count runs="1">4</count><count runs="2">7</count><count runs="3">2</count><count runs="4">2</count></situation>
+</situations>
