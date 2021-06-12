@@ -9,7 +9,7 @@ import FriendlyProbability from 'probability-to-friendly-string';
 // Needed to initialize document.evaluate() from wicked-good-xpath
 wgxpath.install();
 
-const MIN_YEAR = 1957;
+const MIN_YEAR = 1903;
 const MAX_YEAR = 2020;
 const SHOW_BALLS_STRIKES = true;
 //TODO?

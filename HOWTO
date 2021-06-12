@@ -1,4 +1,7 @@
-Just run updateallstatsdata.py
+- run updateallstatsdata.py (replaces all the OLD steps below)
+- in statsreact/src/App.tsx, look for MAX_YEAR and set it to the new max year
+- in statsreact/public/index.html, update the HTML description to the new max year
+- in statsreact, call npm run build
 
 --
 OLD
@@ -18,6 +21,3 @@ In this directory
 - call ./processballsstrikesstats.py statswithballsstrikes > probswithballsstrikes.txt
 - call ./processallstatsruns.py
 - call ./processballsstrikesstatsruns.py runsperinningballsstrikesstats > runsperinningballsstrikes.xml
-- in statsreact/src/App.tsx, look for MAX_YEAR and set it to the new max year
-- in statsreact/public/index.html, update the HTML description to the new max year
-- in statsreact, call npm run build
