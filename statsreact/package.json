@@ -28,6 +28,7 @@
     "@types/react": "^17.0.0",
     "@types/react-dom": "^17.0.0",
     "@types/react-slider": "^1.0.11",
+    "normalize-url": ">=4.5.1",
     "react-scripts": "^4.0.3"
   },
   "scripts": {
