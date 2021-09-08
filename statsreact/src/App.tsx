@@ -519,6 +519,8 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
         const percent = (100 * wins) / r.total;
         const friendlyText = FriendlyProbability.fromProbability(wins / r.total).friendlyString;
         const displayPercent = this.getDisplayPercent(percent, r.total);
+        // sqrt(p(win) * p(lose)/r.total)
+        const displayStandardDeviation = this.getDisplayPercent(100 * Math.sqrt(wins*(r.total - wins)/(r.total*r.total*r.total)), r.total);
         let ml = Math.round((percent/(100 - percent)) * -100);
         let oml = "+" + (-1 * ml);
         if (displayHome) {
@@ -558,6 +560,7 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
                 <p className="littlespace">Leverage index: <b className={leverageClass}>{r.leverageIndex} ({leverageDescription})</b></p>
                 <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
                 <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
+                <p className="littlespace">One <a href="https://en.wikipedia.org/wiki/Standard_deviation">standard deviation</a>: <b>{displayStandardDeviation}%</b></p>
             </div>
         </AnimateOnChange>;
     }
