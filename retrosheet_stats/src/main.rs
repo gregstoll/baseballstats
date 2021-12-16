@@ -1000,7 +1000,7 @@ where P: Debug + AsRef<Path> {
         // TODO - game files during 2020 playoffs have the ghost runner set to true in the
         // Retrosheet file, which is wrong.
         let year = year_from_game_id(&cur_id);
-        game_rule_options.runner_starts_on_second_in_extra_innings = year == 2020 && !is_playoffs;
+        game_rule_options.runner_starts_on_second_in_extra_innings = (year == 2020 || year == 2021) && !is_playoffs;
         game_rule_options.innings = 9;
     }
     fn finish_game(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
