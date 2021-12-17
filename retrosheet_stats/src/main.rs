@@ -276,6 +276,9 @@ struct GameRuleOptions {
 }
 
 type GameInfo = HashMap<String, String>;
+// TODO - AllGameIds should be a HashSet, but I want to use the .entry() API that HashMap has.
+// So just ignore the values
+type AllGameIds = HashMap<String, u32>;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
 struct BallsStrikes {
@@ -970,13 +973,13 @@ impl<'a> From<&'a str> for PlayLineInfo<'a> {
     }
 }
 
-fn parse_file<P>(filename: P, reports: &mut Vec<Box<dyn Report>>) -> Result<u32>
+fn parse_file<P>(filename: P, reports: &mut Vec<Box<dyn Report>>) -> Result<AllGameIds>
 where P: Debug + AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
     let mut play_lines : Vec<String> = Vec::new();
     let mut in_game = false;
-    let mut num_games = 0;
+    let mut all_game_ids: AllGameIds = AllGameIds::new();
     let mut cur_id = "".to_owned();
     let mut game_info = GameInfo::new();
     let filename_extension_upper = filename.as_ref().extension().unwrap().to_str().unwrap().to_uppercase();
@@ -1003,9 +1006,10 @@ where P: Debug + AsRef<Path> {
         game_rule_options.runner_starts_on_second_in_extra_innings = (year == 2020 || year == 2021) && !is_playoffs;
         game_rule_options.innings = 9;
     }
-    fn finish_game(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
-        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32,
-        game_rule_options: &GameRuleOptions, game_info: &GameInfo) {
+    fn finish_game<F>(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
+        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, all_game_ids: &mut AllGameIds,
+        game_rule_options: &GameRuleOptions, game_info: &GameInfo, filename: &F)
+        where F: Debug {
         // Don't include the last situation in the list of keys, because it's one after the last inning probably
         if Some(cur_game_situation) == all_game_situations.last() {
             all_game_situations.remove(all_game_situations.len() - 1);
@@ -1018,12 +1022,20 @@ where P: Debug + AsRef<Path> {
                     game_rule_options,
                     &game_info);
         }
-        *num_games = *num_games + 1;
+        let cur_id_entry = all_game_ids.entry(cur_id.clone());
+        match cur_id_entry {
+            std::collections::hash_map::Entry::Occupied(_) => {
+                panic!("Duplicate game id: {} in file {:?}", cur_id, filename);
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(0);
+            }
+        }
     }
 
     // files use ISO-8859-1 encoding (i.e. "latin1"), not utf-8
     // https://stackoverflow.com/questions/45788866/how-to-read-a-gbk-encoded-file-into-a-string
-    let file = File::open(filename)?;
+    let file = File::open(filename.as_ref().clone())?;
     let reader = io::BufReader::new(file);
     let lines = reader.split(b'\n').map(|l| l.unwrap());
     let mut game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9 };
@@ -1061,7 +1073,7 @@ where P: Debug + AsRef<Path> {
             }
             else if line.starts_with("id,") {
                 finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-                    &mut play_lines, reports, &mut num_games, &game_rule_options, &game_info);
+                    &mut play_lines, reports, &mut all_game_ids, &game_rule_options, &game_info, &filename);
 
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
                     &mut all_game_situations, &mut play_lines, &mut game_rule_options, &mut game_info, is_playoffs);
@@ -1085,10 +1097,10 @@ where P: Debug + AsRef<Path> {
     }
     if all_game_situations.len() > 0 {
         finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-            &mut play_lines, reports, &mut num_games, &game_rule_options, &game_info);
+            &mut play_lines, reports, &mut all_game_ids, &game_rule_options, &game_info, &filename);
     }
 
-    Ok(num_games)
+    Ok(all_game_ids)
 }
 
 fn get_ball_strike_counts_from_pitches(pitches: &str) -> SmallVec<[BallsStrikes;8]> {
@@ -1459,7 +1471,8 @@ fn main() -> Result<()> {
                     {
                         let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                         for path in years_to_files.get(year).unwrap() {
-                            local_num_games += parse_file(path, &mut local_reports).unwrap();
+                            //TODO - check here
+                            local_num_games += parse_file(path, &mut local_reports).unwrap().len();
                         }
                         for mut report in local_reports.drain(..) {
                             report.done_with_year(*year);
@@ -1476,7 +1489,8 @@ fn main() -> Result<()> {
                     report.clear_stats();
                 }
                 for path in years_to_files.get(year).unwrap() {
-                    num_games += parse_file(path, &mut reports)?;
+                    //TODO - check here
+                    num_games += parse_file(path, &mut reports)?.len();
                 }
                 for report in &mut reports {
                     report.done_with_year(*year);
@@ -1495,7 +1509,8 @@ fn main() -> Result<()> {
                     // PERF - would be nice to only create one report per thread and re-use it,
                     // but I can't find a way in rayon to do that.
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    let local_num_games = parse_file(path, &mut local_reports).unwrap();
+                    //TODO - check here
+                    let local_num_games = parse_file(path, &mut local_reports).unwrap().len();
                     (local_reports, local_num_games)
                 })
                 .fold(|| {
@@ -1526,7 +1541,8 @@ fn main() -> Result<()> {
         else {
             for pattern in options.file_patterns {
                 for path in glob(&pattern).expect("Failed to read glob pattern") {
-                    num_games += parse_file(path?, &mut reports)?;
+                    //TODO - check here
+                    num_games += parse_file(path?, &mut reports)?.len();
                 }
             }
             println!("Parsed {} games", num_games);
