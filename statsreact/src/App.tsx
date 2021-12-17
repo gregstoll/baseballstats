@@ -10,7 +10,7 @@ import FriendlyProbability from 'probability-to-friendly-string';
 wgxpath.install();
 
 const MIN_YEAR = 1903;
-const MAX_YEAR = 2020;
+const MAX_YEAR = 2021;
 const SHOW_BALLS_STRIKES = true;
 //TODO?
 const extraYears : Array<[number, number]> = [];
