@@ -26,6 +26,9 @@ version = "1"
 default-features = false  # Turn off unicode support
 features = ["std", "perf", "unicode-perl"]
 
+[features]
+check_duplicate_game_ids = []
+
 [profile.release]
 opt-level = 2 #3 is max
 #debug = true

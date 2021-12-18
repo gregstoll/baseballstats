@@ -973,12 +973,13 @@ impl<'a> From<&'a str> for PlayLineInfo<'a> {
     }
 }
 
-fn parse_file<P>(filename: P, reports: &mut Vec<Box<dyn Report>>) -> Result<AllGameIds>
+fn parse_file<P>(filename: P, reports: &mut Vec<Box<dyn Report>>) -> Result<(AllGameIds, u32)>
 where P: Debug + AsRef<Path> {
     let mut cur_game_situation = GameSituation::new();
     let mut all_game_situations : Vec<GameSituation> = Vec::new();
     let mut play_lines : Vec<String> = Vec::new();
     let mut in_game = false;
+    let mut num_games = 0;
     let mut all_game_ids: AllGameIds = AllGameIds::new();
     let mut cur_id = "".to_owned();
     let mut game_info = GameInfo::new();
@@ -1007,7 +1008,7 @@ where P: Debug + AsRef<Path> {
         game_rule_options.innings = 9;
     }
     fn finish_game<F>(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
-        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, all_game_ids: &mut AllGameIds,
+        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32, all_game_ids: &mut AllGameIds,
         game_rule_options: &GameRuleOptions, game_info: &GameInfo, filename: &F)
         where F: Debug {
         // Don't include the last situation in the list of keys, because it's one after the last inning probably
@@ -1022,13 +1023,17 @@ where P: Debug + AsRef<Path> {
                     game_rule_options,
                     &game_info);
         }
-        let cur_id_entry = all_game_ids.entry(cur_id.clone());
-        match cur_id_entry {
-            std::collections::hash_map::Entry::Occupied(_) => {
-                panic!("Duplicate game id: {} in file {:?}", cur_id, filename);
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                entry.insert(0);
+        *num_games = *num_games + 1;
+        #[cfg(feature="check_duplicate_game_ids")]
+        {
+            let cur_id_entry = all_game_ids.entry(cur_id.clone());
+            match cur_id_entry {
+                std::collections::hash_map::Entry::Occupied(_) => {
+                    panic!("Duplicate game id: {} in file {:?}", cur_id, filename);
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => {
+                    entry.insert(0);
+                }
             }
         }
     }
@@ -1073,7 +1078,7 @@ where P: Debug + AsRef<Path> {
             }
             else if line.starts_with("id,") {
                 finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-                    &mut play_lines, reports, &mut all_game_ids, &game_rule_options, &game_info, &filename);
+                    &mut play_lines, reports, &mut num_games, &mut all_game_ids, &game_rule_options, &game_info, &filename);
 
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
                     &mut all_game_situations, &mut play_lines, &mut game_rule_options, &mut game_info, is_playoffs);
@@ -1097,10 +1102,10 @@ where P: Debug + AsRef<Path> {
     }
     if all_game_situations.len() > 0 {
         finish_game(&mut cur_id, &cur_game_situation, &mut all_game_situations,
-            &mut play_lines, reports, &mut all_game_ids, &game_rule_options, &game_info, &filename);
+            &mut play_lines, reports, &mut num_games, &mut all_game_ids, &game_rule_options, &game_info, &filename);
     }
 
-    Ok(all_game_ids)
+    Ok((all_game_ids, num_games))
 }
 
 fn get_ball_strike_counts_from_pitches(pitches: &str) -> SmallVec<[BallsStrikes;8]> {
@@ -1471,8 +1476,8 @@ fn main() -> Result<()> {
                     {
                         let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                         for path in years_to_files.get(year).unwrap() {
-                            //TODO - check here
-                            local_num_games += parse_file(path, &mut local_reports).unwrap().len();
+                            //TODO - add uniqueness game id check here
+                            local_num_games += parse_file(path, &mut local_reports).unwrap().1;
                         }
                         for mut report in local_reports.drain(..) {
                             report.done_with_year(*year);
@@ -1489,8 +1494,8 @@ fn main() -> Result<()> {
                     report.clear_stats();
                 }
                 for path in years_to_files.get(year).unwrap() {
-                    //TODO - check here
-                    num_games += parse_file(path, &mut reports)?.len();
+                    //TODO - add uniqueness game id check here
+                    num_games += parse_file(path, &mut reports)?.1;
                 }
                 for report in &mut reports {
                     report.done_with_year(*year);
@@ -1511,17 +1516,21 @@ fn main() -> Result<()> {
                     // PERF - would be nice to only create one report per thread and re-use it,
                     // but I can't find a way in rayon to do that.
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    let game_ids = parse_file(path, &mut local_reports).unwrap();
-                    let mut all_game_ids_local = all_game_ids.lock().unwrap();
-                    let local_num_games = game_ids.len();
-                    for game_id in game_ids.into_iter() {
-                        let game_id_entry = all_game_ids_local.entry(game_id.0);
-                        match game_id_entry {
-                            std::collections::hash_map::Entry::Occupied(old_entry) => {
-                                panic!("Duplicate game ID {} - found in {:?} and {:?}", old_entry.key(), old_entry.get(), path);
-                            }
-                            std::collections::hash_map::Entry::Vacant(game_id_entry) => {
-                                game_id_entry.insert(path);
+                    let parse_result = parse_file(path, &mut local_reports).unwrap();
+                    let local_num_games = parse_result.1;
+                    #[cfg(feature="check_duplicate_game_ids")]
+                    {
+                        let game_ids = parse_result.0;
+                        let mut all_game_ids_local = all_game_ids.lock().unwrap();
+                        for game_id in game_ids.into_iter() {
+                            let game_id_entry = all_game_ids_local.entry(game_id.0);
+                            match game_id_entry {
+                                std::collections::hash_map::Entry::Occupied(old_entry) => {
+                                    panic!("Duplicate game ID {} - found in {:?} and {:?}", old_entry.key(), old_entry.get(), path);
+                                }
+                                std::collections::hash_map::Entry::Vacant(game_id_entry) => {
+                                    game_id_entry.insert(path);
+                                }
                             }
                         }
                     }
@@ -1555,8 +1564,8 @@ fn main() -> Result<()> {
         else {
             for pattern in options.file_patterns {
                 for path in glob(&pattern).expect("Failed to read glob pattern") {
-                    //TODO - check here
-                    num_games += parse_file(path?, &mut reports)?.len();
+                    //TODO - add uniqueness game id check here
+                    num_games += parse_file(path?, &mut reports)?.1;
                 }
             }
             println!("Parsed {} games", num_games);
