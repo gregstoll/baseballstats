@@ -3,7 +3,7 @@ mod reports;
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::{self, File}, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::{self, File}, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant, sync::{Arc, Mutex}};
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -1503,14 +1503,28 @@ fn main() -> Result<()> {
             let paths: Vec<_> = options.file_patterns.iter()
                 .map(|pattern| glob(&pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()))
                 .flatten().into_iter().collect();
+            let all_game_ids: Arc<Mutex<HashMap<String, &PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
+            
             let final_reports = paths
                 .par_iter()
                 .map(|path| {
                     // PERF - would be nice to only create one report per thread and re-use it,
                     // but I can't find a way in rayon to do that.
                     let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
-                    //TODO - check here
-                    let local_num_games = parse_file(path, &mut local_reports).unwrap().len();
+                    let game_ids = parse_file(path, &mut local_reports).unwrap();
+                    let mut all_game_ids_local = all_game_ids.lock().unwrap();
+                    let local_num_games = game_ids.len();
+                    for game_id in game_ids.into_iter() {
+                        let game_id_entry = all_game_ids_local.entry(game_id.0);
+                        match game_id_entry {
+                            std::collections::hash_map::Entry::Occupied(old_entry) => {
+                                panic!("Duplicate game ID {} - found in {:?} and {:?}", old_entry.key(), old_entry.get(), path);
+                            }
+                            std::collections::hash_map::Entry::Vacant(game_id_entry) => {
+                                game_id_entry.insert(path);
+                            }
+                        }
+                    }
                     (local_reports, local_num_games)
                 })
                 .fold(|| {
