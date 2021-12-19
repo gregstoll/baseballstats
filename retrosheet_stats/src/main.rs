@@ -3,7 +3,10 @@ mod reports;
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 extern crate encoding;
-use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::{self, File}, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant, sync::{Arc, Mutex}};
+use std::{any::Any, collections::HashMap, collections::HashSet, convert::TryInto, fmt::{Debug, Display}, fs::{self, File}, io::{self, BufRead}, io::{BufWriter, Write}, path::{Path, PathBuf}, time::Instant};
+#[cfg(feature="check_duplicate_game_ids")]
+use std::sync::{Arc, Mutex};
+
 use anyhow::{anyhow, Result};
 use argh::FromArgs;
 use data::{RunnerDests, RunnerFinalPosition, RunnerInitialPosition};
@@ -276,7 +279,8 @@ struct GameRuleOptions {
 }
 
 type GameInfo = HashMap<String, String>;
-// TODO - AllGameIds should be a HashSet, but I want to use the .entry() API that HashMap has.
+// AllGameIds should be a HashSet, but I want to use the .entry() API that HashMap has.
+// (see https://github.com/rust-lang/rust/issues/60896 for details)
 // So just ignore the values
 type AllGameIds = HashMap<String, u32>;
 
@@ -1008,8 +1012,8 @@ where P: Debug + AsRef<Path> {
         game_rule_options.innings = 9;
     }
     fn finish_game<F>(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
-        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32, all_game_ids: &mut AllGameIds,
-        game_rule_options: &GameRuleOptions, game_info: &GameInfo, filename: &F)
+        play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32, _all_game_ids: &mut AllGameIds,
+        game_rule_options: &GameRuleOptions, game_info: &GameInfo, _filename: &F)
         where F: Debug {
         // Don't include the last situation in the list of keys, because it's one after the last inning probably
         if Some(cur_game_situation) == all_game_situations.last() {
@@ -1026,10 +1030,10 @@ where P: Debug + AsRef<Path> {
         *num_games = *num_games + 1;
         #[cfg(feature="check_duplicate_game_ids")]
         {
-            let cur_id_entry = all_game_ids.entry(cur_id.clone());
+            let cur_id_entry = _all_game_ids.entry(cur_id.clone());
             match cur_id_entry {
                 std::collections::hash_map::Entry::Occupied(_) => {
-                    panic!("Duplicate game id: {} in file {:?}", cur_id, filename);
+                    panic!("Duplicate game id: {} in file {:?}", cur_id, _filename);
                 }
                 std::collections::hash_map::Entry::Vacant(entry) => {
                     entry.insert(0);
@@ -1455,6 +1459,7 @@ fn main() -> Result<()> {
     if options.file_patterns.is_empty() {
         options.file_patterns.push(["..", "data", "*"].iter().collect::<PathBuf>().to_str().unwrap().to_string());
     }
+
     if options.by_year {
         let mut years_to_files: HashMap<usize, Vec<PathBuf>> = HashMap::new();
         for pattern in options.file_patterns {
@@ -1467,6 +1472,8 @@ fn main() -> Result<()> {
         }
         let mut years: Vec<_> = years_to_files.keys().collect();
         years.sort();
+        #[cfg(feature="check_duplicate_game_ids")]
+        let all_game_ids: Arc<Mutex<HashMap<String, &PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
         if do_parallel {
             // Just do one thread per year here, close enough to optimal
             num_games = years
@@ -1476,8 +1483,24 @@ fn main() -> Result<()> {
                     {
                         let mut local_reports: Vec<Box<dyn Report>> = reports.iter().map(|report| report.make_new()).collect();
                         for path in years_to_files.get(year).unwrap() {
-                            //TODO - add uniqueness game id check here
-                            local_num_games += parse_file(path, &mut local_reports).unwrap().1;
+                            let parse_result = parse_file(path, &mut local_reports).unwrap();
+                            local_num_games += parse_result.1;
+                            #[cfg(feature="check_duplicate_game_ids")]
+                            {
+                                let game_ids = parse_result.0;
+                                let mut all_game_ids_local = all_game_ids.lock().unwrap();
+                                for game_id in game_ids.into_iter() {
+                                    let game_id_entry = all_game_ids_local.entry(game_id.0);
+                                    match game_id_entry {
+                                        std::collections::hash_map::Entry::Occupied(old_entry) => {
+                                            panic!("Duplicate game ID {} - found in {:?} and {:?}", old_entry.key(), old_entry.get(), path);
+                                        }
+                                        std::collections::hash_map::Entry::Vacant(game_id_entry) => {
+                                            game_id_entry.insert(path);
+                                        }
+                                    }
+                                }
+                            }
                         }
                         for mut report in local_reports.drain(..) {
                             report.done_with_year(*year);
@@ -1489,13 +1512,31 @@ fn main() -> Result<()> {
             println!("Parsed {} games", num_games);
         }
         else {
+            #[cfg(feature="check_duplicate_game_ids")]
+            let all_game_ids: Arc<Mutex<HashMap<String, &PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
             for year in years {
                 for report in reports.iter_mut() {
                     report.clear_stats();
                 }
                 for path in years_to_files.get(year).unwrap() {
-                    //TODO - add uniqueness game id check here
-                    num_games += parse_file(path, &mut reports)?.1;
+                    let parse_result = parse_file(path, &mut reports)?;
+                    num_games += parse_result.1;
+                    #[cfg(feature="check_duplicate_game_ids")]
+                    {
+                        let game_ids = parse_result.0;
+                        let mut all_game_ids_local = all_game_ids.lock().unwrap();
+                        for game_id in game_ids.into_iter() {
+                            let game_id_entry = all_game_ids_local.entry(game_id.0);
+                            match game_id_entry {
+                                std::collections::hash_map::Entry::Occupied(old_entry) => {
+                                    panic!("Duplicate game ID {} - found in {:?} and {:?}", old_entry.key(), old_entry.get(), path);
+                                }
+                                std::collections::hash_map::Entry::Vacant(game_id_entry) => {
+                                    game_id_entry.insert(path);
+                                }
+                            }
+                        }
+                    }
                 }
                 for report in &mut reports {
                     report.done_with_year(*year);
@@ -1504,11 +1545,12 @@ fn main() -> Result<()> {
         }
     }
     else {
+        #[cfg(feature="check_duplicate_game_ids")]
+        let all_game_ids: Arc<Mutex<HashMap<String, &PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
         if do_parallel {
             let paths: Vec<_> = options.file_patterns.iter()
                 .map(|pattern| glob(&pattern).expect("Failed to read glob pattern").map(|x| x.unwrap()))
                 .flatten().into_iter().collect();
-            let all_game_ids: Arc<Mutex<HashMap<String, &PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
             
             let final_reports = paths
                 .par_iter()
@@ -1562,10 +1604,27 @@ fn main() -> Result<()> {
             }
         }
         else {
-            for pattern in options.file_patterns {
-                for path in glob(&pattern).expect("Failed to read glob pattern") {
-                    //TODO - add uniqueness game id check here
-                    num_games += parse_file(path?, &mut reports)?.1;
+            #[cfg(feature="check_duplicate_game_ids")]
+            let all_game_ids: Arc<Mutex<HashMap<String, &PathBuf>>> = Arc::new(Mutex::new(HashMap::new()));
+            let all_paths: Vec<_> = options.file_patterns.iter().map(|pattern| glob(pattern).expect("Failed to read glob pattern")).flatten().collect::<Result<Vec<_>,_>>()?;
+            for path in all_paths.iter() {
+                let parse_result = parse_file(path, &mut reports).unwrap();
+                num_games += parse_result.1;
+                #[cfg(feature="check_duplicate_game_ids")]
+                {
+                    let game_ids = parse_result.0;
+                    let mut all_game_ids_local = all_game_ids.lock().unwrap();
+                    for game_id in game_ids.into_iter() {
+                        let game_id_entry = all_game_ids_local.entry(game_id.0);
+                        match game_id_entry {
+                            std::collections::hash_map::Entry::Occupied(old_entry) => {
+                                panic!("Duplicate game ID {} - found in {:?} and {:?}", old_entry.key(), old_entry.get(), path);
+                            }
+                            std::collections::hash_map::Entry::Vacant(game_id_entry) => {
+                                game_id_entry.insert(path);
+                            }
+                        }
+                    }
                 }
             }
             println!("Parsed {} games", num_games);

@@ -27,6 +27,8 @@ default-features = false  # Turn off unicode support
 features = ["std", "perf", "unicode-perl"]
 
 [features]
+# This feature checks to ensure we don't process the same game twice.
+# It has a bit of performance impact (~30% slower) so it is turned off by default.
 check_duplicate_game_ids = []
 
 [profile.release]
