@@ -9,17 +9,17 @@ default-run = "retrosheet_stats"
 
 [dependencies]
 lazy_static = "1.4.0"
-anyhow = "1.0.36"
-argh = "0.1"
+anyhow = "1.0.58"
+argh = "0.1.7"
 glob = "0.3"
-encoding = "0.2"
-smallvec = "1.6.0"
-smol_str = "0.1.17"
-rayon = "1.5.0"
+encoding = "0.2.33"
+smallvec = "1.8.0"
+smol_str = "0.1.23"
+rayon = "1.5.3"
 
 cgi = "0.6"
-json = "0.12"
-url = "2.1"
+json = "0.12.4"
+url = "2.2.2"
 
 [dependencies.regex]
 version = "1"
