@@ -1,25 +1,159 @@
 <situations>
 <situation outs="0" runners="1" balls="0" strikes="0"><total>520</total><count runs="0">419</count><count runs="1">56</count><count runs="2">22</count><count runs="3">13</count><count runs="4">5</count><count runs="5">3</count><count runs="6">2</count></situation>
+<situation outs="0" runners="1" balls="0" strikes="1"><total>38</total><count runs="0">33</count><count runs="1">2</count><count runs="2">1</count><count runs="3">1</count><count runs="4">0</count><count runs="5">0</count><count runs="6">1</count></situation>
+<situation outs="0" runners="1" balls="0" strikes="2"><total>20</total><count runs="0">16</count><count runs="1">1</count><count runs="2">1</count><count runs="3">1</count><count runs="4">0</count><count runs="5">0</count><count runs="6">1</count></situation>
+<situation outs="0" runners="1" balls="1" strikes="0"><total>15</total><count runs="0">11</count><count runs="1">2</count><count runs="2">1</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="0" runners="1" balls="1" strikes="1"><total>20</total><count runs="0">17</count><count runs="1">2</count><count runs="2">1</count></situation>
+<situation outs="0" runners="1" balls="1" strikes="2"><total>19</total><count runs="0">16</count><count runs="1">2</count><count runs="2">1</count></situation>
+<situation outs="0" runners="1" balls="2" strikes="0"><total>7</total><count runs="0">5</count><count runs="1">1</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="0" runners="1" balls="2" strikes="1"><total>9</total><count runs="0">8</count><count runs="1">1</count></situation>
+<situation outs="0" runners="1" balls="2" strikes="2"><total>9</total><count runs="0">6</count><count runs="1">3</count></situation>
+<situation outs="0" runners="1" balls="3" strikes="0"><total>2</total><count runs="0">1</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="0" runners="1" balls="3" strikes="1"><total>2</total><count runs="0">2</count></situation>
+<situation outs="0" runners="1" balls="3" strikes="2"><total>3</total><count runs="0">1</count><count runs="1">2</count></situation>
 <situation outs="0" runners="3" balls="0" strikes="0"><total>26</total><count runs="0">17</count><count runs="1">4</count><count runs="2">3</count><count runs="3">1</count><count runs="4">1</count></situation>
+<situation outs="0" runners="3" balls="0" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="0" runners="3" balls="1" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="0" runners="3" balls="1" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="0" runners="3" balls="2" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="0" runners="3" balls="3" strikes="2"><total>1</total><count runs="0">1</count></situation>
 <situation outs="0" runners="7" balls="0" strikes="0"><total>3</total><count runs="0">0</count><count runs="1">1</count><count runs="2">1</count><count runs="3">1</count></situation>
 <situation outs="0" runners="2" balls="0" strikes="0"><total>128</total><count runs="0">84</count><count runs="1">24</count><count runs="2">9</count><count runs="3">7</count><count runs="4">2</count><count runs="5">1</count><count runs="6">1</count></situation>
+<situation outs="0" runners="2" balls="0" strikes="1"><total>7</total><count runs="0">6</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="0" runners="2" balls="0" strikes="2"><total>6</total><count runs="0">5</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="0" runners="2" balls="1" strikes="0"><total>8</total><count runs="0">6</count><count runs="1">1</count><count runs="2">1</count></situation>
+<situation outs="0" runners="2" balls="1" strikes="1"><total>5</total><count runs="0">5</count></situation>
+<situation outs="0" runners="2" balls="1" strikes="2"><total>3</total><count runs="0">2</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="0" runners="2" balls="2" strikes="0"><total>1</total><count runs="0">0</count><count runs="1">1</count></situation>
+<situation outs="0" runners="2" balls="2" strikes="1"><total>2</total><count runs="0">1</count><count runs="1">1</count></situation>
+<situation outs="0" runners="2" balls="2" strikes="2"><total>4</total><count runs="0">2</count><count runs="1">1</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
 <situation outs="0" runners="6" balls="0" strikes="0"><total>9</total><count runs="0">0</count><count runs="1">2</count><count runs="2">4</count><count runs="3">2</count><count runs="4">1</count></situation>
+<situation outs="0" runners="6" balls="1" strikes="0"><total>2</total><count runs="0">0</count><count runs="1">1</count><count runs="2">1</count></situation>
+<situation outs="0" runners="6" balls="1" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">1</count></situation>
+<situation outs="0" runners="6" balls="2" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">1</count></situation>
 <situation outs="0" runners="4" balls="0" strikes="0"><total>32</total><count runs="0">13</count><count runs="1">8</count><count runs="2">3</count><count runs="3">5</count><count runs="4">1</count><count runs="5">1</count><count runs="6">1</count></situation>
+<situation outs="0" runners="4" balls="1" strikes="0"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
 <situation outs="0" runners="8" balls="0" strikes="0"><total>10</total><count runs="0">2</count><count runs="1">2</count><count runs="2">0</count><count runs="3">2</count><count runs="4">1</count><count runs="5">2</count><count runs="6">1</count></situation>
+<situation outs="0" runners="8" balls="0" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">1</count></situation>
+<situation outs="0" runners="8" balls="1" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">1</count></situation>
+<situation outs="0" runners="8" balls="1" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">1</count></situation>
 <situation outs="1" runners="1" balls="0" strikes="0"><total>374</total><count runs="0">330</count><count runs="1">27</count><count runs="2">6</count><count runs="3">5</count><count runs="4">3</count><count runs="5">2</count><count runs="6">1</count></situation>
+<situation outs="1" runners="1" balls="0" strikes="1"><total>26</total><count runs="0">23</count><count runs="1">3</count></situation>
+<situation outs="1" runners="1" balls="0" strikes="2"><total>6</total><count runs="0">6</count></situation>
+<situation outs="1" runners="1" balls="1" strikes="0"><total>13</total><count runs="0">10</count><count runs="1">1</count><count runs="2">1</count><count runs="3">1</count></situation>
+<situation outs="1" runners="1" balls="1" strikes="1"><total>19</total><count runs="0">18</count><count runs="1">1</count></situation>
+<situation outs="1" runners="1" balls="1" strikes="2"><total>14</total><count runs="0">13</count><count runs="1">1</count></situation>
+<situation outs="1" runners="1" balls="2" strikes="0"><total>6</total><count runs="0">4</count><count runs="1">1</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="1" balls="2" strikes="1"><total>6</total><count runs="0">4</count><count runs="1">1</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="1" balls="2" strikes="2"><total>10</total><count runs="0">9</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="1" balls="3" strikes="0"><total>3</total><count runs="0">3</count></situation>
+<situation outs="1" runners="1" balls="3" strikes="1"><total>3</total><count runs="0">2</count><count runs="1">1</count></situation>
+<situation outs="1" runners="1" balls="3" strikes="2"><total>6</total><count runs="0">5</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
 <situation outs="1" runners="5" balls="0" strikes="0"><total>32</total><count runs="0">15</count><count runs="1">14</count><count runs="2">3</count></situation>
 <situation outs="1" runners="3" balls="0" strikes="0"><total>73</total><count runs="0">47</count><count runs="1">19</count><count runs="2">3</count><count runs="3">3</count><count runs="4">1</count></situation>
+<situation outs="1" runners="3" balls="0" strikes="1"><total>2</total><count runs="0">1</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="3" balls="1" strikes="0"><total>3</total><count runs="0">3</count></situation>
+<situation outs="1" runners="3" balls="1" strikes="1"><total>3</total><count runs="0">2</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="3" balls="1" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="1" runners="3" balls="2" strikes="0"><total>1</total><count runs="0">1</count></situation>
+<situation outs="1" runners="3" balls="2" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="3" balls="2" strikes="2"><total>2</total><count runs="0">1</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
 <situation outs="1" runners="7" balls="0" strikes="0"><total>34</total><count runs="0">9</count><count runs="1">9</count><count runs="2">8</count><count runs="3">7</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="1" runners="7" balls="1" strikes="0"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="1" runners="7" balls="1" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="1" runners="7" balls="1" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="1" runners="7" balls="2" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="1" runners="7" balls="3" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
 <situation outs="1" runners="2" balls="0" strikes="0"><total>149</total><count runs="0">117</count><count runs="1">20</count><count runs="2">3</count><count runs="3">5</count><count runs="4">1</count><count runs="5">2</count><count runs="6">1</count></situation>
+<situation outs="1" runners="2" balls="0" strikes="1"><total>9</total><count runs="0">6</count><count runs="1">1</count><count runs="2">0</count><count runs="3">1</count><count runs="4">0</count><count runs="5">0</count><count runs="6">1</count></situation>
+<situation outs="1" runners="2" balls="0" strikes="2"><total>4</total><count runs="0">3</count><count runs="1">1</count></situation>
+<situation outs="1" runners="2" balls="1" strikes="0"><total>8</total><count runs="0">5</count><count runs="1">3</count></situation>
+<situation outs="1" runners="2" balls="1" strikes="1"><total>4</total><count runs="0">2</count><count runs="1">1</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="2" balls="1" strikes="2"><total>2</total><count runs="0">2</count></situation>
+<situation outs="1" runners="2" balls="2" strikes="0"><total>4</total><count runs="0">3</count><count runs="1">1</count></situation>
+<situation outs="1" runners="2" balls="2" strikes="1"><total>5</total><count runs="0">3</count><count runs="1">1</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="2" balls="2" strikes="2"><total>2</total><count runs="0">1</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="1" runners="2" balls="3" strikes="0"><total>1</total><count runs="0">0</count><count runs="1">1</count></situation>
+<situation outs="1" runners="2" balls="3" strikes="1"><total>3</total><count runs="0">1</count><count runs="1">2</count></situation>
+<situation outs="1" runners="2" balls="3" strikes="2"><total>2</total><count runs="0">0</count><count runs="1">2</count></situation>
 <situation outs="1" runners="6" balls="0" strikes="0"><total>13</total><count runs="0">2</count><count runs="1">5</count><count runs="2">2</count><count runs="3">3</count><count runs="4">1</count></situation>
+<situation outs="1" runners="6" balls="0" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="1" runners="6" balls="0" strikes="2"><total>1</total><count runs="0">1</count></situation>
 <situation outs="1" runners="4" balls="0" strikes="0"><total>45</total><count runs="0">27</count><count runs="1">9</count><count runs="2">2</count><count runs="3">5</count><count runs="4">1</count><count runs="5">1</count></situation>
+<situation outs="1" runners="4" balls="0" strikes="1"><total>2</total><count runs="0">2</count></situation>
+<situation outs="1" runners="4" balls="1" strikes="0"><total>3</total><count runs="0">2</count><count runs="1">1</count></situation>
+<situation outs="1" runners="4" balls="1" strikes="1"><total>4</total><count runs="0">3</count><count runs="1">1</count></situation>
+<situation outs="1" runners="4" balls="1" strikes="2"><total>3</total><count runs="0">3</count></situation>
+<situation outs="1" runners="4" balls="2" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">1</count></situation>
+<situation outs="1" runners="4" balls="2" strikes="2"><total>2</total><count runs="0">2</count></situation>
 <situation outs="1" runners="8" balls="0" strikes="0"><total>18</total><count runs="0">4</count><count runs="1">3</count><count runs="2">4</count><count runs="3">4</count><count runs="4">1</count><count runs="5">2</count></situation>
+<situation outs="1" runners="8" balls="0" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="1" runners="8" balls="0" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="1" runners="8" balls="1" strikes="0"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="1" runners="8" balls="1" strikes="1"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="1" runners="8" balls="1" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="1" runners="8" balls="2" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
+<situation outs="1" runners="8" balls="3" strikes="2"><total>1</total><count runs="0">0</count><count runs="1">0</count><count runs="2">0</count><count runs="3">0</count><count runs="4">0</count><count runs="5">1</count></situation>
 <situation outs="2" runners="1" balls="0" strikes="0"><total>296</total><count runs="0">283</count><count runs="1">6</count><count runs="2">4</count><count runs="3">1</count><count runs="4">2</count></situation>
+<situation outs="2" runners="1" balls="0" strikes="1"><total>19</total><count runs="0">19</count></situation>
+<situation outs="2" runners="1" balls="0" strikes="2"><total>6</total><count runs="0">6</count></situation>
+<situation outs="2" runners="1" balls="1" strikes="0"><total>15</total><count runs="0">13</count><count runs="1">1</count><count runs="2">1</count></situation>
+<situation outs="2" runners="1" balls="1" strikes="1"><total>14</total><count runs="0">13</count><count runs="1">1</count></situation>
+<situation outs="2" runners="1" balls="1" strikes="2"><total>7</total><count runs="0">7</count></situation>
+<situation outs="2" runners="1" balls="2" strikes="0"><total>6</total><count runs="0">5</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="2" runners="1" balls="2" strikes="1"><total>11</total><count runs="0">10</count><count runs="1">1</count></situation>
+<situation outs="2" runners="1" balls="2" strikes="2"><total>7</total><count runs="0">6</count><count runs="1">1</count></situation>
+<situation outs="2" runners="1" balls="3" strikes="0"><total>2</total><count runs="0">1</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="2" runners="1" balls="3" strikes="1"><total>3</total><count runs="0">3</count></situation>
+<situation outs="2" runners="1" balls="3" strikes="2"><total>2</total><count runs="0">2</count></situation>
 <situation outs="2" runners="5" balls="0" strikes="0"><total>64</total><count runs="0">46</count><count runs="1">15</count><count runs="2">1</count><count runs="3">0</count><count runs="4">2</count></situation>
+<situation outs="2" runners="5" balls="0" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="5" balls="0" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="5" balls="1" strikes="0"><total>3</total><count runs="0">2</count><count runs="1">1</count></situation>
+<situation outs="2" runners="5" balls="1" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="5" balls="2" strikes="0"><total>2</total><count runs="0">2</count></situation>
+<situation outs="2" runners="5" balls="2" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="5" balls="3" strikes="0"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="5" balls="3" strikes="1"><total>1</total><count runs="0">1</count></situation>
 <situation outs="2" runners="3" balls="0" strikes="0"><total>105</total><count runs="0">77</count><count runs="1">18</count><count runs="2">7</count><count runs="3">3</count></situation>
+<situation outs="2" runners="3" balls="0" strikes="1"><total>5</total><count runs="0">4</count><count runs="1">0</count><count runs="2">0</count><count runs="3">1</count></situation>
+<situation outs="2" runners="3" balls="0" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="3" balls="1" strikes="0"><total>14</total><count runs="0">7</count><count runs="1">4</count><count runs="2">3</count></situation>
+<situation outs="2" runners="3" balls="1" strikes="1"><total>8</total><count runs="0">5</count><count runs="1">2</count><count runs="2">1</count></situation>
+<situation outs="2" runners="3" balls="1" strikes="2"><total>3</total><count runs="0">3</count></situation>
+<situation outs="2" runners="3" balls="2" strikes="0"><total>7</total><count runs="0">4</count><count runs="1">1</count><count runs="2">2</count></situation>
+<situation outs="2" runners="3" balls="2" strikes="1"><total>7</total><count runs="0">3</count><count runs="1">3</count><count runs="2">1</count></situation>
+<situation outs="2" runners="3" balls="2" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="3" balls="3" strikes="0"><total>3</total><count runs="0">2</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="2" runners="3" balls="3" strikes="1"><total>6</total><count runs="0">3</count><count runs="1">3</count></situation>
+<situation outs="2" runners="3" balls="3" strikes="2"><total>3</total><count runs="0">1</count><count runs="1">2</count></situation>
 <situation outs="2" runners="7" balls="0" strikes="0"><total>35</total><count runs="0">25</count><count runs="1">5</count><count runs="2">5</count></situation>
+<situation outs="2" runners="7" balls="0" strikes="1"><total>3</total><count runs="0">3</count></situation>
+<situation outs="2" runners="7" balls="0" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="7" balls="1" strikes="0"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="7" balls="1" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="7" balls="1" strikes="2"><total>1</total><count runs="0">1</count></situation>
 <situation outs="2" runners="2" balls="0" strikes="0"><total>166</total><count runs="0">149</count><count runs="1">6</count><count runs="2">7</count><count runs="3">3</count><count runs="4">1</count></situation>
+<situation outs="2" runners="2" balls="0" strikes="1"><total>3</total><count runs="0">3</count></situation>
+<situation outs="2" runners="2" balls="1" strikes="0"><total>13</total><count runs="0">9</count><count runs="1">1</count><count runs="2">3</count></situation>
+<situation outs="2" runners="2" balls="1" strikes="1"><total>6</total><count runs="0">5</count><count runs="1">1</count></situation>
+<situation outs="2" runners="2" balls="1" strikes="2"><total>4</total><count runs="0">4</count></situation>
+<situation outs="2" runners="2" balls="2" strikes="0"><total>5</total><count runs="0">3</count><count runs="1">0</count><count runs="2">2</count></situation>
+<situation outs="2" runners="2" balls="2" strikes="1"><total>2</total><count runs="0">1</count><count runs="1">1</count></situation>
+<situation outs="2" runners="2" balls="2" strikes="2"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="2" balls="3" strikes="0"><total>3</total><count runs="0">2</count><count runs="1">0</count><count runs="2">1</count></situation>
+<situation outs="2" runners="2" balls="3" strikes="1"><total>1</total><count runs="0">1</count></situation>
 <situation outs="2" runners="6" balls="0" strikes="0"><total>35</total><count runs="0">25</count><count runs="1">6</count><count runs="2">3</count><count runs="3">1</count></situation>
+<situation outs="2" runners="6" balls="0" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="6" balls="1" strikes="0"><total>3</total><count runs="0">3</count></situation>
+<situation outs="2" runners="6" balls="2" strikes="0"><total>1</total><count runs="0">1</count></situation>
 <situation outs="2" runners="4" balls="0" strikes="0"><total>49</total><count runs="0">34</count><count runs="1">7</count><count runs="2">6</count><count runs="3">1</count><count runs="4">1</count></situation>
+<situation outs="2" runners="4" balls="0" strikes="1"><total>3</total><count runs="0">1</count><count runs="1">1</count><count runs="2">1</count></situation>
+<situation outs="2" runners="4" balls="1" strikes="0"><total>2</total><count runs="0">1</count><count runs="1">1</count></situation>
+<situation outs="2" runners="4" balls="2" strikes="0"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="4" balls="2" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="4" balls="2" strikes="2"><total>1</total><count runs="0">1</count></situation>
 <situation outs="2" runners="8" balls="0" strikes="0"><total>18</total><count runs="0">12</count><count runs="1">2</count><count runs="2">2</count><count runs="3">1</count><count runs="4">1</count></situation>
+<situation outs="2" runners="8" balls="0" strikes="1"><total>1</total><count runs="0">1</count></situation>
+<situation outs="2" runners="8" balls="0" strikes="2"><total>1</total><count runs="0">1</count></situation>
 </situations>
