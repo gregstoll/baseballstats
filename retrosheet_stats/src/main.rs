@@ -18,6 +18,15 @@ use smallvec::{smallvec, SmallVec};
 use smol_str::SmolStr;
 use rayon::prelude::*;
 
+lazy_static! {
+    static ref PLAY_PATCHES : HashMap<&'static str, HashMap<(Inning, &'static str), &'static str>> = HashMap::from(
+        [("CIN202207280", HashMap::from([
+            // "Donovan Solano lines out sharply, pitcher Daniel Castano to third baseman Joey Wendle."
+            ((Inning { number: 1, is_home: true}, "15/L1+"), "5")
+        ]))
+    ]);
+    static ref EMPTY_PATCHES : HashMap<(Inning, &'static str), &'static str> = HashMap::new();
+}
 
 mod data {
     use std::{convert::{TryFrom, TryInto}};
@@ -131,6 +140,7 @@ mod data {
         }
     }
 
+    #[derive(Clone, Copy, Debug)]
     pub struct RunnerDests {
         // Putting this struct in a module so its implementation is hidden.
         dests: [Option<RunnerFinalPosition>;4],
@@ -272,10 +282,12 @@ struct GameSituation {
     cur_score_diff: i8,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, PartialOrd, Ord)]
-struct GameRuleOptions {
+#[derive(Clone, PartialEq, Eq, Debug)]
+struct GameRuleOptions<'a> {
     runner_starts_on_second_in_extra_innings: bool,
-    innings: u8
+    innings: u8,
+    // Mappings of an inning and a play line from retrosheet to one to use instead
+    patches: &'a HashMap<(Inning, &'a str), &'a str>,
 }
 
 type GameInfo = HashMap<String, String>;
@@ -355,7 +367,15 @@ impl GameSituation {
 
     pub fn parse_play(self: &GameSituation, line: &str, game_rule_options: &GameRuleOptions) -> Result<GameSituation> {
         // decription of the format is at http://www.retrosheet.org/eventfile.htm
-        let play_line_info = PlayLineInfo::from(line);
+        let mut play_line_info = PlayLineInfo::from(line);
+        let replacement_play_str: Option<&&str> = game_rule_options.patches.get(&(self.inning, &play_line_info.play_str));
+        if let Some(replacement_play_str) = replacement_play_str {
+            if get_verbosity().is_at_least(Verbosity::Verbose) {
+                println!("Replacing {} with patched play_str {}", play_line_info.play_str, replacement_play_str);
+            }
+            play_line_info.replace_play_str(replacement_play_str);
+        }
+
         let mut runner_dests = RunnerDests::new_from_runners(&self.runners);
         let mut runners_default_stay_still = false;
         let mut default_batter_base: Option<RunnerFinalPosition> = None;
@@ -875,13 +895,13 @@ impl GameSituation {
         }
         if new_situation.outs < 3 {
             if undetermined_runner.is_some() {
-                return Err(anyhow!("Got undetermined runner {:?} with less than three outs!", undetermined_runner.unwrap()))
+                return Err(anyhow!("Got undetermined runner {:?} with less than three outs! runner_dests is {:?}", undetermined_runner.unwrap(), runner_dests))
             }
             if duplicate_runner.is_some() {
                 /*if get_verbosity().is_at_least(Verbosity::Normal) {
                     println!("ERROR - already a runner at base {}!", duplicate_runner.unwrap());
                 }*/
-                return Err(anyhow!("ERROR - duplicate runner at base {}", duplicate_runner.unwrap()));
+                return Err(anyhow!("ERROR - duplicate runner at base {}, runner_dests is {:?}", duplicate_runner.unwrap(), runner_dests));
             }
         }
         new_situation.next_inning_if_three_outs(game_rule_options.runner_starts_on_second_in_extra_innings, game_rule_options.innings);
@@ -957,6 +977,12 @@ struct PlayLineInfo<'a> {
     play_str: SmolStr
 }
 
+impl<'a> PlayLineInfo<'a> {
+    fn replace_play_str(&mut self, new_str: &str) {
+        self.play_str = new_str.into();
+    }
+}
+
 impl<'a> From<&'a str> for PlayLineInfo<'a> {
     fn from(line: &'a str) -> Self {
         lazy_static! {
@@ -1008,8 +1034,9 @@ where P: Debug + AsRef<Path> {
         // TODO - game files during 2020 playoffs have the ghost runner set to true in the
         // Retrosheet file, which is wrong.
         let year = year_from_game_id(&cur_id);
-        game_rule_options.runner_starts_on_second_in_extra_innings = (year == 2020 || year == 2021) && !is_playoffs;
+        game_rule_options.runner_starts_on_second_in_extra_innings = (year >= 2020) && !is_playoffs;
         game_rule_options.innings = 9;
+        // Sigh, would like to assign game_rule_options.patches here, but lifetime trouble
     }
     fn finish_game<F>(cur_id: &mut String, cur_game_situation: &GameSituation, all_game_situations: &mut Vec<GameSituation>,
         play_lines: &mut Vec<String>, reports: &mut Vec<Box<dyn Report>>, num_games: &mut u32, _all_game_ids: &mut AllGameIds,
@@ -1047,7 +1074,7 @@ where P: Debug + AsRef<Path> {
     let file = File::open(filename.as_ref().clone())?;
     let reader = io::BufReader::new(file);
     let lines = reader.split(b'\n').map(|l| l.unwrap());
-    let mut game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9 };
+    let mut game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9, patches: &EMPTY_PATCHES };
     for line in lines {
         let line = ISO_8859_1.decode(&line, DecoderTrap::Strict).unwrap();
         let line = line.trim();
@@ -1056,6 +1083,8 @@ where P: Debug + AsRef<Path> {
                 in_game = true;
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
                     &mut all_game_situations, &mut play_lines, &mut game_rule_options, &mut game_info, is_playoffs);
+                let patches = PLAY_PATCHES.get(&*cur_id);
+                game_rule_options.patches = patches.or(Some(&EMPTY_PATCHES)).unwrap();
             }
         }
         else {
@@ -1086,6 +1115,8 @@ where P: Debug + AsRef<Path> {
 
                 start_new_game_from_line(&line, &mut cur_id, &mut cur_game_situation,
                     &mut all_game_situations, &mut play_lines, &mut game_rule_options, &mut game_info, is_playoffs);
+                let patches = PLAY_PATCHES.get(&*cur_id);
+                game_rule_options.patches = patches.or(Some(&EMPTY_PATCHES)).unwrap();
             }
             else if line.starts_with("info,") {
                 if line.starts_with("info,innings,") {
@@ -1341,10 +1372,29 @@ impl Options {
 fn is_known_bad_game(game_id: &str) -> bool {
     lazy_static! {
         static ref KNOWN_BAD_GAMES: HashSet<&'static str> =
-            ["WS2196605270", "MIL197107272", "MON197108040", "NYN198105090", "SEA200709261", "MIL201304190", "BAL201906250"]
+            ["WS2196605270", "MIL197107272", "MON197108040", "NYN198105090", "SEA200709261", "MIL201304190", "BAL201906250",
+                "PHI201006250", // home team batted first due to weird reasons
+                "PHI201006260", // home team batted first due to weird reasons
+                "PHI201006270", // home team batted first due to weird reasons
+                "SEA201106240", // home team batted first due to weird reasons
+                "SEA201106250", // home team batted first due to weird reasons
+                "SEA201106260", // home team batted first due to weird reasons
+                "SFN201307232", // home team batted first due to weird reasons
+                "TBA201505010", // home team batted first due to weird reasons
+                "TBA201505020", // home team batted first due to weird reasons
+                "TBA201505030", // home team batted first due to weird reasons
+                "MIL201709150", // home team batted first due to weird reasons
+                "MIL201709160", // home team batted first due to weird reasons
+                "MIL201709170", // home team batted first due to weird reasons
+                "ANA202009052", // home team batted first due to weird reasons
+                "MIN202009042", // home team batted first due to weird reasons
+                "ANA202108101", // home team batted first due to weird reasons
+                "DET202205101", // home team batted first due to weird reasons, I guess?
+            ]
             .iter().cloned().collect();
     }
-    return KNOWN_BAD_GAMES.contains(game_id);
+    // Also there was a lot of weird stuff in 2020, just give those games a pass.
+    return KNOWN_BAD_GAMES.contains(game_id) || &game_id[3..7] == "2020";
 }
 
 fn get_reports(report_id: &Option<String>) -> Result<Vec<Box<dyn Report>>> {
@@ -2002,9 +2052,48 @@ mod tests {
         }
 
         fn assert_result(expected_situation: &GameSituation, initial_situation: &GameSituation, play_line: &str) -> Result<()> {
-            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9 };
+            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9, patches: &HashMap::new() };
             let new_situation = initial_situation.parse_play(&play_line, &game_rule_options)?;
             assert_eq!(expected_situation, &new_situation);
+            Ok(())
+        }
+
+        #[test]
+        fn test_patch_is_applied() -> Result<()> {
+            unsafe {
+                VERBOSITY = Verbosity::Verbose;
+            }
+            let (situation, play_line) = setup([false, false, false], "8");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, false];
+            let patches = HashMap::from([((Inning::new(), "8"), "S")]);
+            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9, patches: &patches };
+            let new_situation = situation.parse_play(&play_line, &game_rule_options)?;
+            assert_eq!(expected_situation, new_situation);
+            Ok(())
+        }
+
+        #[test]
+        fn test_patch_with_wrong_string_is_not_applied() -> Result<()> {
+            let (situation, play_line) = setup([false, false, false], "8");
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 1;
+            let patches = HashMap::from([((Inning::new(), "7"), "S")]);
+            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9, patches: &patches };
+            let new_situation = situation.parse_play(&play_line, &game_rule_options)?;
+            assert_eq!(expected_situation, new_situation);
+            Ok(())
+        }
+
+        #[test]
+        fn test_patch_with_wrong_inning_is_not_applied() -> Result<()> {
+            let (situation, play_line) = setup([false, false, false], "8");
+            let mut expected_situation = situation.clone();
+            expected_situation.outs = 1;
+            let patches = HashMap::from([((Inning { number: 2, is_home: false }, "8"), "S")]);
+            let game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9, patches: &patches };
+            let new_situation = situation.parse_play(&play_line, &game_rule_options)?;
+            assert_eq!(expected_situation, new_situation);
             Ok(())
         }
 
@@ -2652,6 +2741,20 @@ mod tests {
             let mut expected_situation = situation.clone();
             expected_situation.runners = [true, false, false];
             expected_situation.outs = 1;
+            assert_result(&expected_situation, &mut situation, &play_line)
+        }
+
+        #[test]
+        fn test_lineout_with_destinations() -> Result<()> {
+            // game CHA198806040, top of the 7th
+            // "Steve Buechele grounds into a force out, third baseman Steve Lyons to
+            //  second baseman Mike Woodard. Pete Incaviglia scores. Pete O'Brien to 3rd.
+            //  Geno Petralli out at 2nd. Steve Buechele to 1st."
+            let (mut situation, play_line) = setup([true, true, true], "54(1)/L5.3-H;2-3;B-1");
+            let mut expected_situation = situation.clone();
+            expected_situation.runners = [true, false, true];
+            expected_situation.outs = 1;
+            expected_situation.cur_score_diff = 1;
             assert_result(&expected_situation, &mut situation, &play_line)
         }
     }

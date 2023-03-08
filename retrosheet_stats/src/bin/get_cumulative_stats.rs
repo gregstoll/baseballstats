@@ -162,7 +162,7 @@ mod tests {
     fn test_single_year() {
         let result = process_query_string("stateString=\"V\",1,0,1,0&ballsStrikesState=0,0&startYear=1957&endYear=1957&rand=0.7276145813300261").unwrap();
         assert_eq!("582", result["wins"].to_string());
-        assert_eq!("1227", result["total"].to_string());
+        assert_eq!("1228", result["total"].to_string());
         assert_eq!("0.86", result["leverage"].to_string());
     }
 

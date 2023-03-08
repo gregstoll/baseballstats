@@ -3,6 +3,10 @@ use smallvec::SmallVec;
 
 use crate::{BallsStrikes, GameInfo, GameRuleOptions, GameSituation, Inning, PlayLineInfo, Report, StatsReport, get_ball_strike_counts_from_pitches, year_from_game_id};
 
+lazy_static! {
+    static ref EMPTY_PATCHES : HashMap<(Inning, &'static str), &'static str> = HashMap::new();
+}
+
 pub struct StatsWinExpectancyReport {
     // value is (num_wins, num_situation)
     stats: HashMap<GameSituation, (u32, u32)>
@@ -1291,13 +1295,13 @@ mod tests {
         assert_eq!(vec![5, 0, 1, 0, 0, 0, 0, 1], new_run_vec);
     }
 
-    struct FullGameInfo {
+    struct FullGameInfo<'a> {
         situations: Vec<GameSituation>,
         final_game_situation: GameSituation,
-        game_rule_options: GameRuleOptions
+        game_rule_options: GameRuleOptions<'a>
     }
-    fn get_visitors_score_and_normal_end_info() -> FullGameInfo {
-        let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false};
+    fn get_visitors_score_and_normal_end_info() -> FullGameInfo<'static> {
+        let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false, patches: &EMPTY_PATCHES };
         let top_first = Inning { is_home: false, number: 1};
         let bottom_first = top_first.next_inning();
         let top_second = bottom_first.next_inning();
@@ -1319,8 +1323,8 @@ mod tests {
         }
     }
 
-    fn get_home_score_and_normal_end_info() -> FullGameInfo {
-        let game_rule_options = GameRuleOptions { innings: 2, runner_starts_on_second_in_extra_innings: false};
+    fn get_home_score_and_normal_end_info() -> FullGameInfo<'static> {
+        let game_rule_options = GameRuleOptions { innings: 2, runner_starts_on_second_in_extra_innings: false, patches: &EMPTY_PATCHES };
         let top_first = Inning { is_home: false, number: 1};
         let bottom_first = top_first.next_inning();
         let top_second = bottom_first.next_inning();
@@ -1345,8 +1349,8 @@ mod tests {
             game_rule_options
         }
     }
-    fn get_home_walkoff_end_info() -> FullGameInfo {
-        let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false};
+    fn get_home_walkoff_end_info() -> FullGameInfo<'static> {
+        let game_rule_options = GameRuleOptions { innings: 1, runner_starts_on_second_in_extra_innings: false, patches: &EMPTY_PATCHES };
         let top_first = Inning { is_home: false, number: 1};
         let bottom_first = top_first.next_inning();
         let situations = vec![
