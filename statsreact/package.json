@@ -11,7 +11,7 @@
     "is-svg": ">=4.2.2",
     "node-forge": ">=1.0.0",
     "nth-check": ">=2.0.1",
-    "postcss": ">=8.2.10",
+    "postcss": ">=8.4.31",
     "probability-to-friendly-string": "^1.2.1",
     "react": "^18.1.0",
     "react-animate-on-change": "^2.2.0",
