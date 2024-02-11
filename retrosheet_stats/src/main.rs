@@ -1071,7 +1071,7 @@ where P: Debug + AsRef<Path> {
 
     // files use ISO-8859-1 encoding (i.e. "latin1"), not utf-8
     // https://stackoverflow.com/questions/45788866/how-to-read-a-gbk-encoded-file-into-a-string
-    let file = File::open(filename.as_ref().clone())?;
+    let file = File::open(filename.as_ref())?;
     let reader = io::BufReader::new(file);
     let lines = reader.split(b'\n').map(|l| l.unwrap());
     let mut game_rule_options = GameRuleOptions { runner_starts_on_second_in_extra_innings: false, innings: 9, patches: &EMPTY_PATCHES };
@@ -1122,7 +1122,7 @@ where P: Debug + AsRef<Path> {
                 if line.starts_with("info,innings,") {
                     game_rule_options.innings = line["info,innings,".len()..].parse::<u8>().unwrap();
                 }
-                else if line.starts_with("info,tiebreaker,") {
+                else if line.starts_with("info,tiebreaker,") && "info,tiebreaker,".len() > line.len() {
                     let tiebreaker_base = line["info,tiebreaker,".len()..].parse::<u8>().unwrap();
                     // we don't handle extra runners on anything but second base right now
                     assert!(tiebreaker_base == 2);
