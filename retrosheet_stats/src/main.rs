@@ -1390,6 +1390,7 @@ fn is_known_bad_game(game_id: &str) -> bool {
                 "MIN202009042", // home team batted first due to weird reasons
                 "ANA202108101", // home team batted first due to weird reasons
                 "DET202205101", // home team batted first due to weird reasons, I guess?
+                "BUF191406250", // home team batted first due to a sheriff on their way(!)
             ]
             .iter().cloned().collect();
     }
