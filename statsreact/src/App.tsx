@@ -10,7 +10,7 @@ import FriendlyProbability from 'probability-to-friendly-string';
 wgxpath.install();
 
 const MIN_YEAR = 1903;
-const MAX_YEAR = 2024;
+const MAX_YEAR = 2025;
 const SHOW_BALLS_STRIKES = true;
 //TODO?
 const extraYears : Array<[number, number]> = [];
@@ -558,8 +558,8 @@ class StatsResults extends Component<StatsResultsProps, StatsResultsState> {
                 <p className="littlespace">Wins for {winnerTeamText}: {wins}</p>
                 <p className="littlespace">Win percentage: <b>{winnerTeamText} {displayPercent}% ({friendlyText})</b></p>
                 <p className="littlespace">Leverage index: <b className={leverageClass}>{r.leverageIndex} ({leverageDescription})</b></p>
-                <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
-                <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p>
+                {/* <p className="littlespace">Home money line: <b>{homeMoneyLine}</b></p>
+                <p className="littlespace">Visitor money line: <b>{visitorMoneyLine}</b></p> */}
                 <p className="littlespace">One <a href="https://en.wikipedia.org/wiki/Standard_deviation">standard deviation</a>: <b>{displayStandardDeviation}%</b></p>
             </div>
         </AnimateOnChange>;
