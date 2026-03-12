@@ -14,8 +14,8 @@ try:
 except FileExistsError:
     # directory already exists
     pass
-file_name_re = re.compile('runsperinningstatscumulative\.(\d+)')
-file_name_balls_strikes_re = re.compile('runsperinningballsstrikesstatscumulative\.(\d+)')
+file_name_re = re.compile(r'runsperinningstatscumulative\.(\d+)')
+file_name_balls_strikes_re = re.compile(r'runsperinningballsstrikesstatscumulative\.(\d+)')
 stats_years_dir = os.path.abspath('statsyears')
 for file_name in os.listdir(stats_years_dir):
     match = file_name_re.match(file_name)
